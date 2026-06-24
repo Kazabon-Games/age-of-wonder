@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age of Wonder — Heir's Record</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0e0c08;
+  --vellum:#f2e8d0;
+  --vellum-dark:#e8d8b8;
+  --gold:#c9a96e;
+  --gold-dim:#9e7a48;
+  --gold-pale:rgba(201,169,110,0.15);
+  --crimson:#8c3a1a;
+  --forest:#2c4a3a;
+  --leather:#3a2d1e;
+  --leather-mid:#5a4030;
+  --leather-light:#7a5840;
+  --gold-bright:#e0c08a;
+  --forest-bright:#3a6b50;
+  --alt:#8b3a1a;--con:#1a5c8b;--neg:#3a3a6b;--div:#6b5a1a;--trn:#1a6b3a;--dom:#6b1a4a;
+  --rail-w:52px;
+  /* page surface tokens — swapped by data-theme */
+  --page-bg:var(--vellum);
+  --page-text:var(--night);
+  --page-text-mid:var(--leather-mid);
+  --page-text-light:var(--leather-light);
+  --page-border:rgba(58,45,30,0.2);
+  --page-border-soft:rgba(58,45,30,0.28);
+  --page-hbox-bg:rgba(201,169,110,0.1);
+  --page-field-bg:rgba(255,255,255,0.25);
+  --page-sel-bg:var(--leather);
+  --page-sel-text:var(--vellum);
+}
+html[data-theme="dark"]{
+  --page-bg:#161310;
+  --page-text:#eee3cc;
+  --page-text-mid:#c7b89a;
+  --page-text-light:#9a8a6c;
+  --page-border:rgba(238,227,204,0.18);
+  --page-border-soft:rgba(238,227,204,0.22);
+  --page-hbox-bg:rgba(201,169,110,0.08);
+  --page-field-bg:rgba(255,255,255,0.04);
+  --page-sel-bg:var(--gold-dim);
+  --page-sel-text:#161310;
+}
+html{font-size:15px;scroll-behavior:smooth;}
+body{background:var(--page-bg);min-height:100vh;font-family:'EB Garamond',serif;color:var(--page-text);display:flex;flex-direction:column;transition:background .3s;}
+
+/* ── THEME TOGGLE ── */
+.theme-toggle{position:fixed;top:.8rem;right:.8rem;z-index:200;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;padding:.4rem .7rem;border:1px solid var(--gold-dim);background:var(--page-bg);color:var(--gold);cursor:pointer;transition:all .2s;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:.92;}
+.theme-toggle:hover{background:var(--gold-dim);color:var(--night);}
+
+/* ── PROGRESS RAIL ── */
+.rail{width:var(--rail-w);min-height:100vh;background:rgba(255,255,255,0.03);border-right:1px solid rgba(201,169,110,0.15);display:flex;flex-direction:column;align-items:center;padding:2rem 0;gap:0;position:fixed;left:0;top:0;bottom:0;z-index:100;}
+.rail-logo{font-family:'Cinzel Decorative',serif;font-size:.55rem;color:var(--gold-dim);letter-spacing:.15em;writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);margin-bottom:2rem;opacity:.6;}
+.rail-steps{display:flex;flex-direction:column;gap:1.2rem;align-items:center;flex:1;}
+.rail-step{display:flex;flex-direction:column;align-items:center;gap:.3rem;cursor:pointer;opacity:.4;transition:opacity .2s;}
+.rail-step:hover{opacity:.7;}
+.rail-step.active{opacity:1;}
+.rail-step.done{opacity:.8;}
+.rail-dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--gold-dim);background:transparent;transition:all .3s;}
+.rail-step.active .rail-dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(201,169,110,0.4);}
+.rail-step.done .rail-dot{background:var(--gold-dim);border-color:var(--gold-dim);}
+.rail-line{width:1px;height:1rem;background:rgba(201,169,110,0.2);}
+.rail-num{font-family:'Cinzel',serif;font-size:.5rem;color:rgba(201,169,110,0.5);letter-spacing:.1em;}
+.rail-step.active .rail-num{color:var(--gold);}
+
+/* ── MAIN CONTENT ── */
+.main{margin-left:var(--rail-w);flex:1;padding:0;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── WELCOME ── */
+.welcome{background:var(--page-bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:3rem 2rem;transition:background .3s;}
+.welcome-inner{max-width:620px;width:100%;text-align:center;}
+.w-ornament{font-size:2.5rem;opacity:.4;margin-bottom:1.5rem;color:var(--gold);}
+.w-eyebrow{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.8rem;}
+.w-title{font-family:'Cinzel Decorative',serif;font-size:2.4rem;color:var(--page-text);line-height:1.15;margin-bottom:.4rem;}
+.w-sub{font-family:'Cinzel',serif;font-size:.82rem;letter-spacing:.1em;color:var(--page-text-light);font-style:italic;margin-bottom:2rem;}
+.w-rule{width:40%;margin:0 auto 2rem;height:1px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);}
+.w-body{text-align:left;margin-bottom:2rem;}
+.w-body p{font-size:1rem;line-height:1.85;color:var(--page-text-mid);margin-bottom:.9rem;}
+.w-callout{border-left:2px solid var(--gold-dim);padding:.8rem 1rem;margin:1.2rem 0;font-style:italic;font-size:.92rem;color:var(--page-text-mid);line-height:1.7;background:var(--page-hbox-bg);}
+.w-steps{list-style:none;margin:1rem 0;display:flex;flex-direction:column;gap:.5rem;}
+.w-steps li{display:flex;gap:.8rem;font-size:.95rem;line-height:1.65;color:var(--page-text-mid);}
+.w-step-n{font-family:'Cinzel',serif;font-size:.65rem;color:var(--gold-dim);min-width:1.4rem;padding-top:.18rem;letter-spacing:.1em;}
+.w-steps strong{color:var(--page-text);}
+.w-btn{font-family:'Cinzel',serif;font-size:.75rem;letter-spacing:.25em;text-transform:uppercase;padding:.75rem 2.8rem;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;transition:all .25s;margin-top:1.5rem;}
+.w-btn:hover{background:var(--gold-dim);color:var(--night);}
+
+/* ── SHEET PAGES ── */
+.sheet{display:none;flex-direction:column;min-height:100vh;}
+.sheet.active{display:flex;}
+.page-wrap{background:var(--page-bg);flex:1;padding:2.5rem 3rem;transition:background .3s,color .3s;}
+.page-ruled{background-image:repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(58,45,30,0.08) 31px,rgba(58,45,30,0.08) 32px);}
+
+/* ── PAGE HEADER ── */
+.ph{border-bottom:1px solid var(--page-border);padding-bottom:1.2rem;margin-bottom:1.8rem;}
+.ph-step{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.35rem;}
+.ph-title{font-family:'Cinzel Decorative',serif;font-size:1.4rem;color:var(--page-text);margin-bottom:.5rem;}
+.ph-intro{font-size:.97rem;line-height:1.8;color:var(--page-text-mid);}
+.ph-intro strong{color:var(--page-text);}
+
+/* ── HELPERS ── */
+.hbox{background:var(--page-hbox-bg);border-left:2px solid var(--gold-dim);padding:.65rem .95rem;margin:.5rem 0 .9rem;font-size:.85rem;font-style:italic;color:var(--page-text-mid);line-height:1.65;}
+.hbox strong{color:var(--page-text);font-style:normal;}
+.helper{font-size:.78rem;font-style:italic;color:var(--page-text-light);margin-top:.2rem;line-height:1.5;}
+
+/* ── SECTIONS ── */
+.sec{margin-bottom:1.6rem;}
+.sec-label{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);border-bottom:1px solid rgba(201,169,110,0.35);padding-bottom:.3rem;margin-bottom:.85rem;}
+.sec-note{font-size:.82rem;font-style:italic;color:var(--page-text-light);margin-bottom:.7rem;line-height:1.6;}
+
+/* ── GRID ── */
+.fg{display:grid;gap:.85rem;}
+.fg2{grid-template-columns:1fr 1fr;}
+.fg3{grid-template-columns:1fr 1fr 1fr;}
+.fg4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.s2{grid-column:span 2;}
+.s3{grid-column:1/-1;}
+.field{display:flex;flex-direction:column;gap:.22rem;}
+.fl{font-family:'Cinzel',serif;font-size:.57rem;letter-spacing:.18em;text-transform:uppercase;color:var(--page-text-light);}
+.fi{font-family:'EB Garamond',serif;font-size:1rem;padding:.32rem .5rem;border:none;border-bottom:1px solid var(--page-border-soft);background:transparent;color:var(--page-text);outline:none;width:100%;transition:border-color .2s;}
+.fi:focus{border-bottom-color:var(--gold-dim);}
+.fs{font-family:'EB Garamond',serif;font-size:1rem;padding:.32rem 1.6rem .32rem .5rem;border:none;border-bottom:1px solid var(--page-border-soft);background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e7a48'/%3E%3C/svg%3E") no-repeat right .4rem center;color:var(--page-text);outline:none;cursor:pointer;width:100%;appearance:none;}
+.fs:focus{border-bottom-color:var(--gold-dim);}
+.fta{font-family:'EB Garamond',serif;font-size:.95rem;padding:.5rem .6rem;border:1px solid var(--page-border);background:var(--page-field-bg);color:var(--page-text);outline:none;width:100%;resize:vertical;min-height:62px;line-height:1.7;}
+.fta:focus{border-color:var(--gold-dim);}
+input[type="color"]{width:100%;height:34px;border:1px solid var(--page-border);padding:2px;background:transparent;cursor:pointer;border-radius:0;}
+
+/* ── BUTTON GRIDS ── */
+.btn-grid{display:flex;flex-wrap:wrap;gap:.35rem;}
+.opt-btn{font-family:'EB Garamond',serif;font-size:.88rem;padding:.26rem .65rem;border:1px solid var(--page-border-soft);background:transparent;color:var(--page-text);cursor:pointer;transition:all .15s;}
+.opt-btn:hover{background:rgba(201,169,110,0.2);border-color:var(--gold-dim);}
+.opt-btn.sel{background:var(--page-sel-bg);color:var(--page-sel-text);border-color:var(--page-sel-bg);}
+.opt-btn.sel-gold{background:rgba(201,169,110,0.25);border-color:var(--gold-dim);}
+
+/* ── RELATION BTNS ── */
+.rel-grid{display:flex;gap:.5rem;flex-wrap:wrap;}
+.rel-btn{flex:1;min-width:140px;padding:.42rem .5rem;border:1px solid var(--page-border-soft);background:transparent;font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--page-text-light);cursor:pointer;text-align:center;transition:all .15s;}
+.rel-btn:hover{background:rgba(201,169,110,0.15);}
+.rel-btn.sel{background:var(--leather);color:var(--vellum);border-color:var(--leather);}
+
+/* ── DISTRICT ── */
+.dist-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
+.dist-btn{padding:.72rem .5rem;border:1px solid var(--page-border-soft);background:var(--page-field-bg);cursor:pointer;text-align:center;transition:all .2s;font-family:'Cinzel',serif;}
+.dist-btn:hover{background:rgba(201,169,110,0.18);border-color:var(--gold-dim);}
+.dist-btn.sel{border-color:var(--gold-dim);background:rgba(201,169,110,0.25);}
+.db-name{font-size:.78rem;font-weight:600;color:var(--page-text);display:block;margin-bottom:.18rem;}
+.db-tag{font-size:.62rem;color:var(--page-text-light);font-style:italic;font-family:'EB Garamond',serif;line-height:1.3;}
+.db-what{font-size:.58rem;color:var(--gold-dim);font-family:'Cinzel',serif;letter-spacing:.05em;display:block;margin-top:.28rem;}
+
+/* ── ORIENTATION ── */
+.orient-q{font-size:.92rem;color:var(--page-text);margin-bottom:.5rem;font-style:italic;}
+.school-key{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;margin:.5rem 0;padding:.5rem .7rem;background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.18);}
+.sk-item{font-size:.7rem;color:var(--page-text-light);font-family:'Cinzel',serif;letter-spacing:.05em;}
+.sk-item strong{color:var(--page-text);}
+.orient-school-tag{font-family:'Cinzel',serif;font-size:.56rem;padding:.1rem .28rem;border:1px solid rgba(201,169,110,0.35);color:var(--gold-dim);margin-left:.3rem;}
+.opt-btn.sel .orient-school-tag{border-color:rgba(242,232,208,0.3);color:rgba(242,232,208,0.6);}
+
+/* ── SIGIL ── */
+.sigil-zone{border:1px dashed var(--page-border);padding:1.2rem;text-align:center;background:var(--page-field-bg);cursor:pointer;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;transition:all .2s;}
+.sigil-zone:hover{border-color:var(--gold-dim);background:rgba(201,169,110,0.1);}
+.sigil-zone img{max-height:100px;max-width:100%;object-fit:contain;}
+.sz-t{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--page-text-light);}
+.sz-s{font-size:.58rem;opacity:.5;font-family:'EB Garamond',serif;font-style:italic;}
+
+/* ── MAP ── */
+.map-wrap{background:var(--page-field-bg);border:1px solid rgba(201,169,110,0.25);padding:1.1rem;margin-top:.8rem;}
+.map-title{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);text-align:center;margin-bottom:.8rem;}
+.map-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;max-width:440px;margin:0 auto;}
+.mc{padding:.42rem .25rem;text-align:center;border:1px solid var(--page-border);min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .3s;}
+.mc.out{background:var(--page-border-soft);grid-column:1/-1;}
+.mc.outv{background:var(--page-field-bg);}
+.mc.castle{background:rgba(201,169,110,0.1);border-color:var(--gold-dim);}
+.mc.park{background:rgba(44,74,58,0.25);border-color:rgba(44,74,58,0.4);}
+.mc.dist{background:var(--page-field-bg);}
+.mc-lbl{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--page-text-light);display:block;margin-bottom:.1rem;}
+.mc-name{font-family:'Cinzel',serif;font-size:.56rem;color:var(--page-text-mid);display:block;}
+.mc-house{font-family:'EB Garamond',serif;font-size:.58rem;font-style:italic;display:block;margin-top:.1rem;}
+.mc-dot{width:6px;height:6px;border-radius:50%;margin:0 auto .1rem;display:block;}
+
+/* ── YEARS ── */
+.yr-track{display:flex;gap:3px;margin-bottom:.8rem;}
+.yr-tab{flex:1;padding:.48rem .3rem;border:1px solid var(--page-border-soft);background:var(--page-field-bg);text-align:center;cursor:pointer;transition:all .2s;font-family:'Cinzel',serif;}
+.yr-tab.active{background:var(--leather);border-color:var(--leather);}
+.yr-tab.done{border-color:var(--gold-dim);}
+.ytl{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:.12rem;}
+.yr-tab.active .ytl{color:var(--vellum);}
+.yr-tab:not(.active) .ytl{color:var(--page-text-light);}
+.yta{font-size:.8rem;font-weight:600;display:block;}
+.yr-tab.active .yta{color:var(--gold);}
+.yr-tab:not(.active) .yta{color:var(--page-text);}
+.ytc{font-size:.65rem;color:var(--gold-dim);display:block;min-height:.85rem;}
+.yr-panel{display:none;}
+.yr-panel.active{display:block;}
+.unlock-note{background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.22);padding:.55rem .85rem;font-size:.8rem;font-style:italic;color:var(--page-text-mid);margin-bottom:.8rem;line-height:1.6;}
+.unlock-note strong{color:var(--page-text);font-style:normal;}
+
+/* ── ASPECTS ── */
+.asp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.48rem;margin-bottom:.8rem;}
+.asp-btn{padding:.62rem .38rem;border:1px solid var(--page-border-soft);background:var(--page-field-bg);cursor:pointer;text-align:center;transition:all .2s;font-family:'Cinzel',serif;position:relative;}
+.asp-btn:hover{background:rgba(201,169,110,0.18);border-color:var(--gold-dim);}
+.asp-btn.sel{border-color:var(--gold-dim);background:rgba(201,169,110,0.22);}
+.ab-name{font-size:.73rem;font-weight:600;color:var(--page-text);display:block;margin-bottom:.12rem;}
+.ab-tag{font-size:.58rem;color:var(--page-text-light);font-style:italic;font-family:'EB Garamond',serif;line-height:1.3;}
+.ab-prior{position:absolute;top:3px;right:5px;font-family:'Cinzel',serif;font-size:.52rem;color:var(--gold-dim);}
+.ab-unlock{position:absolute;bottom:3px;left:0;right:0;font-size:.48rem;font-family:'Cinzel',serif;color:var(--forest);text-align:center;letter-spacing:.03em;}
+
+/* ── SUBCHOICE ── */
+.sub-panel{border:1px solid rgba(201,169,110,0.32);padding:.85rem .95rem;background:rgba(255,255,255,0.1);margin-top:.4rem;display:none;}
+.sub-panel.show{display:block;}
+.sub-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;}
+.sub-lbl{font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--page-text-light);margin:.48rem 0 .28rem;display:block;}
+.sub-row{display:flex;flex-wrap:wrap;gap:.32rem;margin-bottom:.38rem;}
+.sub-btn{font-family:'EB Garamond',serif;font-size:.85rem;padding:.2rem .52rem;border:1px solid var(--page-border-soft);background:transparent;color:var(--page-text);cursor:pointer;transition:all .15s;}
+.sub-btn:hover{background:rgba(201,169,110,0.18);border-color:var(--gold-dim);}
+.sub-btn.sel{background:var(--leather);color:var(--vellum);border-color:var(--leather);}
+
+/* ── SUMMARY STRIP ── */
+.sum-strip{display:flex;gap:3px;margin-bottom:.8rem;}
+.sy{flex:1;border:1px solid var(--page-border);padding:.38rem .28rem;text-align:center;background:var(--page-field-bg);cursor:pointer;transition:background .15s;}
+.sy:hover{background:rgba(201,169,110,0.1);}
+.sy-lbl{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.09em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.12rem;}
+.sy-asp{font-family:'EB Garamond',serif;font-size:.8rem;font-weight:600;color:var(--page-text);display:block;}
+.sy-sub{font-family:'EB Garamond',serif;font-size:.65rem;font-style:italic;color:var(--page-text-light);display:block;margin-top:.08rem;}
+
+/* ── AFFINITY BARS ── */
+.aff-bars{display:grid;grid-template-columns:1fr 1fr;gap:.4rem 1.2rem;margin-top:.5rem;}
+.aff-row{display:flex;align-items:center;gap:.5rem;}
+.aff-school{font-family:'Cinzel',serif;font-size:.67rem;min-width:9rem;color:var(--page-text);}
+.aff-track{flex:1;height:7px;background:var(--page-field-bg);border:1px solid var(--page-border);overflow:hidden;}
+.aff-fill{height:100%;transition:width .4s ease;}
+.fill-alt{background:var(--alt)}.fill-con{background:var(--con)}.fill-neg{background:var(--neg)}.fill-div{background:var(--div)}.fill-trn{background:var(--trn)}.fill-dom{background:var(--dom)}
+.aff-score{font-family:'Courier New',monospace;font-size:.7rem;color:var(--gold-dim);min-width:1.4rem;text-align:right;}
+
+/* ── CRYSTAL ── */
+.crystal-wrap{background:var(--night);padding:2rem;text-align:center;margin-top:1rem;position:relative;overflow:hidden;}
+.crystal-wrap::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(201,169,110,0.07) 0%,transparent 70%);pointer-events:none;}
+.crystal-locked{color:rgba(242,232,208,0.28);font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;}
+.crystal-revealed{display:none;}
+.crystal-revealed.show{display:block;}
+.c-icon{font-size:2.8rem;display:block;margin-bottom:.5rem;animation:cpulse 2.5s infinite;}
+@keyframes cpulse{0%,100%{opacity:1;}50%{opacity:.6;}}
+.c-school{font-family:'Cinzel Decorative',serif;font-size:1.9rem;margin-bottom:.3rem;}
+.c-axiom{font-family:'EB Garamond',serif;font-style:italic;font-size:.92rem;color:rgba(242,232,208,0.6);margin-bottom:.25rem;}
+.c-desc{font-size:.82rem;color:rgba(242,232,208,0.42);font-family:'EB Garamond',serif;font-style:italic;max-width:360px;margin:0 auto .8rem;}
+.c-note{font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(242,232,208,0.22);}
+
+/* ── CHARACTER PROFILE ── */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.profile-card{border:1px solid var(--page-border);padding:1rem 1.1rem;background:var(--page-field-bg);}
+.pc-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.7rem;border-bottom:1px solid rgba(201,169,110,0.25);padding-bottom:.3rem;}
+.pc-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.35rem;font-size:.88rem;}
+.pc-label{color:var(--page-text-light);font-size:.8rem;}
+.pc-val{font-family:'Cinzel',serif;font-size:.78rem;color:var(--page-text);text-align:right;}
+.pc-val.highlight{color:var(--forest);font-weight:600;}
+.pc-val.none{color:var(--page-text-light);font-style:italic;font-family:'EB Garamond',serif;}
+.pc-block{font-size:.82rem;color:var(--page-text);line-height:1.7;margin-bottom:.3rem;}
+.pc-tag{display:inline-block;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;padding:.1rem .4rem;border:1px solid var(--page-border-soft);margin:.1rem .1rem 0 0;color:var(--page-text-mid);}
+
+/* ── LEVERAGE CARDS ── */
+.lev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.5rem;}
+.lev-card{border:1px solid var(--page-border);padding:.7rem .8rem;background:var(--page-field-bg);display:flex;flex-direction:column;gap:.2rem;}
+.lev-card.pos{border-left:3px solid var(--forest);}
+.lev-card.neg{border-left:3px solid var(--crimson);}
+.lev-card.zero{border-left:3px solid var(--page-border-soft);}
+.lev-card-name{font-family:'Cinzel',serif;font-size:.65rem;letter-spacing:.08em;color:var(--page-text);font-weight:600;}
+.lev-card-role{font-family:'EB Garamond',serif;font-size:.72rem;font-style:italic;color:var(--page-text-light);}
+.lev-card-score{font-family:'Courier New',monospace;font-size:1rem;font-weight:700;margin-top:.2rem;}
+.lev-card-score.pos{color:var(--forest);}
+.lev-card-score.neg{color:var(--crimson);}
+.lev-card-score.zero{color:var(--page-text-light);}
+.lev-threshold{margin-top:.8rem;padding:.7rem .9rem;background:rgba(201,169,110,0.07);border:1px solid rgba(201,169,110,0.2);}
+.lev-threshold-title{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;}
+.lev-req{display:flex;align-items:center;gap:.5rem;font-size:.82rem;margin-bottom:.3rem;}
+.lev-req-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.lev-req-dot.met{background:var(--forest);}
+.lev-req-dot.unmet{background:var(--page-border-soft);}
+.lev-req-text{color:var(--page-text-mid);}
+.lev-req-text.met{color:var(--forest);}
+@media(max-width:720px){.lev-grid{grid-template-columns:repeat(2,1fr);}}
+
+/* ── NPC SLOTS ── */
+.npc-ref{background:rgba(201,169,110,0.06);border:1px solid rgba(201,169,110,0.2);padding:.8rem 1rem;margin-bottom:1rem;}
+.npc-ref-title{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;}
+.npc-ref summary::-webkit-details-marker{display:none;}
+.npc-ref summary::before{content:'▸ ';display:inline-block;transition:transform .15s;}
+.npc-ref[open] summary::before{transform:rotate(90deg);}
+.npc-ref-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
+.npc-ref-item{font-size:.78rem;line-height:1.5;}
+.npc-ref-name{font-family:'Cinzel',serif;font-size:.65rem;color:var(--page-text);display:block;margin-bottom:.1rem;}
+.npc-ref-role{color:var(--page-text-light);font-style:italic;font-size:.75rem;display:block;margin-bottom:.1rem;}
+.npc-ref-resp{color:var(--page-text-mid);font-size:.72rem;line-height:1.4;}
+.npc-slot{border:1px solid var(--page-border);padding:1rem 1.1rem;margin-bottom:.8rem;background:var(--page-field-bg);}
+.npc-slot-header{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.7rem;display:flex;align-items:center;gap:.5rem;}
+.npc-slot-num{width:18px;height:18px;border-radius:50%;background:var(--leather);display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--gold);flex-shrink:0;}
+.npc-auto{font-size:.78rem;font-style:italic;color:var(--page-text-light);margin-bottom:.5rem;padding:.4rem .6rem;background:rgba(201,169,110,0.08);border-left:2px solid var(--gold-dim);}
+
+/* ── CONFIRM ── */
+.confirm-grid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem 1.1rem;margin-bottom:1.4rem;}
+.cf{border-bottom:1px solid rgba(201,169,110,0.25);padding-bottom:.38rem;}
+.cf-lbl{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.18rem;}
+.cf-val{font-size:.93rem;color:var(--page-text);min-height:1.15rem;}
+.confirm-yrs{display:flex;gap:3px;margin-bottom:1.4rem;}
+.cy{flex:1;border:1px solid var(--page-border);padding:.38rem .28rem;text-align:center;background:var(--page-field-bg);}
+.cy-lbl{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.12rem;}
+.cy-val{font-size:.8rem;font-weight:600;color:var(--page-text);display:block;}
+.cy-sub{font-size:.65rem;font-style:italic;color:var(--page-text-light);display:block;margin-top:.08rem;}
+.confirm-school{text-align:center;padding:1rem;border:1px solid rgba(201,169,110,0.25);margin-bottom:1.4rem;background:rgba(201,169,110,0.05);}
+.cs-lbl{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.38rem;}
+.cs-school{font-family:'Cinzel Decorative',serif;font-size:1.35rem;margin-bottom:.2rem;}
+.cs-axiom{font-style:italic;font-size:.88rem;color:var(--page-text-mid);}
+.save-box{background:rgba(44,74,58,0.1);border:1px solid rgba(44,74,58,0.28);padding:.9rem 1.1rem;margin-bottom:1.1rem;font-size:.9rem;line-height:1.8;color:var(--page-text);}
+.save-box strong{font-weight:600;}
+.save-box ol{margin:.4rem 0 0 1.1rem;}
+.save-box li{margin-bottom:.28rem;}
+
+/* ── PRINT SUMMARY ── */
+.print-summary{display:none;padding:2rem;background:white;font-family:'EB Garamond',serif;color:#1a1208;max-width:900px;margin:0 auto;}
+.ps-header{text-align:center;border-bottom:2px solid #c9a96e;padding-bottom:1rem;margin-bottom:1.5rem;}
+.ps-title{font-family:'Cinzel Decorative',serif;font-size:1.6rem;color:#1a1208;margin-bottom:.3rem;}
+.ps-sub{font-family:'Cinzel',serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+.ps-school-banner{text-align:center;padding:.8rem;border:1px solid var(--gold);margin-bottom:1.2rem;background:var(--page-field-bg);}
+.ps-school-name{font-family:'Cinzel Decorative',serif;font-size:1.2rem;color:var(--page-text);display:block;margin-bottom:.2rem;}
+.ps-school-axiom{font-style:italic;font-size:.9rem;color:var(--page-text-mid);}
+.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.ps-card{border:1px solid var(--page-border);padding:.8rem 1rem;}
+.ps-card-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;border-bottom:1px solid rgba(201,169,110,0.3);padding-bottom:.25rem;}
+.ps-row{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.25rem;}
+.ps-label{color:var(--page-text-mid);}
+.ps-val{font-family:'Cinzel',serif;font-size:.75rem;color:var(--page-text);text-align:right;}
+.ps-val.strong{color:var(--forest);font-weight:600;}
+.ps-years{display:flex;gap:3px;margin-bottom:1rem;}
+.ps-year{flex:1;border:1px solid var(--page-border);padding:.4rem .3rem;text-align:center;background:var(--page-field-bg);}
+.ps-yr-lbl{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.1rem;}
+.ps-yr-asp{font-family:'EB Garamond',serif;font-size:.82rem;font-weight:600;color:var(--page-text);display:block;}
+.ps-yr-sub{font-size:.65rem;font-style:italic;color:var(--page-text-mid);display:block;}
+.ps-lev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.5rem;}
+.ps-lev-item{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;padding:.2rem .4rem;border:1px solid var(--page-border);}
+.ps-lev-name{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.05em;color:var(--page-text);}
+.ps-lev-score{font-family:'Courier New',monospace;font-size:.75rem;font-weight:700;}
+.ps-interp{font-size:.88rem;line-height:1.8;color:var(--page-text);border-left:2px solid var(--gold);padding:.6rem .9rem;background:var(--page-field-bg);margin-bottom:1rem;}
+.ps-footer{text-align:center;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:#9e7a48;margin-top:1.5rem;border-top:1px solid rgba(201,169,110,0.3);padding-top:.8rem;}
+
+/* ── NAV BTNS ── */
+.nav-bar{background:var(--leather);padding:.7rem 3rem;display:flex;gap:.6rem;align-items:center;}
+.nav-note{font-family:'EB Garamond',serif;font-style:italic;font-size:.78rem;color:rgba(242,232,208,0.3);flex:1;}
+.nav-btn{font-family:'Cinzel',serif;font-size:.63rem;letter-spacing:.18em;text-transform:uppercase;padding:.4rem .95rem;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;transition:all .2s;}
+.nav-btn:hover{background:var(--gold-dim);color:var(--page-text);}
+.nav-btn.primary{background:var(--gold-dim);color:var(--page-text);}
+.nav-btn.primary:hover{background:var(--gold);}
+.nav-btn.save{background:var(--forest);color:var(--vellum);border-color:var(--forest);padding:.48rem 1.4rem;font-size:.7rem;}
+.nav-btn.save:hover{background:#1a5c2a;}
+
+/* ── RESPONSIVE ── */
+/* ── MOBILE TOP PROGRESS (replaces rail on small screens) ── */
+.mobile-progress-wrap{display:none;}
+
+@media(max-width:720px){
+  body{display:block;}
+  .theme-toggle{position:fixed;top:auto;bottom:.6rem;right:.6rem;left:auto;font-size:.44rem;padding:.3rem .5rem;z-index:160;}
+  .rail{display:none!important;}
+  .main{margin-left:0;}
+
+  .mobile-progress-wrap{display:block;position:sticky;top:0;z-index:150;background:var(--night);border-bottom:1px solid rgba(201,169,110,0.15);}
+  .mobile-progress{display:flex;padding:.6rem .8rem .4rem;gap:.3rem;}
+  .mp-step{flex:1;height:3px;background:rgba(201,169,110,0.15);border-radius:2px;transition:background .25s;}
+  .mp-step.active,.mp-step.done{background:var(--gold);}
+  .mobile-progress-label{padding:0 .8rem .55rem;font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+
+  .page-wrap{padding:1.3rem 1rem 2rem;}
+  .ph-title{font-size:1.2rem;}
+  .ph-intro{font-size:.92rem;}
+
+  /* true single-column mobile-first grids */
+  .fg2,.fg3,.fg4{grid-template-columns:1fr;}
+  .s2,.s3{grid-column:1/-1;}
+
+  .asp-grid{grid-template-columns:repeat(2,1fr);}
+  .dist-grid{grid-template-columns:1fr 1fr;}
+  .aff-bars{grid-template-columns:1fr;}
+  .profile-grid{grid-template-columns:1fr;}
+  .confirm-grid{grid-template-columns:1fr;}
+  .npc-ref-grid{grid-template-columns:1fr;}
+  .lev-grid{grid-template-columns:repeat(2,1fr);}
+  .ps-grid{grid-template-columns:1fr;}
+  .ps-lev-grid{grid-template-columns:1fr 1fr;}
+  .school-key{grid-template-columns:repeat(2,1fr);}
+  .map-grid{grid-template-columns:repeat(3,1fr);}
+
+  /* larger tap targets on mobile */
+  .opt-btn{padding:.42rem .8rem;font-size:.92rem;}
+  .rel-btn{min-width:0;padding:.55rem .5rem;}
+  .dist-btn{padding:.9rem .5rem;}
+  .yr-tab{padding:.6rem .3rem;}
+  .fi,.fs,.fta{font-size:1rem;padding:.45rem .55rem;}
+  .nav-btn{padding:.6rem 1.1rem;font-size:.7rem;}
+
+  .nav-bar{padding:.8rem 1rem;flex-wrap:wrap;gap:.5rem;}
+  .nav-note{display:none;}
+}
+
+@media(max-width:420px){
+  .btn-grid{gap:.3rem;}
+  .opt-btn{flex:1 1 calc(50% - .3rem);text-align:center;}
+  .dist-grid{grid-template-columns:1fr;}
+  .map-grid{grid-template-columns:repeat(2,1fr);}
+}
+
+@media print{
+  body{background:white;padding:0;}
+  .rail,.nav-bar,.welcome,.sheet{display:none!important;}
+  .print-summary{display:block!important;}
+  .page-wrap{break-inside:avoid;}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀ Light Mode</button>
+
+<!-- RAIL -->
+<nav class="rail" id="rail">
+  <div class="rail-logo">Age of Wonder</div>
+  <div class="rail-steps" id="rail-steps">
+    <div class="rail-step active" onclick="goTo(0)" id="rs-0"><div class="rail-dot"></div><div class="rail-num">01</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(1)" id="rs-1"><div class="rail-dot"></div><div class="rail-num">02</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(2)" id="rs-2"><div class="rail-dot"></div><div class="rail-num">03</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(3)" id="rs-3"><div class="rail-dot"></div><div class="rail-num">04</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(4)" id="rs-4"><div class="rail-dot"></div><div class="rail-num">05</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(5)" id="rs-5"><div class="rail-dot"></div><div class="rail-num">06</div></div>
+    <div class="rail-line"></div>
+    <div class="rail-step" onclick="goTo(6)" id="rs-6"><div class="rail-dot"></div><div class="rail-num">07</div></div>
+  </div>
+</nav>
+
+<div class="mobile-progress-wrap" id="mobile-progress-wrap" style="display:none;">
+  <div class="mobile-progress" id="mobile-progress">
+    <div class="mp-step active" data-mp="0" onclick="goTo(0)"></div>
+    <div class="mp-step" data-mp="1" onclick="goTo(1)"></div>
+    <div class="mp-step" data-mp="2" onclick="goTo(2)"></div>
+    <div class="mp-step" data-mp="3" onclick="goTo(3)"></div>
+    <div class="mp-step" data-mp="4" onclick="goTo(4)"></div>
+    <div class="mp-step" data-mp="5" onclick="goTo(5)"></div>
+    <div class="mp-step" data-mp="6" onclick="goTo(6)"></div>
+  </div>
+  <div class="mobile-progress-label" id="mobile-progress-label">Section 1 of 7 · Identity</div>
+</div>
+
+<div class="main">
+
+<!-- WELCOME -->
+<div id="welcome" style="display:flex;flex-direction:column;">
+<div class="welcome">
+  <div class="welcome-inner">
+    <div class="w-ornament">✦ ◈ ✦</div>
+    <div class="w-eyebrow">Kingdom of Aetheria Nova · Continent of Wonderland</div>
+    <div class="w-title">Age of Wonder</div>
+    <div class="w-sub">A Diceless Tabletop Roleplaying Game</div>
+    <div class="w-rule"></div>
+    <div class="w-body">
+      <p><strong style="color:var(--page-text);">Age of Wonder</strong> is an open-world sandbox TTRPG set in the kingdom of Aetheria Nova. There are no dice. Outcomes are determined by the weight of your character's will, the choices they have made, and the consequences those choices set in motion.</p>
+      <p>Your adventure begins in <strong style="color:var(--page-text);">Shemsara</strong> — seat of King Hector, home of the Small Council, where noble heirs come to be educated and transformed. You arrive at thirteen. By eighteen, the crystal will have spoken.</p>
+      <div class="w-callout">This is your Heir's Record — the official register of the Grand Library of Shemsara. Fill it in during your session zero call with your GM. Every choice here shapes who your character is before the story begins.</div>
+      <p style="font-size:.82rem;font-style:italic;color:var(--page-text-light);margin-bottom:1.2rem;">A light/dark toggle sits in the top corner of every page — switch freely, your preference is remembered.</p>
+      <ul class="w-steps">
+        <li><span class="w-step-n">01</span><span><strong>Identity</strong> — who you are and your family's standing at court.</span></li>
+        <li><span class="w-step-n">02</span><span><strong>Noble House</strong> — your family, their ideals, their shadow, their district in Shemsara.</span></li>
+        <li><span class="w-step-n">03</span><span><strong>Five Years</strong> — what you studied from age 13 to 17. Shapes your magic, combat, and politics. Five years in one discipline unlocks a unique Capstone Specialization.</span></li>
+        <li><span class="w-step-n">04</span><span><strong>The Awakening</strong> — the crystal reads five years of will and names your school.</span></li>
+        <li><span class="w-step-n">05</span><span><strong>Character Profile</strong> — auto-generated summary of your capabilities across all four encounter types.</span></li>
+        <li><span class="w-step-n">06</span><span><strong>Key NPCs</strong> — your Councillor is built from what you defined in Identity; you create four more — Ally, Rival, Contact, Wild Card — who matter most before the campaign begins.</span></li>
+        <li><span class="w-step-n">07</span><span><strong>Your Record</strong> — post-awakening note, full summary, and save to JSON for your GM.</span></li>
+      </ul>
+    </div>
+    <button class="w-btn" onclick="startSheet()">Begin the Record</button>
+  </div>
+</div>
+</div>
+
+
+<!-- S0: IDENTITY -->
+<div class="sheet" id="s0">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 1 of 7 · Identity</div><div class="ph-title">Who Are You?</div><div class="ph-intro">Your name, where you come from, and how your family stands at the Small Council of Shem. <strong>There are no wrong answers</strong> — your GM will work with whatever you create.</div></div>
+  <div class="sec">
+    <div class="sec-label">Personal Details</div>
+    <div class="fg fg3">
+      <div class="field s2"><label class="fl">Given Name</label><input class="fi" id="heir-name" type="text" placeholder="Your character's personal name" oninput="syncAll()"/><span class="helper">Your first name. Your house name is defined in Section 2 — together they form your full name.</span></div>
+      <div class="field"><label class="fl">Succession Position</label><select class="fs" id="succession"><option value="">Select position</option><option>First Heir</option><option>Second Heir</option><option>Third Heir</option><option>Only Heir</option><option>Contested Heir</option></select></div>
+      <div class="field s3"><label class="fl">City of Origin</label><input class="fi" id="origin-city" type="text" placeholder="The city your family governs in Aetheria Nova"/><span class="helper">The city your family rules. You left it at thirteen to begin your education in Shemsara.</span></div>
+      <div class="field s3" id="full-name-preview-wrap" style="display:none;">
+        <div class="hbox" style="margin-top:.2rem;"><strong>You will be known as:</strong> <span id="full-name-preview" style="font-family:'Cinzel',serif;letter-spacing:.04em;"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-label">Council Standing</div>
+    <div class="hbox">The head of your noble house holds a seat on the <strong>Small Council of Shem</strong> — the lords and ladies who advise King Hector. This is your parent or guardian on the council. Their reputation is your family's reputation before you have done anything yourself.<br><br>Their reputation, political goal, fear, and what they expect of you are defined together in <strong>Section 6 · Key NPCs</strong>.</div>
+    <div class="fg fg3">
+      <div class="field s2"><label class="fl">Councillor Name</label><input class="fi" id="councillor-name" type="text" placeholder="Your parent or guardian on the Small Council"/></div>
+      <div class="field"><label class="fl">Their Title</label><select class="fs" id="councillor-title"><option value="">Select title</option><option>Lord</option><option>Lady</option><option>Marshal</option><option>High Steward</option><option>Chancellor</option><option>Warden</option><option>Archon</option></select></div>
+      <div class="field s3">
+        <label class="fl" style="margin-bottom:.5rem;">Political Method — How They Operate at Council</label>
+        <div class="btn-grid" id="councillor-method">
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Negotiation</div>
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Intimidation</div>
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Alliance Building</div>
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Information Control</div>
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Financial Leverage</div>
+          <div class="opt-btn" onclick="selOpt('councillor-method',this)">Military Weight</div>
+        </div>
+        <span class="helper">This defines how your councillor operates — and shapes what they expect from you.</span>
+      </div>
+      <div class="field s3">
+        <label class="fl" style="margin-bottom:.5rem;">Relationship to King Hector</label>
+        <div class="rel-grid" id="hector-rel">
+          <div class="rel-btn sel" onclick="selRel(this,'allied')">Allied — loyal supporters of the Crown</div>
+          <div class="rel-btn" onclick="selRel(this,'neutral')">Neutral — independent, neither loyal nor hostile</div>
+          <div class="rel-btn" onclick="selRel(this,'tension')">In Tension — a disagreement or old wound between the families</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 1 of 7 · Identity</span><button class="nav-btn primary" onclick="goTo(1)">Noble House →</button></div>
+</div>
+
+<!-- S1: NOBLE HOUSE -->
+<div class="sheet" id="s1">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 2 of 7 · Noble House</div><div class="ph-title">Your Noble House</div><div class="ph-intro">Every player builds their own house. This is the family you were born into — their name, what they stand for publicly, what they hide privately, and where their power sits in Shemsara. Your choices here populate the political map of the capital.</div></div>
+<div class="sec">
+    <div class="sec-label">House Identity</div>
+    <div class="fg fg3">
+      <div class="field s3"><label class="fl">House Name</label><input class="fi" id="house-name" type="text" placeholder="e.g. House Caldren, House Mira, House Ashveil" oninput="syncAll()"/><span class="helper">Your seat city is already defined as your City of Origin in Section 1.</span></div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">Shemsara District</div>
+    <div class="hbox">Your family controls one district in Shemsara — reflecting your home city's character. <strong>Choose the type that best describes what your home city is known for.</strong> This places your house on the political map.<br><br>If two houses choose the same type that district becomes <strong>contested</strong> — both families claim it, creating immediate political tension at the table.</div>
+    <div class="dist-grid" id="district-grid">
+      <div class="dist-btn" onclick="selDist(this,'Military')"><span class="db-name">Military</span><span class="db-tag">Garrison · Walls · Armory</span><span class="db-what">Controls the soldiers of Shemsara</span></div>
+      <div class="dist-btn" onclick="selDist(this,'Trade')"><span class="db-name">Trade</span><span class="db-tag">Markets · Harbor · Counting Houses</span><span class="db-what">Controls the flow of wealth</span></div>
+      <div class="dist-btn" onclick="selDist(this,'Religious')"><span class="db-name">Religious</span><span class="db-tag">Temple · Shrines · Clergy</span><span class="db-what">Controls the spiritual center</span></div>
+      <div class="dist-btn" onclick="selDist(this,'Scholarly')"><span class="db-name">Scholarly</span><span class="db-tag">Archive · Academy · Scriptorium</span><span class="db-what">Controls the knowledge of the realm</span></div>
+      <div class="dist-btn" onclick="selDist(this,'Agricultural')"><span class="db-name">Agricultural</span><span class="db-tag">Granary · Guilds · Water Authority</span><span class="db-what">Controls the capital's supply chains</span></div>
+      <div class="dist-btn" onclick="selDist(this,'Magical')"><span class="db-name">Magical</span><span class="db-tag">Sanctum · Crystal · Caster Registry</span><span class="db-what">Controls the Awakening Sanctum</span></div>
+    </div>
+    <div class="map-wrap"><div class="map-title">Shemsara · City of the King · Your District Highlighted</div><div class="map-grid" id="map-grid"></div><div style="text-align:center;font-size:.62rem;font-style:italic;color:var(--page-text-light);margin-top:.6rem;opacity:.7;">The Courier Master has no fixed seat on this map — their neutrality is the point. The Network moves through every district equally and answers to none of them.</div></div>
+  </div>
+<div class="sec">
+    <div class="sec-label">Colors and Sigil</div>
+    <div class="fg fg3">
+      <div class="field"><label class="fl">Primary Color</label><input type="color" id="color-primary" value="#4a3728" oninput="syncAll()"/></div>
+      <div class="field"><label class="fl">Secondary Color</label><input type="color" id="color-secondary" value="#c9a96e"/></div>
+      <div class="field"><label class="fl">Sigil Description</label><input class="fi" id="sigil-desc" type="text" placeholder="e.g. A silver wolf on black"/></div>
+      <div class="field s3"><label class="fl">Sigil Image — optional</label><div class="sigil-zone" onclick="document.getElementById('sigil-file').click()"><input type="file" id="sigil-file" accept="image/*" style="display:none" onchange="handleSigil(this)"/><div id="sigil-preview"><span class="sz-t">Tap to upload a sigil image</span><span class="sz-s">PNG, JPG or SVG · embedded in your saved record</span></div></div></div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">House History</div>
+    <div class="fg fg2">
+      <div class="field">
+        <label class="fl" style="margin-bottom:.5rem;">The Founding Deed</label>
+        <div class="btn-grid" id="founding-grid">
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Won in battle</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Granted for service to the Crown</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Bought through wealth</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Sealed by marriage</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Founded the city itself</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Earned through scholarship</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Claimed through conquest</div>
+          <div class="opt-btn" onclick="selOpt('founding-grid',this)">Inherited from a fallen house</div>
+        </div>
+        <input class="fi" id="founding-detail" type="text" placeholder="Optional — one line of specific detail" style="margin-top:.5rem;"/>
+        <span class="helper">The act that established this house's legitimacy.</span>
+      </div>
+      <div class="field">
+        <label class="fl" style="margin-bottom:.5rem;">The Recent Wound</label>
+        <div class="btn-grid" id="wound-grid">
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A betrayal by an allied house</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A death that weakened succession</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A scandal that became public</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A debt incurred in crisis</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A failed alliance</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A military defeat</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A magical catastrophe</div>
+          <div class="opt-btn" onclick="selOpt('wound-grid',this)">A child lost to another house</div>
+        </div>
+        <input class="fi" id="wound-detail" type="text" placeholder="Optional — one line of specific detail" style="margin-top:.5rem;"/>
+        <span class="helper">A loss, betrayal, or scandal still affecting the house during play. This does not need to be resolved.</span>
+      </div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">House Character</div>
+    <div class="fg fg2">
+      <div class="field">
+        <label class="fl" style="margin-bottom:.5rem;">First Public Ideal</label>
+        <div class="btn-grid" id="ideal-1-grid">
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Honor</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Tradition</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Service to the Crown</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Prosperity</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Faith</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Knowledge</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Strength</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Legacy</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Unity</div>
+          <div class="opt-btn" onclick="selOpt('ideal-1-grid',this)">Justice</div>
+        </div>
+        <span class="helper">What your councillor says in the chamber.</span>
+      </div>
+      <div class="field">
+        <label class="fl" style="margin-bottom:.5rem;">Second Public Ideal</label>
+        <div class="btn-grid" id="ideal-2-grid">
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Honor</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Tradition</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Service to the Crown</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Prosperity</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Faith</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Knowledge</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Strength</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Legacy</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Unity</div>
+          <div class="opt-btn" onclick="selOpt('ideal-2-grid',this)">Justice</div>
+        </div>
+        <span class="helper">A second stated value. Choose a different ideal than the first.</span>
+      </div>
+      <div class="field s2">
+        <label class="fl" style="margin-bottom:.5rem;">The Shadow</label>
+        <div class="btn-grid" id="shadow-grid">
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A hidden debt</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A past betrayal</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">An illegitimate claim to the seat</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A criminal connection</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A heretical belief</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A buried scandal</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A broken alliance</div>
+          <div class="opt-btn" onclick="selOpt('shadow-grid',this)">A concealed bloodline</div>
+        </div>
+        <input class="fi" id="shadow-detail" type="text" placeholder="Optional — one line of specific detail" style="margin-top:.5rem;"/>
+        <span class="helper">The gap between what your house says and what it does. Your GM uses this. Other players will not know unless you choose to tell them.</span>
+      </div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">Orientation to Power</div>
+    <div class="hbox">How your house relates to power shapes the will of every heir raised within it. <strong>Each selection adds one point to a school affinity</strong> — the assumptions your family instilled before formal study began. Choose one per question.</div>
+    <div class="school-key"><div class="sk-item"><strong>ALT</strong> Alteration</div><div class="sk-item"><strong>CON</strong> Conjuration</div><div class="sk-item"><strong>NEG</strong> Negation</div><div class="sk-item"><strong>DIV</strong> Divination</div><div class="sk-item"><strong>TRN</strong> Transposition</div><div class="sk-item"><strong>DOM</strong> Dominion</div></div>
+    <div style="margin-top:.9rem;">
+      <div style="margin-bottom:.9rem;"><div class="orient-q">Your house acquires power through —</div><div class="btn-grid" id="orient-acquire"><div class="opt-btn" onclick="selOrient('acquire',this,'ALT')">Force <span class="orient-school-tag">ALT</span></div><div class="opt-btn" onclick="selOrient('acquire',this,'DIV')">Information <span class="orient-school-tag">DIV</span></div><div class="opt-btn" onclick="selOrient('acquire',this,'CON')">Commerce <span class="orient-school-tag">CON</span></div><div class="opt-btn" onclick="selOrient('acquire',this,'NEG')">Law <span class="orient-school-tag">NEG</span></div><div class="opt-btn" onclick="selOrient('acquire',this,'TRN')">Mobility <span class="orient-school-tag">TRN</span></div><div class="opt-btn" onclick="selOrient('acquire',this,'DOM')">Influence <span class="orient-school-tag">DOM</span></div></div></div>
+      <div style="margin-bottom:.9rem;"><div class="orient-q">Your house holds power through —</div><div class="btn-grid" id="orient-hold"><div class="opt-btn" onclick="selOrient('hold',this,'ALT')">Strength <span class="orient-school-tag">ALT</span></div><div class="opt-btn" onclick="selOrient('hold',this,'NEG')">Secrecy <span class="orient-school-tag">NEG</span></div><div class="opt-btn" onclick="selOrient('hold',this,'DOM')">Loyalty <span class="orient-school-tag">DOM</span></div><div class="opt-btn" onclick="selOrient('hold',this,'CON')">Wealth <span class="orient-school-tag">CON</span></div><div class="opt-btn" onclick="selOrient('hold',this,'DIV')">Knowledge <span class="orient-school-tag">DIV</span></div><div class="opt-btn" onclick="selOrient('hold',this,'TRN')">Position <span class="orient-school-tag">TRN</span></div></div></div>
+      <div><div class="orient-q">Your house uses power to —</div><div class="btn-grid" id="orient-use"><div class="opt-btn" onclick="selOrient('use',this,'ALT')">Transform <span class="orient-school-tag">ALT</span></div><div class="opt-btn" onclick="selOrient('use',this,'TRN')">Expand <span class="orient-school-tag">TRN</span></div><div class="opt-btn" onclick="selOrient('use',this,'DOM')">Control <span class="orient-school-tag">DOM</span></div><div class="opt-btn" onclick="selOrient('use',this,'DIV')">Reveal <span class="orient-school-tag">DIV</span></div><div class="opt-btn" onclick="selOrient('use',this,'CON')">Accumulate <span class="orient-school-tag">CON</span></div><div class="opt-btn" onclick="selOrient('use',this,'NEG')">Suppress <span class="orient-school-tag">NEG</span></div></div></div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">House Resources</div>
+    <div class="fg fg2">
+      <div class="field s2">
+        <label class="fl" style="margin-bottom:.5rem;">Resources Beyond the District — choose two or three</label>
+        <div class="btn-grid" id="resources-grid">
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Military reserve</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Trade network</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Spy network</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Foreign alliance</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Hidden wealth</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Religious influence</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Ancestral artifact</div>
+          <div class="opt-btn" onclick="selMulti('resources-grid',this)">Mercenary contracts</div>
+        </div>
+        <span class="helper">Secondary holdings, networks, military capacity, information the house controls.</span>
+      </div>
+    </div>
+  </div>
+<div class="sec">
+    <div class="sec-label">Your Standing in the House</div>
+    <div class="fg fg2">
+      <div class="field s2"><label class="fl">Your Position</label><select class="fs" id="heir-standing"><option value="">Select your standing</option><option>Favored — the councillor's clear and stated choice</option><option>Complicated — capable but the relationship is fraught</option><option>Contested — another heir rivals your position</option></select><span class="helper">This shapes how your councillor treats you and what pressure they apply. What they specifically expect of you is defined in Section 6 · Key NPCs.</span></div>
+    </div>
+  </div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 2 of 7 · Noble House</span><button class="nav-btn" onclick="goTo(0)">← Back</button><button class="nav-btn primary" onclick="goTo(2)">Five Years →</button></div>
+</div>
+
+<!-- S2: FIVE YEARS -->
+<div class="sheet" id="s2">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 3 of 7 · Five Years of Study</div><div class="ph-title">Five Years in Shemsara</div><div class="ph-intro">From age 13 to 17 you chose how to spend your time at court. Each year you focused on one area. <strong>Those choices shaped your will</strong> — and your will determines which school the crystal reveals at your Awakening.</div></div>
+  <div class="hbox"><strong>Specialization:</strong> Choosing the same aspect in multiple years unlocks deeper sub-choices — fighting styles within a weapon type, philosophical orientations within a school of magic. Depth costs repetition. Breadth costs range.<br><br>Choosing the same aspect all five years unlocks a <strong>Capstone Specialization</strong> — a unique capability no other heir has access to, paired with a leverage cost reflecting the time you had for nothing else.</div>
+  <div class="sum-strip" id="sum-strip"></div>
+  <div class="yr-track" id="yr-track">
+    <div class="yr-tab active" onclick="switchYr(0)"><span class="ytl">Year I</span><span class="yta">Age 13</span><span class="ytc" id="chk-0"></span></div>
+    <div class="yr-tab" onclick="switchYr(1)"><span class="ytl">Year II</span><span class="yta">Age 14</span><span class="ytc" id="chk-1"></span></div>
+    <div class="yr-tab" onclick="switchYr(2)"><span class="ytl">Year III</span><span class="yta">Age 15</span><span class="ytc" id="chk-2"></span></div>
+    <div class="yr-tab" onclick="switchYr(3)"><span class="ytl">Year IV</span><span class="yta">Age 16</span><span class="ytc" id="chk-3"></span></div>
+    <div class="yr-tab" onclick="switchYr(4)"><span class="ytl">Year V</span><span class="yta">Age 17</span><span class="ytc" id="chk-4"></span></div>
+  </div>
+  <div id="yr-panels"></div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 3 of 7 · Five Years of Study</span><button class="nav-btn" onclick="goTo(1)">← Back</button><button class="nav-btn primary" onclick="goTo(3)">The Awakening →</button></div>
+</div>
+
+<!-- S3: AWAKENING -->
+<div class="sheet" id="s3">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 4 of 7 · The Awakening</div><div class="ph-title">The Awakening Ceremony</div><div class="ph-intro">Age eighteen. The Sanctum. Every heir stands before the crystal on the same day.<br><br>The crystal does not assign a school. It reads five years of choices and reveals the school your will has already become. <strong>Complete all five years of study to see what the crystal reveals.</strong></div></div>
+  <div class="sec">
+    <div class="sec-label">School Affinity — How the Crystal Reads You</div>
+    <div class="sec-note">The highest bar is what the crystal names. House orientation adds inheritance weight — assumptions your family instilled before formal study began.</div>
+    <div class="hbox">Every choice across all five years feeds these bars — not just Magic. A year of Combat, Politics, or Lore each lean toward a particular school in ways that aren't always obvious, and the specific fighting style or specialization you choose can shift things further, sometimes against a school you've otherwise been building toward. Watch the bars move as you choose. The crystal is reading the whole pattern, not just the years you spent in study with it directly.</div>
+    <div class="aff-bars" id="aff-bars"></div>
+    <div class="crystal-wrap">
+      <div id="crystal-locked" class="crystal-locked"><span style="font-size:2rem;display:block;margin-bottom:.5rem;opacity:.22;">◈</span>The crystal does not yet speak.<br><span style="font-size:.75rem;font-family:'EB Garamond',serif;font-style:italic;opacity:.5;letter-spacing:0;">Complete all five years of study to continue.</span></div>
+      <div class="crystal-revealed" id="crystal-revealed">
+        <span class="c-icon" id="c-icon">✦</span>
+        <div style="font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;">The crystal reveals</div>
+        <div class="c-school" id="c-school"></div>
+        <div class="c-axiom" id="c-axiom"></div>
+        <div class="c-desc" id="c-desc"></div>
+        <div class="c-note">Awakening Ceremony · Shemsara Sanctum · Age 18</div>
+        <div id="c-capstone" style="display:none;"></div>
+      </div>
+    </div>
+    <div class="hbox" style="margin-top:.7rem;">Your reaction to this moment — what the heir feels, thinks, or decides — is captured in Section 7, once your full record (including the meaning of any Capstone Specialization) has come together. The crystal speaks here; what it means for you comes after.</div>
+  </div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 4 of 7 · The Awakening</span><button class="nav-btn" onclick="goTo(2)">← Back</button><button class="nav-btn primary" onclick="goTo(4)">Character Profile →</button></div>
+</div>
+
+<!-- S4: CHARACTER PROFILE -->
+<div class="sheet" id="s4">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 5 of 7 · Character Profile</div><div class="ph-title">Your Character Profile</div><div class="ph-intro">Generated from your choices across all previous sections. This is your summary card — keep it for reference during play. No input required here.</div></div>
+  <div class="sec">
+    <div class="sec-label">Capability Summary</div>
+    <div class="profile-grid" id="profile-grid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+  <div class="sec">
+    <div class="sec-label">Starting Leverage Web — Shemsara</div>
+    <div class="sec-note">Your political starting position before session one. Derived from your house, district, aspect choices, and Hector relation. This feeds directly into the GM's political map. Green is positive recognition. Red is active tension. Grey is neutral ground.</div>
+    <div style="grid-column:1/-1;">
+      <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;border-bottom:1px solid rgba(201,169,110,0.25);padding-bottom:.3rem;">Leverage Scores · Pre-Campaign</div>
+      <div class="lev-grid" id="lev-grid"></div>
+      <div class="lev-threshold" id="lev-threshold">
+        <div class="lev-threshold-title">Legitimacy Threshold — Starting Position</div>
+        <div id="lev-reqs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 5 of 7 · Character Profile</span><button class="nav-btn" onclick="goTo(3)">← Back</button><button class="nav-btn primary" onclick="goTo(5)">Key NPCs →</button></div>
+</div>
+
+<!-- S5: KEY NPCS -->
+<div class="sheet" id="s5">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 6 of 7 · Key NPCs</div><div class="ph-title">The People Who Matter</div><div class="ph-intro">Your Councillor's full profile is built here from what you started in Identity. You'll also create four NPCs from scratch — Ally, Rival, Contact, Wild Card. Names are the only free text in this section — everything else is a selector, keeping your data consistent with the GM's world state engine.</div></div>
+  <details class="npc-ref">
+    <summary class="npc-ref-title" style="cursor:pointer;list-style:none;">World NPCs — Tap to Reference While You Build</summary>
+    <div class="npc-ref-grid" id="npc-ref-grid" style="margin-top:.7rem;"></div>
+  </details>
+  <div id="npc-slots"></div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 6 of 7 · Key NPCs</span><button class="nav-btn" onclick="goTo(4)">← Back</button><button class="nav-btn primary" onclick="goTo(6)">Your Record →</button></div>
+</div>
+
+<!-- S6: POST-AWAKENING NOTE + SUMMARY + SAVE -->
+<div class="sheet" id="s6">
+<div class="page-wrap">
+  <div class="ph"><div class="ph-step">Section 7 of 7 · Your Record</div><div class="ph-title">The Record Complete</div><div class="ph-intro">The crystal has spoken. Below is what your five years of choices produced — who you are as you stand before the crystal at eighteen. Read this. Then save your record and send it to your GM.</div></div>
+
+  <!-- POST AWAKENING NOTE -->
+  <div class="sec">
+    <div class="sec-label">The Awakening — What It Means</div>
+    <div id="awakening-interpretation" style="background:rgba(201,169,110,0.07);border-left:2px solid var(--gold-dim);padding:1rem 1.1rem;margin-bottom:.8rem;font-size:.95rem;line-height:1.85;color:var(--page-text);font-family:'EB Garamond',serif;min-height:4rem;"></div>
+    <div class="field">
+      <label class="fl">Your First Reaction — What Does the Heir Feel When the Crystal Speaks?</label>
+      <textarea class="fta" id="awakening-reaction" style="min-height:72px;" placeholder="Write in character. What does your heir feel, think, or decide in the moment the school is revealed? This stays with you — your GM will read it."></textarea>
+    </div>
+    <div class="hbox" style="margin-top:.7rem;"><strong>Magic Record note:</strong> Your full caster registry — spell slots, willstrain tracker, tier advancement, dissolution history — lives on your Play Sheet. That document is what you bring to the table every session. This intake produces the data that feeds it.</div>
+  </div>
+
+  <!-- SPELL ACCESS -->
+  <div class="sec">
+    <div class="sec-label">Starting Spell Access</div>
+    <div id="spell-access-summary" style="margin-bottom:.5rem;"></div>
+  </div>
+
+  <!-- FULL LIFE NARRATIVE -->
+  <div class="sec">
+    <div class="sec-label">The Heir, in Full</div>
+    <div class="sec-note">Every choice across all seven sections, woven into one telling. This is the story your GM reads before they ever meet you at the table.</div>
+    <div id="life-narrative" style="background:rgba(201,169,110,0.07);border-left:2px solid var(--gold-dim);padding:1.1rem 1.2rem;font-size:.95rem;line-height:1.9;color:var(--page-text);font-family:'EB Garamond',serif;min-height:6rem;"></div>
+  </div>
+
+  <!-- CONFIRM SUMMARY -->
+  <div class="sec">
+    <div class="sec-label">Record Summary</div>
+    <div class="confirm-grid" id="confirm-grid">
+      <div class="cf"><span class="cf-lbl">Heir Name</span><div class="cf-val" id="cf-name">—</div></div>
+      <div class="cf"><span class="cf-lbl">City of Origin</span><div class="cf-val" id="cf-city">—</div></div>
+      <div class="cf"><span class="cf-lbl">House Name</span><div class="cf-val" id="cf-house">—</div></div>
+      <div class="cf"><span class="cf-lbl">Shemsara District</span><div class="cf-val" id="cf-district">—</div></div>
+      <div class="cf"><span class="cf-lbl">Councillor</span><div class="cf-val" id="cf-councillor">—</div></div>
+      <div class="cf"><span class="cf-lbl">Hector Relation</span><div class="cf-val" id="cf-hector">—</div></div>
+    </div>
+    <div class="confirm-yrs" id="confirm-yrs"></div>
+    <div class="confirm-school" id="confirm-school">
+      <span class="cs-lbl">School Revealed at the Awakening</span>
+      <div class="cs-school" id="cs-school">Complete all five years to reveal.</div>
+      <div class="cs-axiom" id="cs-axiom"></div>
+    </div>
+  </div>
+
+  <!-- SAVE -->
+  <div class="save-box">
+    <strong>How to send your record to your GM:</strong>
+    <ol>
+      <li>Press <strong>Save Record</strong> below. A file called <em>aow_heir_[yourname].json</em> will download.</li>
+      <li>Send that file to your GM — by email, Discord, WhatsApp, or however your group communicates.</li>
+      <li>Your GM will use all six records to build the Shemsara political map before session one.</li>
+    </ol>
+  </div>
+  <div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;">
+    <button class="nav-btn save" onclick="saveRecord()">⬇ Save Record</button>
+    <button class="nav-btn" onclick="window.print()">Print</button>
+    <button class="nav-btn" onclick="if(confirm('Clear all entries?')){location.reload();}" style="margin-left:auto;">Start Over</button>
+  </div>
+</div>
+<div class="nav-bar"><span class="nav-note">Section 7 of 7 · Your Record · Age of Wonder</span><button class="nav-btn" onclick="goTo(5)">← Back</button></div>
+</div>
+
+<!-- PRINT SUMMARY — only visible when printing -->
+<div class="print-summary" id="print-summary">
+  <div class="ps-header">
+    <div class="ps-title">The Heir's Record</div>
+    <div class="ps-sub" id="ps-name-sub">Age of Wonder · Aetheria Nova · Session Zero</div>
+  </div>
+  <div class="ps-school-banner" id="ps-school-banner">
+    <span class="ps-school-name" id="ps-school-name">—</span>
+    <span class="ps-school-axiom" id="ps-school-axiom">—</span>
+  </div>
+  <div class="ps-grid" id="ps-identity-grid">
+    <div class="ps-card">
+      <div class="ps-card-title">Identity</div>
+      <div class="ps-row"><span class="ps-label">Heir</span><span class="ps-val strong" id="ps-heir-name">—</span></div>
+      <div class="ps-row"><span class="ps-label">House</span><span class="ps-val" id="ps-house-name">—</span></div>
+      <div class="ps-row"><span class="ps-label">City of Origin</span><span class="ps-val" id="ps-origin">—</span></div>
+      <div class="ps-row"><span class="ps-label">District</span><span class="ps-val" id="ps-district">—</span></div>
+      <div class="ps-row"><span class="ps-label">Councillor</span><span class="ps-val" id="ps-councillor">—</span></div>
+      <div class="ps-row"><span class="ps-label">Hector Relation</span><span class="ps-val" id="ps-hector">—</span></div>
+    </div>
+    <div class="ps-card">
+      <div class="ps-card-title">Combat Profile</div>
+      <div class="ps-row"><span class="ps-label">Presence</span><span class="ps-val" id="ps-presence">—</span></div>
+      <div class="ps-row"><span class="ps-label">Weapon</span><span class="ps-val" id="ps-weapon">—</span></div>
+      <div class="ps-row"><span class="ps-label">Style</span><span class="ps-val" id="ps-style">—</span></div>
+      <div class="ps-row"><span class="ps-label">Technique</span><span class="ps-val strong" id="ps-technique">—</span></div>
+      <div class="ps-row"><span class="ps-label">Hybrid</span><span class="ps-val" id="ps-hybrid">—</span></div>
+    </div>
+    <div class="ps-card">
+      <div class="ps-card-title">Magic Profile</div>
+      <div class="ps-row"><span class="ps-label">School</span><span class="ps-val strong" id="ps-magic-school">—</span></div>
+      <div class="ps-row"><span class="ps-label">Starting Tier</span><span class="ps-val">T1</span></div>
+      <div class="ps-row"><span class="ps-label">Magic Study</span><span class="ps-val" id="ps-magic-years">—</span></div>
+      <div class="ps-row"><span class="ps-label">Starting Spells</span><span class="ps-val" id="ps-spells">—</span></div>
+      <div class="ps-row"><span class="ps-label">T2 Access</span><span class="ps-val" id="ps-t2">No</span></div>
+    </div>
+    <div class="ps-card">
+      <div class="ps-card-title">Exploration & Caravan</div>
+      <div class="ps-row"><span class="ps-label">Solo Depth</span><span class="ps-val strong" id="ps-depth">—</span></div>
+      <div class="ps-row"><span class="ps-label">Civ Specialty</span><span class="ps-val" id="ps-civ">—</span></div>
+      <div class="ps-row" style="margin-top:.4rem;"><span class="ps-label">Caravan Skills</span></div>
+      <div id="ps-caravan" style="font-size:.78rem;color:var(--page-text-mid);line-height:1.6;margin-top:.2rem;"></div>
+    </div>
+  </div>
+  <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;">Five Years of Study</div>
+  <div class="ps-years" id="ps-years"></div>
+  <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;">Starting Leverage Web</div>
+  <div class="ps-lev-grid" id="ps-lev-grid"></div>
+  <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin:.8rem 0 .4rem;">The Awakening — What It Means</div>
+  <div class="ps-interp" id="ps-interp"></div>
+  <div class="ps-footer">Heir's Record v1.0 · Age of Wonder · Kingdom of Aetheria Nova · Printed for GM Reference</div>
+</div>
+
+</div><!-- end .main -->
+<script>
+// ═══════════════════ THEME ═══════════════════
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme',theme);
+  const btn=document.getElementById('theme-toggle');
+  if(btn) btn.innerHTML = theme==='dark' ? '☀ Light Mode' : '☾ Dark Mode';
+  try{localStorage.setItem('aow-heir-theme',theme);}catch(e){}
+}
+function toggleTheme(){
+  const current=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
+  applyTheme(current==='dark'?'light':'dark');
+}
+(function initTheme(){
+  let saved='dark';
+  try{saved=localStorage.getItem('aow-heir-theme')||'dark';}catch(e){}
+  applyTheme(saved);
+})();
+
+// ═══════════════════ DATA ═══════════════════
+const SCHOOLS={
+  ALT:{name:'Alteration',axiom:'Changes the nature of what exists from within.',desc:'You reach into a thing and make it other than it was. The school of transformation, healing, and modification.',icon:'⟳',color:'#8b3a1a'},
+  CON:{name:'Conjuration',axiom:'Changes absence into presence.',desc:'You reach beyond your immediate frame and bring what exists elsewhere into the space you define.',icon:'✦',color:'#1a5c8b'},
+  NEG:{name:'Negation',axiom:'Changes existence into absence.',desc:'You withdraw the world\'s permission for something to continue. The school of countering and suppression.',icon:'◌',color:'#3a3a6b'},
+  DIV:{name:'Divination',axiom:'Changes ignorance into knowledge.',desc:'You impose the condition of knowing onto what is hidden. The world produces truth in answer.',icon:'◎',color:'#6b5a1a'},
+  TRN:{name:'Transposition',axiom:'Changes the position of a thing.',desc:'You treat location as a variable and your will as the function that reassigns it.',icon:'⇌',color:'#1a6b3a'},
+  DOM:{name:'Dominion',axiom:'Changes the will of another.',desc:'You impose your will upon another will directly. The most intimate and contested school in the system.',icon:'◈',color:'#6b1a4a'},
+};
+
+const T1_SPELLS={
+  ALT:['Kindle','Whisperform','Mend'],
+  CON:['Fetch','Calllight','Summon Draught'],
+  NEG:['Snuff','Hush','Still'],
+  DIV:['Read','Warmth','Trace'],
+  TRN:['Step','Toss','Swap'],
+  DOM:['Nudge','Quell','Read Intent'],
+};
+
+const ASPECTS=[
+  {id:'combat',name:'Combat',tag:'Weapons & discipline',w:{ALT:2,TRN:2,NEG:1}},
+  {id:'magic',name:'Magic',tag:'Axiom study & theory',w:{}},
+  {id:'politics',name:'Politics',tag:'Court & leverage',w:{DOM:2,DIV:2}},
+  {id:'statecraft',name:'Statecraft',tag:'Governance & law',w:{DOM:2,TRN:2}},
+  {id:'lore',name:'Lore',tag:'History & theology',w:{DIV:3,NEG:1}},
+  {id:'commerce',name:'Commerce',tag:'Trade & wealth',w:{CON:2,TRN:2}},
+  {id:'command',name:'Command',tag:'Military leadership',w:{DOM:2,TRN:2}},
+  {id:'diplomacy',name:'Diplomacy',tag:'External negotiation',w:{DIV:2,DOM:2}},
+];
+
+// ═══════════════════ CAPSTONE SPECIALIZATION (5x same aspect) ═══════════════════
+// Triggers only when one aspect is chosen all five years. A different category of
+// reward than the p1/p2/p3 depth ladder — narrative capability plus a leverage spike,
+// balanced by a leverage cost to institutions the heir had no time to cultivate.
+const CAPSTONES={
+  combat:{
+    title:'Counted Among the Named',
+    desc:'Your fighting style is known at court before you have proven it to anyone present. NPCs may recognize your reputation on sight.',
+    usage:'once per session',
+    leverageBonus:{key:'cityWatch',amount:2},
+    leveragePenalty:[{key:'scholarsGuild',amount:1},{key:'churchOfAxiom',amount:1}],
+  },
+  magic:{
+    title:'The Crystal Remembers Five Years',
+    desc:'One Tier Three spell from your school is permanently available, chosen with your GM. Tier three is normally earned through willstrain capacity built over a campaign — five years of study before the Awakening produces it early.',
+    usage:'permanent unlock',
+    leverageBonus:{key:'scholarsGuild',amount:2},
+    leveragePenalty:[{key:'cityWatch',amount:1},{key:'merchantConsortium',amount:1}],
+  },
+  politics:{
+    title:'A Face the Council Already Knows',
+    desc:'The Small Council has an opinion of you before you have cast a vote or made a single move at the table.',
+    usage:'once per session',
+    leverageBonus:{key:'royalChamberlain',amount:2},
+    leveragePenalty:[{key:'cityWatch',amount:1},{key:'dockworkersUnion',amount:1}],
+  },
+  statecraft:{
+    title:'The Machinery Answers to You',
+    desc:'One minor administrative lever — a permit, a record, a quiet delay — is yours to pull. Scope is the GM\'s call.',
+    usage:'once per session',
+    leverageBonus:{key:'kingHector',amount:2},
+    leveragePenalty:[{key:'scholarsGuild',amount:1},{key:'outskirtsBroker',amount:1}],
+  },
+  lore:{
+    title:'The Archive Owes You',
+    desc:'You may ask the Archivist General one question per session that the public record cannot answer.',
+    usage:'once per session',
+    leverageBonus:{key:'scholarsGuild',amount:2},
+    leveragePenalty:[{key:'cityWatch',amount:1},{key:'merchantConsortium',amount:1}],
+  },
+  commerce:{
+    title:'A Standing Line of Credit',
+    desc:'You may produce coin or goods on the spot that you should not plausibly have access to.',
+    usage:'once per session',
+    leverageBonus:{key:'merchantConsortium',amount:2},
+    leveragePenalty:[{key:'churchOfAxiom',amount:1},{key:'scholarsGuild',amount:1}],
+  },
+  command:{
+    title:'They Follow Before You Order',
+    desc:'A small, loyal personal retinue exists and answers to you specifically. Narrative weight, not mechanical troops.',
+    usage:'once per session',
+    leverageBonus:{key:'cityWatch',amount:2},
+    leveragePenalty:[{key:'scholarsGuild',amount:1},{key:'courierNetwork',amount:1}],
+  },
+  diplomacy:{
+    title:'Every Door Opens Once',
+    desc:'You may secure an audience with any NPC regardless of normal access requirements.',
+    usage:'once per session',
+    leverageBonus:{key:'courierNetwork',amount:2},
+    leveragePenalty:[{key:'cityWatch',amount:1},{key:'merchantConsortium',amount:1}],
+  },
+};
+function getCapstoneAspect(){
+  const counts={};
+  yearData.forEach(d=>{if(d&&d.aspect)counts[d.aspect]=(counts[d.aspect]||0)+1;});
+  const fiveX=Object.entries(counts).find(([,c])=>c>=5);
+  return fiveX?fiveX[0]:null;
+}
+
+const SC={
+  combat:{
+    p1:{lbl:'Weapon Specialization',opts:['Sword','Spear','Wand','Staff','Dagger','Projectile']},
+    p2:{lbl:'Fighting Style',opts:{Sword:['Duelist','Executioner','Guardian'],Spear:['Skirmisher','Phalanx','Hunter'],Wand:['Quickcaster','Suppressor','Duelist-Mage'],Staff:['Battlemage','Warden','Channeler'],Dagger:['Assassin','Brawler','Shadowblade'],Projectile:['Sharpshooter','Volley','Siege']}},
+    p3:{lbl:'Signature Technique',opts:{Duelist:['The Patient Read','The Killing Feint'],Executioner:['Iron Sentence','Overwhelming Force'],Guardian:['The Immovable Line','Shield Sacrifice'],Skirmisher:['Hit and Fade','Wound and Wait'],Phalanx:['Hold the Line','The Advance'],Hunter:['The Long Chase','Pinning Strike'],Quickcaster:['Snap Release','Chain Cast'],Suppressor:['Null Zone','Counterpressure'],'Duelist-Mage':['Spell and Steel','The Baited Cast'],Battlemage:['War Mantle','Arcane Charge'],Warden:['Barrier Walk','Ground and Hold'],Channeler:['Deep Channel','Overflow Release'],Assassin:['One Breath','The Clean Exit'],Brawler:['Dirty Clinch','Pain Management'],Shadowblade:['Ghost Step','The Second Knife'],Sharpshooter:['Breath and Release','The Impossible Shot'],Volley:['Rain Formation','Suppressing Arc'],Siege:['Wall Breaker','The Long Arm']}}
+  },
+  magic:{
+    p1:{lbl:'School of Theoretical Focus',opts:['ALT — Alteration','CON — Conjuration','NEG — Negation','DIV — Divination','TRN — Transposition','DOM — Dominion']},
+    p2:{lbl:'Study Category',opts:{'ALT — Alteration':['Transformation Theory','Biological Application','Perception Work'],'CON — Conjuration':['Summoning Doctrine','Material Relocation','Aperture Study'],'NEG — Negation':['Counter Theory','Suppression Method','Void Philosophy'],'DIV — Divination':['Truth Extraction','Probability Reading','Resonance Tracing'],'TRN — Transposition':['Spatial Theory','Temporal Study','State Transposition'],'DOM — Dominion':['Will Theory','Behavioral Constraint','Memory Architecture']}},
+    p3:{lbl:'Philosophical Orientation',opts:{default:['Pragmatist — efficiency above elegance','Purist — every cast is an act of reverence','Experimentalist — the system has edges worth finding','Sovereign — will is the only law']}}
+  },
+  politics:{p1:{lbl:'Court Faction Aligned With',opts:["The Crown's Circle",'The Merchant Bloc','The Military Order','The Scholar Assembly','The Old Houses','The Church of the Axiom']},p2:{lbl:'Contact Type Earned',opts:{default:['Informant','Patron','Rival-Ally','Broker','Enforcer']}},p3:{lbl:'Influence Method Developed',opts:{default:['Debt','Loyalty','Fear','Admiration','Blackmail']}}},
+  statecraft:{p1:{lbl:'Governance Domain',opts:['Treasury','Military','Law','Infrastructure','Foreign Affairs','Succession']},p2:{lbl:'Administrative Specialty',opts:{default:['Resource Allocation','Enforcement','Negotiation','Record Keeping','Crisis Management']}},p3:{lbl:'Institutional Loyalty Built',opts:{default:['House Guard','Civil Magistracy','Royal Treasury','The Archive','The Road Corps']}}},
+  lore:{p1:{lbl:'Field of Study',opts:['History','Theology','Demonology','Magical Theory','Ancient Languages','Natural Philosophy']},p2:{lbl:'Specific Area',opts:{History:['The Founding Wars','The Apostate Age','The Silent Century'],Theology:['The Axiom as Scripture','The Church Schism','Pre-Axiom Faith'],Demonology:['Demon Taxonomy','Ex Nihil Theory',"Vaelthorn's Apostasy"],'Magical Theory':['School Boundaries','Cross-School Doctrine','Dissolution Records'],'Ancient Languages':['The First Tongue','The Court Cipher','The Dead Script'],'Natural Philosophy':['Resonance in Nature','Alchemy','Cartography']}},p3:{lbl:'Rare Knowledge Unlocked',opts:{default:['A forgotten spell','A historical secret','A demonic weakness','A political scandal','A lost language fragment','A natural phenomenon unexplained']}}},
+  commerce:{p1:{lbl:'Trade Domain',opts:['Spices and Goods','Arms and Armor','Information','Land','Magic Artifacts','Labor']},p2:{lbl:'Network Established',opts:{default:['Merchant Guild','Smuggler Ring','Noble Creditors','Foreign Traders','Black Market']}},p3:{lbl:'Financial Instrument Mastered',opts:{default:['Letters of Credit','Debt Bonds','Trade Monopoly','Land Grant','Black Ledger']}}},
+  command:{p1:{lbl:'Unit Type',opts:['Infantry','Cavalry','Archers','Siege Engineers','Scouts','Battle Mages']},p2:{lbl:'Tactical Doctrine',opts:{default:['Aggressive Advance','Defensive Hold','Flanking Maneuver','Attrition','Feigned Retreat']}},p3:{lbl:'Legendary Engagement Studied',opts:{default:['The Battle of the Ashen Field',"The Siege of Morwen's Gate",'The Cavalry of the Long Plain','The Night the Scouts Held','The Mage Line at Cindrath']}}},
+  diplomacy:{p1:{lbl:'Foreign Faction Engaged',opts:['A Neighboring Kingdom','A Merchant Republic','A Nomadic Confederation','A Church State','A Rival Empire','An Isolated City-State']},p2:{lbl:'Negotiation Method',opts:{default:['Mutual Benefit','Implied Threat','Long Game','Emotional Appeal','Legal Precedent']}},p3:{lbl:'Treaty Type Mastered',opts:{default:['Non-Aggression','Trade Agreement','Military Alliance','Extradition','Succession Compact']}}}
+};
+
+const WORLD_NPCS=[
+  {name:'King Hector',role:'The Monarch',resp:'Demonstrated capability, political stability, usefulness to the Crown'},
+  {name:'Royal Chamberlain',role:'Keeper of the Royal Calendar',resp:'Order, discretion, loyalty to the king above all factions'},
+  {name:'Merchant Consortium Guildmaster',role:'Controls trade and commerce',resp:'Commercial advantage, competitor intelligence, harbor protection'},
+  {name:'Watch Commander',role:'Commands the City Watch',resp:'Order, resources, actionable threat intelligence'},
+  {name:'Dockworkers Foreman',role:'Controls harbor labor',resp:'Fair coin, worker protection, predictable dealing'},
+  {name:'Courier Master',role:'Controls information flow',resp:'Coin and information trades — sells to all parties equally'},
+  {name:'High Priest of the Axiom',role:'Controls religious legitimacy',resp:'Theological alignment, generosity, moral consistency'},
+  {name:'Archivist General',role:'Controls historical records',resp:'Truth, knowledge preservation, the long view'},
+  {name:'Outskirts Broker',role:'Controls the black market',resp:'Coin, favors, willingness to operate outside the law'},
+];
+
+const NPC_ALLY_TYPES=['Childhood friend from home city','Fellow heir studied alongside','Mentor from aspect training','Romantic connection','Debt relationship — they owe you'];
+const NPC_ALLY_WANTS=['Advancement within their faction','Protection from a specific threat','Information about a specific NPC','To leave Shemsara','Your success on the council'];
+const NPC_ALLY_KNOWS=['A secret about another house','A faction\'s internal conflict','A map of a specific ruin','Information about the Outskirts Broker','Knowledge of a previous councillor\'s wound'];
+const NPC_FACTIONS=['The Crown\'s Circle','The Merchant Bloc','The Military Order','The Scholar Assembly','The Old Houses','The Church of the Axiom','The Merchant Consortium','The City Watch','The Dockworkers Union','The Courier Network','The Scholars Guild','None — independent'];
+const NPC_RIVAL_TYPES=['Former friend now estranged','Competing heir from another house','Faction member whose interests conflict with yours','Someone who knows your house shadow','A creditor your house owes'];
+const NPC_RIVAL_WANTS=['Your public humiliation','Your leverage with a specific faction','Proof of your house shadow','Your failure at the legitimacy threshold','Something your house controls'];
+const NPC_RIVAL_HAS=['Evidence of your house shadow','Connections to two or more factions','The ear of King Hector','Control of information you need','A technique or spell that counters your strongest capability'];
+const NPC_CONTACT_EXPECTS=['Coin — straightforward payment','Information about your rivals','Protection of their specific interests','Public acknowledgment of their support','A future favor left unspecified'];
+const NPC_WILD_CATS=['Family member — not the councillor','Religious figure from the Church of the Axiom','Scholar from the Scholars Guild','Someone from before Shemsara — connected to the home city','A figure from the outskirts'];
+const NPC_WILD_SIG=['They know something about your past','They have a capability you need','They represent something you are afraid of','They are the reason you are pursuing the council seat','They are the person most likely to be used against you'];
+const NPC_WILD_STATUS=['Active in Shemsara','In the home city','In the outskirts','Unknown location','Recently arrived in Shemsara'];
+
+// ═══════════════════ STATE ═══════════════════
+let yearData=[null,null,null,null,null];
+let affinities={ALT:0,CON:0,NEG:0,DIV:0,TRN:0,DOM:0};
+let orientAff={ALT:0,CON:0,NEG:0,DIV:0,TRN:0,DOM:0};
+let selDistrict=null;
+let sigilB64=null;
+let hectorRel='allied';
+let leverage={};
+
+// ═══════════════════ NAVIGATION ═══════════════════
+function startSheet(){
+  document.getElementById('welcome').style.display='none';
+  if(window.innerWidth>720){
+    document.getElementById('rail').style.display='flex';
+  }
+  const mpWrap=document.getElementById('mobile-progress-wrap');
+  if(mpWrap) mpWrap.style.removeProperty('display');
+  goTo(0);
+}
+
+const SECTION_LABELS=[
+  'Section 1 of 7 · Identity',
+  'Section 2 of 7 · Noble House',
+  'Section 3 of 7 · Five Years of Study',
+  'Section 4 of 7 · The Awakening',
+  'Section 5 of 7 · Character Profile',
+  'Section 6 of 7 · Key NPCs',
+  'Section 7 of 7 · Your Record',
+];
+function goTo(n){
+  document.querySelectorAll('.sheet').forEach((s,i)=>s.classList.toggle('active',i===n));
+  document.querySelectorAll('.rail-step').forEach((r,i)=>{r.classList.remove('active','done');if(i===n)r.classList.add('active');else if(i<n)r.classList.add('done');});
+  document.querySelectorAll('.mp-step').forEach((m,i)=>{m.classList.remove('active','done');if(i===n)m.classList.add('active');else if(i<n)m.classList.add('done');});
+  const mpLabel=document.getElementById('mobile-progress-label');
+  if(mpLabel) mpLabel.textContent=SECTION_LABELS[n]||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+  calcLeverage();
+  if(n===4){buildProfile();}
+  if(n===6){buildConfirm();buildAwakeningInterpretation();buildSpellAccess();buildLifeNarrative();}
+}
+
+// ═══════════════════ HELPERS ═══════════════════
+function gv(id){const el=document.getElementById(id);return el?el.value:'';}
+function selOpt(groupId,btn){document.querySelectorAll(`#${groupId} .opt-btn`).forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');}
+function selMulti(groupId,btn){
+  const group=document.getElementById(groupId);
+  const already=btn.classList.contains('sel');
+  const selCount=group.querySelectorAll('.opt-btn.sel').length;
+  if(already){btn.classList.remove('sel');}
+  else{
+    if(selCount>=3){
+      // remove the earliest-selected to cap at 3
+      const first=group.querySelector('.opt-btn.sel');
+      if(first) first.classList.remove('sel');
+    }
+    btn.classList.add('sel');
+  }
+}
+function selRel(btn,val){document.querySelectorAll('#hector-rel .rel-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');hectorRel=val;recalc();}
+
+// ═══════════════════ HOUSE ═══════════════════
+function handleSigil(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{sigilB64=e.target.result;document.getElementById('sigil-preview').innerHTML=`<img src="${sigilB64}" style="max-height:95px;object-fit:contain;"/><span class="sz-s" style="margin-top:.3rem;">Tap to change</span>`;};
+  r.readAsDataURL(file);
+}
+
+function selDist(btn,type){
+  document.querySelectorAll('.dist-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');selDistrict=type;calcLeverage();renderMap();
+}
+
+function selOrient(axis,btn,school){
+  document.querySelectorAll(`#orient-${axis} .opt-btn`).forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  orientAff={ALT:0,CON:0,NEG:0,DIV:0,TRN:0,DOM:0};
+  ['acquire','hold','use'].forEach(ax=>{
+    const s=document.querySelector(`#orient-${ax} .opt-btn.sel`);
+    if(s){const m=s.getAttribute('onclick').match(/'([A-Z]+)'\)$/);if(m)orientAff[m[1]]=(orientAff[m[1]]||0)+1;}
+  });
+  recalc();
+}
+
+// Reads only a button's own direct text, ignoring any nested span (e.g. the
+// orientation buttons' inline school-code tag) — prevents labels like "Force"
+// from being read back as "Force ALT" wherever this selection is reused.
+function ownLabel(el){
+  if(!el)return'';
+  let text='';
+  el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)text+=n.textContent;});
+  return text.trim();
+}
+
+function syncAll(){
+  renderMap();
+  const given=gv('heir-name').trim();
+  const house=gv('house-name').trim();
+  const wrap=document.getElementById('full-name-preview-wrap');
+  const preview=document.getElementById('full-name-preview');
+  if(given&&house){
+    preview.textContent=`${given} of House ${house.replace(/^House\s+/i,'')}`;
+    wrap.style.display='block';
+  } else if(wrap){
+    wrap.style.display='none';
+  }
+}
+
+// ═══════════════════ MAP ═══════════════════
+function renderMap(){
+  const grid=document.getElementById('map-grid');if(!grid)return;
+  const p1=document.getElementById('color-primary').value||'#4a3728';
+  const hName=gv('house-name')||'Your House';
+  const cells=[
+    {t:'out',lbl:'Outskirts',sub:'Contested Territory · The Outskirts Broker'},
+    {t:'dist',key:'Military',lbl:'Garrison',npc:'Watch Commander'},{t:'outv'},{t:'dist',key:'Trade',lbl:'Merchant Quarter',npc:'Merchant Guildmaster'},{t:'outv'},{t:'dist',key:'Religious',lbl:'Temple District',npc:'High Priest of the Axiom'},
+    {t:'park',lbl:'City Park'},{t:'outv'},{t:'castle',lbl:'The Castle',sub:'King Hector · Royal Chamberlain'},{t:'outv'},{t:'park',lbl:'City Park'},
+    {t:'dist',key:'Scholarly',lbl:'Archive',npc:'Archivist General'},{t:'outv'},{t:'dist',key:'Agricultural',lbl:'Granary',npc:'Dockworkers Foreman'},{t:'outv'},{t:'dist',key:'Magical',lbl:'Sanctum'},
+    {t:'out',lbl:'Outskirts',sub:'Contested Territory · The Outskirts Broker'},
+  ];
+  grid.innerHTML='';grid.style.gridTemplateColumns='repeat(5,1fr)';
+  cells.forEach(cell=>{
+    const div=document.createElement('div');div.className='mc';
+    if(cell.t==='out'){div.classList.add('out');div.style.gridColumn='1/-1';div.innerHTML=`<span class="mc-lbl">${cell.lbl}</span><span class="mc-name" style="font-size:.46rem;opacity:.55;">${cell.sub||''}</span>`;}
+    else if(cell.t==='outv'){div.classList.add('outv');}
+    else if(cell.t==='castle'){div.classList.add('castle');div.innerHTML=`<span class="mc-lbl" style="color:var(--gold-dim);">Royal Seat</span><span class="mc-name" style="color:var(--page-text);opacity:.9;">The Castle</span><span class="mc-house" style="color:var(--page-text-mid);opacity:.7;">${cell.sub}</span>`;}
+    else if(cell.t==='park'){div.classList.add('park');div.innerHTML=`<span class="mc-lbl" style="color:var(--forest-bright);opacity:.85;">Neutral</span><span class="mc-name" style="color:var(--page-text-mid);opacity:.8;">City Park</span>`;}
+    else if(cell.t==='dist'){
+      div.classList.add('dist');const owned=selDistrict===cell.key;
+      const npcLine=cell.npc?`<span class="mc-house" style="color:var(--gold-dim);opacity:.85;font-size:.5rem;">${cell.npc}</span>`:'';
+      if(owned){div.style.borderColor=p1;div.style.background=p1+'22';div.innerHTML=`<span class="mc-dot" style="background:${p1};"></span><span class="mc-lbl" style="opacity:.6;">${cell.lbl}</span><span class="mc-name" style="color:var(--page-text);opacity:.95;">${hName}</span>${npcLine}`;}
+      else{div.innerHTML=`<span class="mc-lbl" style="opacity:.5;">${cell.lbl}</span><span class="mc-name" style="opacity:.3;">—</span>${npcLine}`;}
+    }
+    grid.appendChild(div);
+  });
+}
+
+// ═══════════════════ YEARS ═══════════════════
+function initYears(){
+  const c=document.getElementById('yr-panels');
+  c.innerHTML=[0,1,2,3,4].map(y=>`
+    <div class="yr-panel ${y===0?'active':''}" id="yp-${y}">
+      <div class="unlock-note">Choose your focus for this year. <strong>Returning to the same aspect in a later year unlocks deeper specialization.</strong></div>
+      <div class="asp-grid" id="ag-${y}">${ASPECTS.map(a=>`<div class="asp-btn" id="ab-${y}-${a.id}" onclick="selAspect(${y},'${a.id}',this)"><span class="ab-prior" id="pr-${y}-${a.id}"></span><span class="ab-name">${a.name}</span><span class="ab-tag">${a.tag}</span><span class="ab-unlock" id="un-${y}-${a.id}"></span></div>`).join('')}</div>
+      <div class="sub-panel" id="sp-${y}"><div class="sub-title" id="st-${y}"></div><div id="sc-${y}"></div></div>
+    </div>
+  `).join('');
+  renderSummary();updatePrior();
+}
+
+function switchYr(y){
+  document.querySelectorAll('.yr-panel').forEach((p,i)=>p.classList.toggle('active',i===y));
+  document.querySelectorAll('.yr-tab').forEach((t,i)=>t.classList.toggle('active',i===y));
+  updatePrior();
+}
+
+function updatePrior(){
+  [0,1,2,3,4].forEach(y=>{
+    ASPECTS.forEach(a=>{
+      const prior=yearData.slice(0,y).filter(d=>d&&d.aspect===a.id).length;
+      const pel=document.getElementById(`pr-${y}-${a.id}`);
+      const unh=document.getElementById(`un-${y}-${a.id}`);
+      if(pel)pel.textContent=prior>0?'×'+prior:'';
+      if(unh){if(prior===0)unh.textContent='pick again to specialise';else if(prior===1)unh.textContent='pick again for deeper focus';else if(prior===2)unh.textContent='one more locks tier three';else if(prior===3)unh.textContent='one more unlocks a capstone';else unh.textContent='';}
+    });
+  });
+}
+
+function selAspect(year,aspectId,btn){
+  document.querySelectorAll(`#ag-${year} .asp-btn`).forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  // Only reset this year's subs if switching to a genuinely different aspect.
+  // Re-clicking the same aspect already selected for this year must NOT wipe prior p2/p3 progress.
+  const alreadySet=yearData[year]&&yearData[year].aspect===aspectId;
+  if(!alreadySet){
+    yearData[year]={aspect:aspectId,subs:{p1:null,p2:null,p3:null},magicSchool:null};
+  }
+  const prior=yearData.slice(0,year).filter(d=>d&&d.aspect===aspectId).length;
+  renderSubs(year,aspectId,prior);
+  recalc();renderSummary();updateYrCheck(year);updatePrior();
+}
+
+function getLockedSubs(aspectId,beforeYear){
+  // Merge subs across every prior year matching this aspect — p1 is set on the first pick,
+  // p2 on the second, p3 on the third. A single year's record never holds all three; the
+  // canon locked state is the union of whichever year set each tier.
+  const merged={p1:null,p2:null,p3:null};
+  for(let y=0;y<beforeYear;y++){
+    if(yearData[y]&&yearData[y].aspect===aspectId){
+      if(yearData[y].subs.p1)merged.p1=yearData[y].subs.p1;
+      if(yearData[y].subs.p2)merged.p2=yearData[y].subs.p2;
+      if(yearData[y].subs.p3)merged.p3=yearData[y].subs.p3;
+    }
+  }
+  return merged.p1?merged:null;
+}
+
+function renderSubs(year,aspectId,prior){
+  const panel=document.getElementById(`sp-${year}`);
+  const title=document.getElementById(`st-${year}`);
+  const content=document.getElementById(`sc-${year}`);
+  const def=SC[aspectId];
+  const aName=ASPECTS.find(a=>a.id===aspectId).name;
+  panel.classList.add('show');
+
+  if(prior===0){
+    // First time choosing this aspect — full p1 menu, nothing locked yet.
+    title.textContent=`${aName} — Choose Your Focus`;
+    const thisYearP1=yearData[year]?.subs.p1;
+    let html=`<span class="sub-lbl">${def.p1.lbl}</span><div class="sub-row" id="sr-${year}-p1">`;
+    def.p1.opts.forEach(o=>{const sel=o===thisYearP1?' sel':'';html+=`<button class="sub-btn${sel}" onclick="selSub(${year},'${aspectId}','p1','${o.replace(/'/g,"\\'")}',this)">${o}</button>`;});
+    html+='</div>';
+    content.innerHTML=html;
+    return;
+  }
+
+  // Returning to an already-chosen aspect — p1 (and p2, once set) are locked and displayed read-only.
+  const locked=getLockedSubs(aspectId,year);
+  if(!locked||!locked.p1){
+    // Defensive fallback — shouldn't happen, but don't strand the player with a blank panel.
+    title.textContent=`${aName} — Choose Your Focus`;
+    content.innerHTML=`<div class="helper">Specialization data not found for this aspect. Re-select ${aName} to continue.</div>`;
+    return;
+  }
+
+  // Propagate the locked p1 (and p2 if present) onto THIS year's entry so profile-building reads succeed
+  // for whichever year ends up holding the deepest tier (p2 at year of 2nd pick, p3 at year of 3rd pick).
+  if(yearData[year]){
+    yearData[year].subs.p1=locked.p1;
+    if(locked.p2)yearData[year].subs.p2=locked.p2;
+  }
+
+  title.textContent=`${aName} — Deepening Specialization`;
+  let html=`<div class="hbox" style="margin-bottom:.6rem;"><strong>${def.p1.lbl} locked:</strong> ${locked.p1}${locked.p2?` · <strong>${def.p2.lbl} locked:</strong> ${locked.p2}`:''}</div>`;
+
+  if(prior===1){
+    // Second pick — unlock p2, scoped to the locked p1's option list.
+    const opts=def.p2.opts;
+    const list=Array.isArray(opts)?opts:(opts[locked.p1]||opts.default||[]);
+    const thisYearP2=yearData[year]?.subs.p2;
+    html+=`<span class="sub-lbl">${def.p2.lbl}</span><div class="sub-row" id="sr-${year}-p2">`;
+    list.forEach(o=>{const sel=o===thisYearP2?' sel':'';html+=`<button class="sub-btn${sel}" onclick="selSub(${year},'${aspectId}','p2','${o.replace(/'/g,"\\'")}',this)">${o}</button>`;});
+    html+='</div>';
+  } else if(prior===2){
+    // Third pick — unlock p3, scoped to the locked p2's option list.
+    const opts=def.p3.opts;
+    const list=Array.isArray(opts)?opts:(opts[locked.p2]||opts.default||[]);
+    const thisYearP3=yearData[year]?.subs.p3;
+    html+=`<span class="sub-lbl">${def.p3.lbl}</span><div class="sub-row" id="sr-${year}-p3">`;
+    list.forEach(o=>{const sel=o===thisYearP3?' sel':'';html+=`<button class="sub-btn${sel}" onclick="selSub(${year},'${aspectId}','p3','${o.replace(/'/g,"\\'")}',this)">${o}</button>`;});
+    html+='</div>';
+  } else {
+    // Fourth or fifth pick — fully locked, no new choice. Pure depth toward the capstone.
+    const fullyLocked=getLockedSubs(aspectId,year);
+    if(fullyLocked&&fullyLocked.p3){
+      // ensure this year also carries the full locked set for consistency
+      if(yearData[year])yearData[year].subs.p3=fullyLocked.p3;
+      html+=`<div class="hbox"><strong>${def.p3.lbl} locked:</strong> ${fullyLocked.p3}</div>`;
+    }
+    const remaining=4-prior; // years still needed to reach the capstone (5x), including this one
+    const cs=CAPSTONES[aspectId];
+    const capstoneText=remaining<=0
+      ?(cs?`<strong style="color:var(--gold-bright);">This is your fifth year — you have earned "${cs.title}."</strong> ${cs.desc}`:`<strong style="color:var(--gold-bright);">This is your fifth year — the Capstone Specialization is yours.</strong>`)
+      :`One more year of ${aName} unlocks the Capstone Specialization.`;
+    html+=`<div class="helper" style="margin-top:.5rem;">All specialization tiers are set — there is no further choice to make here. This year's commitment is recorded. ${capstoneText}</div>
+    <button class="sub-btn sel" style="margin-top:.6rem;cursor:default;" onclick="event.stopPropagation();">✦ Year Confirmed — ${aName}</button>`;
+  }
+
+  content.innerHTML=html;
+}
+
+function selSub(year,aspectId,pick,value,btn){
+  const row=document.getElementById(`sr-${year}-${pick}`);
+  if(row)row.querySelectorAll('.sub-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(yearData[year])yearData[year].subs[pick]=value;
+  if(pick==='p1'&&aspectId==='magic'&&yearData[year])yearData[year].magicSchool=value.split(' — ')[0];
+  recalc();updateYrCheck(year);renderSummary();
+}
+
+// ═══════════════════ AFFINITIES ═══════════════════
+function recalc(){
+  const aff={ALT:0,CON:0,NEG:0,DIV:0,TRN:0,DOM:0};
+  yearData.forEach(d=>{
+    if(!d)return;
+    const aspect=ASPECTS.find(a=>a.id===d.aspect);
+    if(d.aspect==='magic'&&d.magicSchool){
+      aff[d.magicSchool]=(aff[d.magicSchool]||0)+3;
+      const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
+      const a2=adj[d.magicSchool];if(a2)aff[a2]=(aff[a2]||0)+1;
+    } else {
+      Object.entries(aspect.w).forEach(([s,v])=>{aff[s]=(aff[s]||0)+v;});
+    }
+    if(d.aspect==='combat'&&d.subs.p2){
+      const st=d.subs.p2;
+      if(['Quickcaster','Suppressor','Duelist-Mage','Battlemage','Warden','Channeler'].includes(st)){aff.CON=(aff.CON||0)+1;aff.ALT=Math.max(0,(aff.ALT||0)-1);}
+      if(['Assassin','Shadowblade'].includes(st))aff.NEG=(aff.NEG||0)+1;
+      if(['Phalanx','Guardian'].includes(st)){aff.NEG=(aff.NEG||0)+1;aff.TRN=Math.max(0,(aff.TRN||0)-1);}
+    }
+  });
+  Object.entries(orientAff).forEach(([s,v])=>{aff[s]=(aff[s]||0)+v;});
+  affinities=aff;
+  renderBars();checkAwaken();calcLeverage();
+}
+
+function renderBars(){
+  const c=document.getElementById('aff-bars');if(!c)return;
+  const max=Math.max(...Object.values(affinities),1);
+  c.innerHTML=Object.entries(SCHOOLS).map(([key,school])=>{
+    const score=affinities[key]||0;
+    const pct=Math.min(100,(score/Math.max(max,12))*100);
+    return `<div class="aff-row"><span class="aff-school">${key} · ${school.name}</span><div class="aff-track"><div class="aff-fill fill-${key.toLowerCase()}" style="width:${pct}%"></div></div><span class="aff-score">${score}</span></div>`;
+  }).join('');
+}
+
+// ═══════════════════ AWAKENING ═══════════════════
+function checkAwaken(){
+  const done=yearData.every(d=>d!==null);
+  const locked=document.getElementById('crystal-locked');
+  const revealed=document.getElementById('crystal-revealed');
+  if(!locked)return;
+  if(!done){locked.style.display='block';revealed.classList.remove('show');return;}
+  const dom=Object.entries(affinities).reduce((a,b)=>b[1]>a[1]?b:a);
+  const key=dom[0];const school=SCHOOLS[key];
+  locked.style.display='none';revealed.classList.add('show');
+  document.getElementById('c-icon').textContent=school.icon;document.getElementById('c-icon').style.color=school.color;
+  const sn=document.getElementById('c-school');sn.textContent=school.name;sn.style.color=school.color;
+  document.getElementById('c-axiom').textContent=school.axiom;
+  document.getElementById('c-desc').textContent=school.desc;
+  const capEl=document.getElementById('c-capstone');
+  if(capEl){
+    const capstoneAspect=getCapstoneAspect();
+    if(capstoneAspect&&CAPSTONES[capstoneAspect]){
+      const cs=CAPSTONES[capstoneAspect];
+      capEl.style.display='block';
+      capEl.innerHTML=`<div class="hbox" style="margin-top:.9rem;text-align:left;"><strong style="color:var(--gold-bright);">A second thing is true of you:</strong> five years given entirely to ${ASPECTS.find(a=>a.id===capstoneAspect).name.toLowerCase()} earned "${cs.title}." Full details await in your Character Profile.</div>`;
+    } else {
+      capEl.style.display='none';
+    }
+  }
+}
+
+function getRevealedSchool(){
+  if(!yearData.every(d=>d!==null))return null;
+  return Object.entries(affinities).reduce((a,b)=>b[1]>a[1]?b:a)[0];
+}
+
+// ═══════════════════ LEVERAGE ═══════════════════
+function calcLeverage(){
+  const lev={kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0};
+
+  // Hector relation
+  if(hectorRel==='allied'){lev.kingHector+=1;lev.royalChamberlain+=1;}
+  else if(hectorRel==='tension'){lev.kingHector-=1;lev.royalChamberlain-=1;}
+
+  // District affinity
+  const distMap={Military:'cityWatch',Trade:'merchantConsortium',Religious:'churchOfAxiom',Scholarly:'scholarsGuild',Agricultural:'dockworkersUnion',Magical:'churchOfAxiom'};
+  if(selDistrict&&distMap[selDistrict])lev[distMap[selDistrict]]=(lev[distMap[selDistrict]]||0)+1;
+
+  // Aspect choices — 1 point per year of relevant aspect
+  yearData.forEach(d=>{
+    if(!d)return;
+    if(d.aspect==='politics'){lev.royalChamberlain=(lev.royalChamberlain||0)+1;lev.kingHector=(lev.kingHector||0)+0.5;}
+    if(d.aspect==='commerce')lev.merchantConsortium=(lev.merchantConsortium||0)+1;
+    if(d.aspect==='lore')lev.scholarsGuild=(lev.scholarsGuild||0)+1;
+    if(d.aspect==='diplomacy')lev.courierNetwork=(lev.courierNetwork||0)+1;
+    if(d.aspect==='command')lev.cityWatch=(lev.cityWatch||0)+1;
+    if(d.aspect==='combat')lev.cityWatch=(lev.cityWatch||0)+1;
+    if(d.aspect==='statecraft'){lev.royalChamberlain=(lev.royalChamberlain||0)+0.5;lev.kingHector=(lev.kingHector||0)+0.3;}
+  });
+
+  // ── Succession Position ──
+  const succession=gv('succession');
+  if(succession==='First Heir')lev.kingHector=(lev.kingHector||0)+0.5;
+  else if(succession==='Only Heir')lev.royalChamberlain=(lev.royalChamberlain||0)+0.5;
+  else if(succession==='Contested Heir'){
+    lev.kingHector=(lev.kingHector||0)-0.5;
+    const distMap2={Military:'cityWatch',Trade:'merchantConsortium',Religious:'churchOfAxiom',Scholarly:'scholarsGuild',Agricultural:'dockworkersUnion',Magical:'churchOfAxiom'};
+    if(selDistrict&&distMap2[selDistrict])lev[distMap2[selDistrict]]=(lev[distMap2[selDistrict]]||0)+0.5;
+  }
+
+  // ── Councillor Method ──
+  const councillorMethod=document.querySelector('#councillor-method .opt-btn.sel')?.textContent.trim();
+  const methodMap={
+    'Negotiation':'courierNetwork','Intimidation':'cityWatch','Alliance Building':'merchantConsortium',
+    'Information Control':'scholarsGuild','Financial Leverage':'merchantConsortium','Military Weight':'cityWatch',
+  };
+  let methodTarget=null;
+  if(councillorMethod&&methodMap[councillorMethod]){
+    methodTarget=methodMap[councillorMethod];
+    lev[methodTarget]=(lev[methodTarget]||0)+0.5;
+  }
+
+  // ── Public Ideal (first) ──
+  const ideal1=document.querySelector('#ideal-1-grid .opt-btn.sel')?.textContent.trim();
+  const idealMap={
+    'Faith':'churchOfAxiom','Knowledge':'scholarsGuild','Strength':'cityWatch','Prosperity':'merchantConsortium',
+  };
+  if(ideal1){
+    if(idealMap[ideal1])lev[idealMap[ideal1]]=(lev[idealMap[ideal1]]||0)+0.5;
+    else lev.kingHector=(lev.kingHector||0)+0.5; // Honor, Tradition, Legacy, Unity, Justice — general legitimacy framing
+  }
+
+  // ── The Shadow ──
+  const shadow=document.querySelector('#shadow-grid .opt-btn.sel')?.textContent.trim();
+  const shadowMap={
+    'An illegitimate claim to the seat':'kingHector','A criminal connection':'cityWatch',
+    'A heretical belief':'churchOfAxiom','A buried scandal':'royalChamberlain',
+    'A hidden debt':'merchantConsortium','A past betrayal':'courierNetwork',
+    'A broken alliance':'courierNetwork','A concealed bloodline':'royalChamberlain',
+  };
+  if(shadow&&shadowMap[shadow])lev[shadowMap[shadow]]=(lev[shadowMap[shadow]]||0)-0.5;
+
+  // ── Resources Beyond the District (multi-select) ──
+  const resourceMap={
+    'Military reserve':'cityWatch','Trade network':'merchantConsortium','Spy network':'outskirtsBroker',
+    'Foreign alliance':'courierNetwork','Religious influence':'churchOfAxiom',
+    'Hidden wealth':'merchantConsortium','Ancestral artifact':'scholarsGuild','Mercenary contracts':'cityWatch',
+  };
+  document.querySelectorAll('#resources-grid .opt-btn.sel').forEach(b=>{
+    const r=b.textContent.trim();
+    if(resourceMap[r])lev[resourceMap[r]]=(lev[resourceMap[r]]||0)+0.3;
+  });
+
+  // ── Founding Deed ──
+  const founding=document.querySelector('#founding-grid .opt-btn.sel')?.textContent.trim();
+  if(founding==='Founded the city itself')lev.kingHector=(lev.kingHector||0)+1;
+  else if(founding==='Granted for service to the Crown')lev.kingHector=(lev.kingHector||0)+0.5;
+  else if(founding==='Bought through wealth')lev.merchantConsortium=(lev.merchantConsortium||0)+0.5;
+  else if(founding==='Claimed through conquest')lev.cityWatch=(lev.cityWatch||0)+0.5;
+  else if(founding==='Earned through scholarship')lev.scholarsGuild=(lev.scholarsGuild||0)+0.5;
+  else if(founding==='Sealed by marriage')lev.courierNetwork=(lev.courierNetwork||0)+0.5;
+
+  // ── Recent Wound ──
+  const wound=document.querySelector('#wound-grid .opt-btn.sel')?.textContent.trim();
+  if(wound==='A military defeat')lev.cityWatch=(lev.cityWatch||0)-0.5;
+  else if(wound==='A failed alliance')lev.courierNetwork=(lev.courierNetwork||0)-0.5;
+  else if(wound==='A scandal that became public')lev.royalChamberlain=(lev.royalChamberlain||0)-0.5;
+  else if(wound==='A debt incurred in crisis')lev.merchantConsortium=(lev.merchantConsortium||0)-0.5;
+  else if(wound==='A betrayal by an allied house')lev.courierNetwork=(lev.courierNetwork||0)-0.3;
+  else if(wound==='A magical catastrophe')lev.churchOfAxiom=(lev.churchOfAxiom||0)-0.5;
+
+  // ── Heir Standing — amplifies or undercuts the Councillor's Method backing ──
+  const standing=gv('heir-standing');
+  if(methodTarget){
+    if(standing&&standing.startsWith('Favored'))lev[methodTarget]=(lev[methodTarget]||0)+0.5;
+    else if(standing&&standing.startsWith('Contested'))lev[methodTarget]=(lev[methodTarget]||0)-0.5;
+  }
+
+  // ── Capstone Specialization (5x same aspect) ──
+  const capstoneAspect=getCapstoneAspect();
+  if(capstoneAspect&&CAPSTONES[capstoneAspect]){
+    const cs=CAPSTONES[capstoneAspect];
+    lev[cs.leverageBonus.key]=(lev[cs.leverageBonus.key]||0)+cs.leverageBonus.amount;
+    cs.leveragePenalty.forEach(p=>{lev[p.key]=(lev[p.key]||0)-p.amount;});
+  }
+
+  // Round and clamp
+  Object.keys(lev).forEach(k=>{lev[k]=Math.max(-5,Math.min(5,Math.round(lev[k])));});
+  leverage=lev;
+}
+
+// ═══════════════════ SUMMARY ═══════════════════
+function renderSummary(){
+  const strip=document.getElementById('sum-strip');if(!strip)return;
+  const labels=['I·13','II·14','III·15','IV·16','V·17'];
+  strip.innerHTML=yearData.map((d,i)=>{
+    if(!d)return `<div class="sy" onclick="switchYr(${i})"><span class="sy-lbl">Year ${labels[i]}</span><span class="sy-asp">—</span><span class="sy-sub"></span></div>`;
+    const aName=ASPECTS.find(a=>a.id===d.aspect).name;
+    // Show whichever tier THIS specific year actually advanced — not the propagated p1 every time.
+    let sub='';
+    if(d.subs.p3)sub=d.subs.p3;
+    else if(d.subs.p2)sub=d.subs.p2;
+    else if(d.subs.p1)sub=d.subs.p1;
+    return `<div class="sy" onclick="switchYr(${i})"><span class="sy-lbl">Year ${labels[i]}</span><span class="sy-asp">${aName}</span><span class="sy-sub">${sub}</span></div>`;
+  }).join('');
+  updateContactFaction();
+}
+
+function updateYrCheck(year){
+  const chk=document.getElementById(`chk-${year}`);
+  const tab=document.querySelectorAll('.yr-tab')[year];
+  if(yearData[year]&&yearData[year].aspect){chk.textContent='✦';tab.classList.add('done');}
+  else{chk.textContent='';tab.classList.remove('done');}
+}
+
+// ═══════════════════ CHARACTER PROFILE ═══════════════════
+function buildProfile(){
+  calcLeverage();
+  renderLeverageCards();
+  const schoolKey=getRevealedSchool();
+  const school=schoolKey?SCHOOLS[schoolKey]:null;
+
+  // Magic aspect count drives spell access
+  const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
+  const magicCount=magicYears.length;
+  let startingSpells=[];
+  let tier2Available=false;
+  let passiveBonus=false;
+  if(magicCount>=1&&schoolKey) startingSpells=T1_SPELLS[schoolKey]||[];
+  if(magicCount>=2&&schoolKey){
+    const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
+    const adjKey=adj[schoolKey];
+    if(adjKey&&T1_SPELLS[adjKey]) startingSpells=[...startingSpells,T1_SPELLS[adjKey][0]+'*'];
+  }
+  if(magicCount>=3) tier2Available=true;
+  if(magicCount>=4) passiveBonus=true;
+
+  // Combat profile
+  const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
+  const weapon=combatYears[0]?.subs.p1||null;
+  const style=combatYears[1]?.subs.p2||null;
+  const technique=combatYears[2]?.subs.p3||null;
+  const presenceLevel=combatYears.length===0?'Baseline':combatYears.length<=2?'Developing':'Trained';
+  const hybridStyles=['Duelist-Mage','Spell and Steel','Quickcaster','Battlemage','Warden','Channeler'];
+  const hybridCapable=combatYears.length>0&&magicYears.length>0&&(style?hybridStyles.some(h=>style.includes(h.split(' ')[0])):false);
+
+  // Caravan profile
+  const caravanCaps=[];
+  if(yearData.some(d=>d&&d.aspect==='commerce'))caravanCaps.push('Merchant route contacts');
+  if(yearData.some(d=>d&&d.aspect==='statecraft'))caravanCaps.push('Checkpoint navigation');
+  if(yearData.some(d=>d&&d.aspect==='lore'))caravanCaps.push('Alternative route identification');
+  if(yearData.some(d=>d&&d.aspect==='diplomacy'))caravanCaps.push('Foreign faction negotiation');
+  if(yearData.some(d=>d&&d.aspect==='command'))caravanCaps.push('Cohesion maintenance under pressure');
+  if(schoolKey)caravanCaps.push(`${SCHOOLS[schoolKey].name} school caravan utility`);
+
+  // Exploration profile
+  const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
+  const civSpecialty=loreYears[1]?.subs.p1||null;
+  const totalTraining=yearData.filter(d=>d).length;
+  const soloCap=Math.min(3,Math.floor(totalTraining/2)+1);
+
+  const grid=document.getElementById('profile-grid');
+  const capstoneAspect=getCapstoneAspect();
+  const capstone=capstoneAspect?CAPSTONES[capstoneAspect]:null;
+  const capstoneCard=capstone?`
+    <div class="profile-card" style="border-color:var(--gold);background:var(--page-hbox-bg);grid-column:1/-1;">
+      <div class="pc-title" style="color:var(--gold-bright);">Capstone Specialization — ${ASPECTS.find(a=>a.id===capstoneAspect).name}</div>
+      <div class="pc-block" style="font-style:italic;margin-bottom:.4rem;">Five years committed to one discipline. This is not deeper expertise — it is a different category of capability.</div>
+      <div class="pc-row"><span class="pc-label">${capstone.title}</span><span class="pc-val highlight">${capstone.usage}</span></div>
+      <div class="pc-block" style="margin-top:.2rem;">${capstone.desc}</div>
+      <div class="pc-row" style="margin-top:.4rem;"><span class="pc-label">Leverage Spike</span><span class="pc-val highlight">+${capstone.leverageBonus.amount} ${capstone.leverageBonus.key}</span></div>
+      <div class="pc-row"><span class="pc-label">Cost of Total Focus</span><span class="pc-val" style="color:var(--crimson);">${capstone.leveragePenalty.map(p=>`−${p.amount} ${p.key}`).join(', ')}</span></div>
+    </div>
+  `:'';
+  grid.innerHTML=`
+    ${capstoneCard}
+    <div class="profile-card">
+      <div class="pc-title">Magic Profile</div>
+      <div class="pc-row"><span class="pc-label">School</span><span class="pc-val ${school?'highlight':'none'}">${school?school.name:'Awaiting Awakening'}</span></div>
+      <div class="pc-row"><span class="pc-label">Starting Tier</span><span class="pc-val">T1 — Reflexive</span></div>
+      ${school?`<div class="pc-row"><span class="pc-label">Axiom</span><span class="pc-val" style="font-style:italic;font-size:.72rem;">${school.axiom}</span></div>`:''}
+      <div class="pc-row"><span class="pc-label">Magic Study Years</span><span class="pc-val ${magicCount>=3?'highlight':''}">${magicCount} of 5</span></div>
+      ${startingSpells.length?`<div style="margin-top:.5rem;"><div class="pc-label" style="margin-bottom:.3rem;">Starting Spells</div>${startingSpells.map(s=>`<span class="pc-tag">${s}</span>`).join('')}</div>`:'<div class="pc-block" style="color:var(--page-text-light);font-style:italic;margin-top:.4rem;">No magic study — spells acquired through play.</div>'}
+      ${tier2Available?`<div class="pc-row" style="margin-top:.4rem;"><span class="pc-label">Tier Two Access</span><span class="pc-val highlight">One T2 spell available</span></div>`:''}
+      ${passiveBonus?`<div class="pc-row"><span class="pc-label">Passive Bonus</span><span class="pc-val highlight">${magicYears[magicYears.length-1]?.subs.p3||'Orientation acquired'}</span></div>`:''}
+    </div>
+    <div class="profile-card">
+      <div class="pc-title">Combat Profile</div>
+      <div class="pc-row"><span class="pc-label">Presence Level</span><span class="pc-val ${presenceLevel==='Trained'?'highlight':''}">${presenceLevel}</span></div>
+      <div class="pc-row"><span class="pc-label">Weapon Specialty</span><span class="pc-val ${weapon?'':'none'}">${weapon||'None — untrained'}</span></div>
+      <div class="pc-row"><span class="pc-label">Fighting Style</span><span class="pc-val ${style?'':'none'}">${style||'None'}</span></div>
+      <div class="pc-row"><span class="pc-label">Signature Technique</span><span class="pc-val ${technique?'highlight':'none'}">${technique||'None'}</span></div>
+      <div class="pc-row"><span class="pc-label">Hybrid Capable</span><span class="pc-val ${hybridCapable?'highlight':'none'}">${hybridCapable?'Yes — can cast and fight':'No'}</span></div>
+    </div>
+    <div class="profile-card">
+      <div class="pc-title">Caravan Profile</div>
+      ${caravanCaps.length?caravanCaps.map(c=>`<div class="pc-block">✦ ${c}</div>`).join(''):'<div class="pc-block" style="color:var(--page-text-light);font-style:italic;">No specific caravan training — basic capability only.</div>'}
+    </div>
+    <div class="profile-card">
+      <div class="pc-title">Exploration Profile</div>
+      <div class="pc-row"><span class="pc-label">Solo Depth Capability</span><span class="pc-val highlight">D${soloCap}</span></div>
+      <div class="pc-row"><span class="pc-label">Civilization Specialty</span><span class="pc-val ${civSpecialty?'':'none'}">${civSpecialty||'None — general access only'}</span></div>
+      ${schoolKey?`<div class="pc-block" style="margin-top:.3rem;">✦ ${SCHOOLS[schoolKey].name} school exploration access</div>`:''}
+      ${loreYears.length>=2?`<div class="pc-block">✦ Historical pattern recognition in ruins</div>`:''}
+    </div>
+  `;
+}
+
+// ═══════════════════ SPELL ACCESS SUMMARY ═══════════════════
+function buildSpellAccess(){
+  const el=document.getElementById('spell-access-summary');
+  if(!el)return;
+  const schoolKey=getRevealedSchool();
+  const magicCount=yearData.filter(d=>d&&d.aspect==='magic').length;
+  if(!schoolKey){el.innerHTML=`<div class="hbox">Complete all five years to see your spell access.</div>`;return;}
+  const school=SCHOOLS[schoolKey];
+  let html=`<div class="hbox"><strong>${school.name} — ${magicCount} year${magicCount!==1?'s':''} of magic study.</strong> `;
+  if(magicCount===0){
+    html+=`You have awakened your school through natural will development but have not studied casting formally. Your first spells will come through play.</div>`;
+  } else if(magicCount===1){
+    html+=`You know the theory. Three tier one spells are available from your school.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}</div>`;
+  } else if(magicCount===2){
+    const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
+    const adjKey=adj[schoolKey];const adjSchool=adjKey?SCHOOLS[adjKey]:null;
+    html+=`You have studied your school and its adjacent tradition. Three tier one spells from ${school.name}${adjSchool?` and one from ${adjSchool.name}`:''} are available.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}${adjSchool&&T1_SPELLS[adjKey]?`<span class="pc-tag" style="border-color:var(--gold-dim);color:var(--gold-dim);">${T1_SPELLS[adjKey][0]} *</span>`:''}</div><div style="font-size:.72rem;font-style:italic;color:var(--page-text-light);margin-top:.3rem;">* Adjacent school — higher willstrain cost until second school formally developed.</div>`;
+  } else if(magicCount===3){
+    html+=`Three years of study unlocks your first tier two spell alongside tier one access. The tier two spell is available but demanding — be aware of willstrain before your will is fully developed.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose with GM</span></div>`;
+  } else {
+    const magicData=yearData.filter(d=>d&&d.aspect==='magic');
+    const orientation=magicData[magicData.length-1]?.subs.p3||'';
+    html+=`${magicCount} years of dedicated study. Full tier one access, one tier two spell, and a philosophical orientation. You have likely sacrificed political or combat development for this depth.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose with GM</span>${orientation?`<span class="pc-tag" style="border-color:var(--forest);color:var(--forest);">${orientation}</span>`:''}</div>`;
+  }
+  el.innerHTML=html;
+}
+
+// ═══════════════════ AWAKENING INTERPRETATION ═══════════════════
+function buildAwakeningInterpretation(){
+  const el=document.getElementById('awakening-interpretation');
+  if(!el)return;
+  const schoolKey=getRevealedSchool();
+  if(!schoolKey){el.textContent='Complete all five years of study to generate your interpretation.';el.style.opacity='.5';return;}
+  const school=SCHOOLS[schoolKey];
+  const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
+  const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
+  const politicsYears=yearData.filter(d=>d&&d.aspect==='politics');
+  const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
+  const counts={combat:combatYears.length,magic:magicYears.length,politics:politicsYears.length,lore:loreYears.length,commerce:yearData.filter(d=>d&&d.aspect==='commerce').length,statecraft:yearData.filter(d=>d&&d.aspect==='statecraft').length,command:yearData.filter(d=>d&&d.aspect==='command').length,diplomacy:yearData.filter(d=>d&&d.aspect==='diplomacy').length};
+  const dominant=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  const dominantName=ASPECTS.find(a=>a.id===dominant[0])?.name||dominant[0];
+  const dominantCount=dominant[1];
+  const weapon=combatYears[0]?.subs.p1;const style=combatYears[1]?.subs.p2;const magicFocus=magicYears[0]?.subs.p1;const loreField=loreYears[0]?.subs.p1;const faction=politicsYears[0]?.subs.p1;
+  const schoolFlavors={
+    ALT:`When the crystal lit for this heir it lit the color of change. Alteration — the school of transformation, of reaching into what exists and making it other than it was. Five years of choices have produced a will that does not accept fixed states. What is can become something else. That is both a gift and a disposition that will make certain people in Shemsara nervous.`,
+    CON:`Conjuration. The crystal named absence and presence — the school of reaching beyond the immediate and pulling toward. This heir's five years of choices have shaped a will that is always aware of what is not yet here and believes it can be brought forward. That orientation is generative. It is also restless in ways that will require discipline at the table.`,
+    NEG:`The crystal named Negation. Not absence for its own sake — the withdrawal of permission. This heir's will has developed toward the most philosophically demanding school in the system. Five years of choices have shaped someone who understands that the most powerful act is sometimes what you take away. What this heir removes from situations will define them as much as what they build.`,
+    DIV:`Divination. The crystal read this heir's five years and saw a will that cannot stop asking the right question. Not the comfortable question — the true one. Divination imposes the condition of knowing onto what is hidden and the world produces truth in answer. This heir will know things at the table that others do not. What they do with that knowing is the question the campaign will ask them continuously.`,
+    TRN:`Transposition — the school of position and movement, of treating location as a variable and will as the function that reassigns it. The crystal saw a heir whose five years of choices produced a will that is always thinking about where things could be instead of where they are. That is spatial at the magical level and strategic at the political level. This heir does not stay still. That will serve them and occasionally endanger them.`,
+    DOM:`The crystal named Dominion. The most intimate and contested school — will acting directly on another will. Five years of choices have shaped someone whose deepest orientation is toward imposition, toward influence over what others choose. This is not cruelty. It is the recognition that the deepest power in any room is never force but the shaping of decisions. That heir will be the most politically dangerous person at the table if they develop with integrity. And the most dangerous in a different sense if they do not.`,
+  };
+  let interp=schoolFlavors[schoolKey]+' ';
+  if(dominantCount>=3){
+    if(dominant[0]==='combat'&&weapon) interp+=`Three years spent training with the ${weapon}${style?` and developing the ${style} style`:''} shows in how this heir moves — ${schoolKey==='NEG'?'precise and economical':schoolKey==='TRN'?'always thinking about position':schoolKey==='DOM'?'reading people before committing':'direct and committed'}. `;
+    else if(dominant[0]==='magic'&&magicFocus) interp+=`Three years of theoretical study — particularly ${magicFocus} — means this heir arrived at the crystal already halfway there. The Awakening may have felt less like discovery and more like confirmation. `;
+    else if(dominant[0]==='politics'&&faction) interp+=`Three years spent maneuvering within ${faction} means this heir understands leverage before they understand spells. That is a particular kind of power. `;
+    else if(dominant[0]==='lore'&&loreField) interp+=`Three years buried in ${loreField} means this heir knows things others do not — and knows how to use that gap. `;
+    else interp+=`Three years focused on ${dominantName} means this heir has depth in one direction. That depth has a cost somewhere else. `;
+  } else {
+    interp+=`Five years spread across ${Object.values(counts).filter(v=>v>0).length} different disciplines means this heir arrives at eighteen with breadth. No single capability is fully developed. Every capability is functional. `;
+  }
+  const shadow=document.querySelector('#shadow-grid .opt-btn.sel')?.textContent.trim();
+  if(shadow) interp+=`The house carries a shadow — ${shadow.toLowerCase().endsWith('.')?shadow:shadow+'.'} The question the campaign will ask is whether the heir has inherited it or is the one who will finally resolve it.`;
+  const capstoneAspect=getCapstoneAspect();
+  if(capstoneAspect&&CAPSTONES[capstoneAspect]){
+    const cs=CAPSTONES[capstoneAspect];
+    interp+=` Five years given entirely to ${ASPECTS.find(a=>a.id===capstoneAspect).name.toLowerCase()} produced something the depth ladder alone does not explain — ${cs.title.toLowerCase()}. ${cs.desc} This came at a cost: there was no time left for anything else.`;
+  }
+  el.textContent=interp;el.style.opacity='1';
+}
+
+// ═══════════════════ FULL LIFE NARRATIVE ═══════════════════
+function buildLifeNarrative(){
+  const el=document.getElementById('life-narrative');
+  if(!el)return;
+  const givenName=gv('heir-name')||'This heir';
+  const houseName=gv('house-name');
+  const originCity=gv('origin-city');
+  const succession=gv('succession');
+  const district=selDistrict;
+
+  const founding=document.querySelector('#founding-grid .opt-btn.sel')?.textContent.trim();
+  const foundingDetail=gv('founding-detail');
+  const wound=document.querySelector('#wound-grid .opt-btn.sel')?.textContent.trim();
+  const woundDetail=gv('wound-detail');
+  const shadow=document.querySelector('#shadow-grid .opt-btn.sel')?.textContent.trim();
+  const shadowDetail=gv('shadow-detail');
+  const ideal1=document.querySelector('#ideal-1-grid .opt-btn.sel')?.textContent.trim();
+  const acquire=ownLabel(document.querySelector('#orient-acquire .opt-btn.sel'));
+
+  const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
+  const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
+  const politicsYears=yearData.filter(d=>d&&d.aspect==='politics');
+  const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
+  const counts={combat:combatYears.length,magic:magicYears.length,politics:politicsYears.length,lore:loreYears.length,commerce:yearData.filter(d=>d&&d.aspect==='commerce').length,statecraft:yearData.filter(d=>d&&d.aspect==='statecraft').length,command:yearData.filter(d=>d&&d.aspect==='command').length,diplomacy:yearData.filter(d=>d&&d.aspect==='diplomacy').length};
+  const dominant=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+  const dominantName=ASPECTS.find(a=>a.id===dominant[0])?.name||dominant[0];
+  const schoolKey=getRevealedSchool();
+  const school=schoolKey?SCHOOLS[schoolKey]:null;
+  const done=yearData.every(d=>d!==null);
+
+  if(!givenName||!houseName||!done){
+    el.innerHTML=`<span style="font-style:italic;opacity:.6;">Complete Sections 1, 2, and all five years of study to generate the full narrative.</span>`;
+    return;
+  }
+
+  let n='';
+
+  // Opening — who, where from, what position
+  n+=`${givenName} is ${succession?succession.toLowerCase().startsWith('only')?'the only heir':`the ${succession.toLowerCase()}`:'an heir'} of House ${houseName}, called from ${originCity||'a distant city'} to Shemsara at thirteen. `;
+
+  // House formation — founding deed and wound
+  if(founding){
+    n+=`The house's founding deed: ${founding}${foundingDetail?` — ${foundingDetail}`:''}. `;
+  }
+  if(wound){
+    n+=`More recently, ${wound.toLowerCase()}${woundDetail?` — ${woundDetail}`:''}, a fact the house has not fully recovered from. `;
+  }
+  if(shadow){
+    n+=`Beneath the public record sits a shadow: ${shadow.toLowerCase()}${shadowDetail?`, specifically ${shadowDetail}`:''}. ${givenName} did not create this. ${givenName} will inherit the consequences of it regardless. `;
+  }
+
+  // The five years
+  n+=`\n\nFive years shaped what came next. `;
+  const yearCount=Object.values(counts).filter(v=>v>0).length;
+  if(dominant[1]>=3){
+    n+=`The clear center of gravity was ${dominantName.toLowerCase()} — three years or more given to a single discipline, the kind of focus that produces real depth at the cost of everything left untouched. `;
+  } else if(yearCount>=4){
+    n+=`No single discipline dominated. ${givenName} spread five years across ${yearCount} different pursuits, arriving at eighteen capable in several directions rather than masterful in one. `;
+  } else {
+    n+=`The years split between ${dominantName.toLowerCase()} and a small number of other pursuits — enough focus to matter, not enough to define everything. `;
+  }
+
+  const capstoneAspect=getCapstoneAspect();
+  if(capstoneAspect&&CAPSTONES[capstoneAspect]){
+    const cs=CAPSTONES[capstoneAspect];
+    n+=`All five years, in fact, went to ${ASPECTS.find(a=>a.id===capstoneAspect).name.toLowerCase()} alone — a commitment total enough to produce something rare: ${cs.title.toLowerCase()}. ${cs.desc} `;
+  }
+
+  // The crystal
+  if(school){
+    n+=`\n\nThe crystal read all of it and named ${school.name}. ${school.axiom} `;
+  }
+
+  // Political inheritance — Hector relation, district, orientation
+  n+=`\n\n`;
+  const relText={allied:`House ${houseName} stands allied with the Crown`,neutral:`House ${houseName} keeps its distance from the Crown — neither loyal nor hostile`,tension:`House ${houseName} carries old tension with the Crown`};
+  n+=`${relText[hectorRel]||`House ${houseName}'s relationship with the Crown is unsettled`}, a position ${givenName} inherits the moment they're recognized at court. `;
+  if(district){
+    n+=`The house's power runs through the ${district} district of Shemsara — that is where House ${houseName}'s real leverage lives, regardless of what happens in the Small Council chamber. `;
+  }
+  if(acquire){
+    n+=`If the house has a philosophy, it is this: power is acquired through ${acquire.toLowerCase()}. ${givenName} was raised inside that assumption, whether or not they still agree with it. `;
+  }
+
+  n+=`\n\nThis is who arrives at the Small Council of Shem. What they do with it is the campaign.`;
+
+  el.innerHTML=n.split('\n\n').map(p=>`<p style="margin-bottom:.9rem;">${p.trim()}</p>`).join('');
+}
+
+// ═══════════════════ LEVERAGE CARDS ═══════════════════
+function renderLeverageCards(){
+  const grid=document.getElementById('lev-grid');
+  const reqs=document.getElementById('lev-reqs');
+  if(!grid)return;
+
+  const npcs=[
+    {key:'kingHector',label:'King Hector',role:'The Monarch'},
+    {key:'royalChamberlain',label:'Chamberlain',role:'Keeper of Royal Access'},
+    {key:'merchantConsortium',label:'Merchants',role:'Controls Trade'},
+    {key:'cityWatch',label:'City Watch',role:'Controls Movement'},
+    {key:'dockworkersUnion',label:'Dockworkers',role:'Controls Harbor'},
+    {key:'courierNetwork',label:'Couriers',role:'Controls Information'},
+    {key:'churchOfAxiom',label:'Church',role:'Controls Legitimacy'},
+    {key:'scholarsGuild',label:'Scholars',role:'Controls Records'},
+    {key:'outskirtsBroker',label:'Broker',role:'Controls Black Market'},
+  ];
+
+  grid.innerHTML=npcs.map(n=>{
+    const score=leverage[n.key]||0;
+    const cls=score>0?'pos':score<0?'neg':'zero';
+    return `<div class="lev-card ${cls}">
+      <div class="lev-card-name">${n.label}</div>
+      <div class="lev-card-role">${n.role}</div>
+      <div class="lev-card-score ${cls}">${score>0?'+':''}${score}</div>
+    </div>`;
+  }).join('');
+
+  // Threshold check
+  const factionScores=[leverage.merchantConsortium,leverage.cityWatch,leverage.dockworkersUnion,leverage.courierNetwork,leverage.churchOfAxiom,leverage.scholarsGuild];
+  const factionsAt2=factionScores.filter(s=>s>=2).length;
+  const hectorMet=(leverage.kingHector||0)>=2;
+  const chamberMet=(leverage.royalChamberlain||0)>=1;
+  const highEndorseMet=(leverage.churchOfAxiom||0)>=3||(leverage.scholarsGuild||0)>=3;
+
+  const requirements=[
+    {label:'King Hector at +2 or above',met:hectorMet},
+    {label:'Three factions at +2 or above (currently '+factionsAt2+')',met:factionsAt2>=3},
+    {label:'Royal Chamberlain at +1 or above',met:chamberMet},
+    {label:'High-weight endorsement at +3 — High Priest or Archivist General',met:highEndorseMet},
+  ];
+
+  if(reqs)reqs.innerHTML=requirements.map(r=>`
+    <div class="lev-req">
+      <div class="lev-req-dot ${r.met?'met':'unmet'}"></div>
+      <span class="lev-req-text ${r.met?'met':''}">${r.label}${r.met?' ✦':''}</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════ NPC SLOTS ═══════════════════
+function initNPCSlots(){
+  // World NPC reference
+  const ref=document.getElementById('npc-ref-grid');
+  ref.innerHTML=WORLD_NPCS.map(n=>`<div class="npc-ref-item"><span class="npc-ref-name">${n.name}</span><span class="npc-ref-role">${n.role}</span><span class="npc-ref-resp">Responds to: ${n.resp}</span></div>`).join('');
+
+  const slots=document.getElementById('npc-slots');
+  slots.innerHTML=`
+    <!-- Councillor (built from Section 1 Identity) -->
+    <div class="npc-slot" style="border-color:var(--gold-dim);">
+      <div class="npc-slot-header"><div class="npc-slot-num" style="background:transparent;border:1px solid var(--gold-dim);color:var(--gold-dim);">✦</div>The Councillor — From Identity</div>
+      <div class="npc-auto">Auto-populated from your Identity section. Name and relationship defined there.</div>
+      <div class="fg fg2">
+        <div class="field s2"><label class="fl">Reputation at the Small Council</label><select class="fs" id="npc-c-rep"><option value="">Select reputation</option><option>Respected for a strong record, suspected of personal ambition</option><option>Trusted by the Crown, resented by rival houses</option><option>Liked personally, doubted on judgment</option><option>Feared more than liked</option><option>Newly seated — not yet fully tested</option><option>In quiet decline since the recent wound</option></select></div>
+        <div class="field"><label class="fl">Primary Political Goal</label><select class="fs" id="npc-c-goal"><option value="">Select goal</option><option>Secure your seat before they retire</option><option>Restore house reputation after the wound</option><option>Expand house territorial influence</option><option>Form a specific alliance through you</option><option>Ensure the shadow stays buried</option><option>Outmaneuver a rival councillor</option></select></div>
+        <div class="field"><label class="fl">What They Fear Most</label><select class="fs" id="npc-c-fear"><option value="">Select fear</option><option>The shadow being exposed</option><option>Losing the council seat</option><option>The heir failing publicly</option><option>A rival house gaining too much influence</option><option>King Hector losing confidence in the house</option><option>The recent wound reopening</option></select></div>
+        <div class="field s2"><label class="fl">What They Expect of You</label><select class="fs" id="npc-c-expect"><option value="">Select expectation</option><option>Marry into another house for alliance</option><option>Restore the house's military or political standing</option><option>Do not embarrass the house publicly</option><option>Secure a specific faction's favor</option><option>Outperform a sibling or rival heir</option><option>Stay out of politics entirely until called upon</option></select></div>
+      </div>
+    </div>
+
+    <!-- Slot 2: The Ally -->
+    <div class="npc-slot">
+      <div class="npc-slot-header"><div class="npc-slot-num">1</div>The Ally</div>
+      <div class="fg fg3">
+        <div class="field s2"><label class="fl">Name</label><input class="fi" id="npc-ally-name" type="text" placeholder="Their name"/></div>
+        <div class="field"><label class="fl">Faction Affiliation</label><select class="fs" id="npc-ally-faction"><option value="">Select faction</option>${NPC_FACTIONS.map(f=>`<option>${f}</option>`).join('')}</select></div>
+        <div class="field s3"><label class="fl">Relationship Type</label><select class="fs" id="npc-ally-type"><option value="">Select type</option>${NPC_ALLY_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">What They Want</label><select class="fs" id="npc-ally-want"><option value="">Select</option>${NPC_ALLY_WANTS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">What They Know</label><select class="fs" id="npc-ally-know"><option value="">Select</option>${NPC_ALLY_KNOWS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      </div>
+    </div>
+
+    <!-- Slot 3: The Rival -->
+    <div class="npc-slot" style="border-left:3px solid var(--crimson);">
+      <div class="npc-slot-header"><div class="npc-slot-num" style="background:var(--crimson);color:var(--vellum);">2</div>The Rival<span style="margin-left:.5rem;font-size:.5rem;letter-spacing:.15em;color:var(--crimson);border:1px solid var(--crimson);padding:.1rem .4rem;border-radius:2px;opacity:.85;">WORKS AGAINST YOU</span></div>
+      <div class="fg fg3">
+        <div class="field s2"><label class="fl">Name</label><input class="fi" id="npc-rival-name" type="text" placeholder="Their name"/></div>
+        <div class="field"><label class="fl">Faction Affiliation</label><select class="fs" id="npc-rival-faction"><option value="">Select faction</option>${NPC_FACTIONS.map(f=>`<option>${f}</option>`).join('')}</select></div>
+        <div class="field s3"><label class="fl">Relationship Type</label><select class="fs" id="npc-rival-type"><option value="">Select type</option>${NPC_RIVAL_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">What They Want from You</label><select class="fs" id="npc-rival-want"><option value="">Select</option>${NPC_RIVAL_WANTS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">Leverage They Hold</label><select class="fs" id="npc-rival-has"><option value="">Select</option>${NPC_RIVAL_HAS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      </div>
+    </div>
+
+    <!-- Slot 4: The Contact -->
+    <div class="npc-slot">
+      <div class="npc-slot-header"><div class="npc-slot-num">3</div>The Contact</div>
+      <div class="npc-auto" id="contact-auto">Faction auto-populated from your dominant aspect choice.</div>
+      <div class="fg fg3">
+        <div class="field s2"><label class="fl">Name</label><input class="fi" id="npc-contact-name" type="text" placeholder="Their name"/></div>
+        <div class="field"><label class="fl">Faction</label><div id="contact-faction-display" style="font-family:'Cinzel',serif;font-size:.85rem;color:var(--page-text);border-bottom:1px solid var(--page-border-soft);padding:.32rem .5rem;min-height:1.5rem;">—</div></div>
+        <div class="field s3"><label class="fl">What They Expect in Return</label><select class="fs" id="npc-contact-expect"><option value="">Select</option>${NPC_CONTACT_EXPECTS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      </div>
+    </div>
+
+    <!-- Slot 5: The Wild Card -->
+    <div class="npc-slot">
+      <div class="npc-slot-header"><div class="npc-slot-num">4</div>The Wild Card</div>
+      <div class="fg fg3">
+        <div class="field s2"><label class="fl">Name</label><input class="fi" id="npc-wild-name" type="text" placeholder="Their name"/></div>
+        <div class="field"><label class="fl">Category</label><select class="fs" id="npc-wild-cat"><option value="">Select category</option>${NPC_WILD_CATS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">Their Significance</label><select class="fs" id="npc-wild-sig"><option value="">Select</option>${NPC_WILD_SIG.map(t=>`<option>${t}</option>`).join('')}</select></div>
+        <div class="field"><label class="fl">Current Status</label><select class="fs" id="npc-wild-status"><option value="">Select</option>${NPC_WILD_STATUS.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      </div>
+    </div>
+  `;
+
+  // Auto-populate contact faction from dominant aspect
+  updateContactFaction();
+}
+
+function updateContactFaction(){
+  const aspectCounts={};
+  yearData.forEach(d=>{if(d)aspectCounts[d.aspect]=(aspectCounts[d.aspect]||0)+1;});
+  const dominant=Object.entries(aspectCounts).sort((a,b)=>b[1]-a[1])[0];
+  const factionMap={combat:'The Military Order',magic:'The Scholar Assembly',politics:"The Crown's Circle",statecraft:"The Crown's Circle",lore:'The Scholar Assembly',commerce:'The Merchant Bloc',command:'The Military Order',diplomacy:'The Courier Network'};
+  const faction=dominant?factionMap[dominant[0]]:'—';
+  const el=document.getElementById('contact-faction-display');
+  const note=document.getElementById('contact-auto');
+  if(el)el.textContent=faction;
+  if(note&&dominant)note.textContent=`Faction derived from your dominant aspect: ${ASPECTS.find(a=>a.id===dominant[0])?.name||''} (×${dominant[1]})`;
+}
+
+// ═══════════════════ CONFIRMATION ═══════════════════
+function buildConfirm(){
+  document.getElementById('cf-name').textContent=gv('heir-name')||'—';
+  document.getElementById('cf-city').textContent=gv('origin-city')||'—';
+  document.getElementById('cf-house').textContent=gv('house-name')||'—';
+  document.getElementById('cf-district').textContent=selDistrict||'Not selected';
+  document.getElementById('cf-councillor').textContent=gv('councillor-name')||'—';
+  document.getElementById('cf-hector').textContent=hectorRel.charAt(0).toUpperCase()+hectorRel.slice(1);
+  const labels=['Year I · 13','Year II · 14','Year III · 15','Year IV · 16','Year V · 17'];
+  document.getElementById('confirm-yrs').innerHTML=yearData.map((d,i)=>{
+    if(!d)return `<div class="cy"><span class="cy-lbl">${labels[i]}</span><span class="cy-val">—</span><span class="cy-sub"></span></div>`;
+    const sub=d.subs.p3||d.subs.p2||d.subs.p1||'';
+    return `<div class="cy"><span class="cy-lbl">${labels[i]}</span><span class="cy-val">${ASPECTS.find(a=>a.id===d.aspect).name}</span><span class="cy-sub">${sub}</span></div>`;
+  }).join('');
+  const done=yearData.every(d=>d!==null);
+  if(done){
+    const dom=Object.entries(affinities).reduce((a,b)=>b[1]>a[1]?b:a);
+    const school=SCHOOLS[dom[0]];
+    const el=document.getElementById('cs-school');el.textContent=school.name;el.style.color=school.color;
+    document.getElementById('cs-axiom').textContent=school.axiom;
+  } else {
+    document.getElementById('cs-school').textContent='Complete all five years to reveal.';
+    document.getElementById('cs-axiom').textContent='';
+  }
+  buildPrintSummary();
+}
+
+// ═══════════════════ PRINT SUMMARY ═══════════════════
+function buildPrintSummary(){
+  const schoolKey=getRevealedSchool();
+  const school=schoolKey?SCHOOLS[schoolKey]:null;
+  const heirName=gv('heir-name')||'—';
+  const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
+  const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
+  const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
+  const magicCount=magicYears.length;
+  const style=combatYears[1]?.subs.p2||null;
+  const hybridStyles=['Duelist-Mage','Spell and Steel','Quickcaster','Battlemage','Warden','Channeler'];
+  const hybrid=combatYears.length>0&&magicYears.length>0&&(style?hybridStyles.some(h=>style.includes(h.split(' ')[0])):false);
+  const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
+  let spellList=[];
+  if(magicCount>=1&&schoolKey)spellList=[...(T1_SPELLS[schoolKey]||[])];
+  if(magicCount>=2&&schoolKey){const ak=adj[schoolKey];if(ak&&T1_SPELLS[ak])spellList.push(T1_SPELLS[ak][0]+' *');}
+  const totalTraining=yearData.filter(d=>d).length;
+  const soloCap=Math.min(3,Math.floor(totalTraining/2)+1);
+  const caravanCaps=[];
+  ['commerce','statecraft','lore','diplomacy','command'].forEach(a=>{if(yearData.some(d=>d&&d.aspect===a))caravanCaps.push(ASPECTS.find(x=>x.id===a).name);});
+
+  // Populate fields
+  const se=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  const sc=(id,v)=>{const el=document.getElementById(id);if(el)el.style.color=v;};
+
+  se('ps-name-sub',`${heirName} · ${gv('house-name')||'—'} · Age of Wonder`);
+  se('ps-school-name',school?school.name:'School not yet revealed');
+  se('ps-school-axiom',school?school.axiom:'Complete all five years of study.');
+  if(school){sc('ps-school-name',school.color);}
+
+  se('ps-heir-name',heirName);
+  se('ps-house-name',gv('house-name')||'—');
+  se('ps-origin',gv('origin-city')||'—');
+  se('ps-district',selDistrict||'Not selected');
+  se('ps-councillor',gv('councillor-name')||'—');
+  se('ps-hector',hectorRel.charAt(0).toUpperCase()+hectorRel.slice(1));
+
+  se('ps-presence',combatYears.length===0?'Baseline':combatYears.length<=2?'Developing':'Trained');
+  se('ps-weapon',combatYears[0]?.subs.p1||'None');
+  se('ps-style',style||'None');
+  se('ps-technique',combatYears[2]?.subs.p3||'None');
+  se('ps-hybrid',hybrid?'Yes — can cast and fight':'No');
+
+  se('ps-magic-school',school?school.name:'—');
+  if(school)sc('ps-magic-school',school.color);
+  se('ps-magic-years',`${magicCount} of 5 years`);
+  se('ps-spells',spellList.length?spellList.join(', '):'Acquired through play');
+  se('ps-t2',magicCount>=3?'Yes — one T2 spell':'No');
+
+  se('ps-depth',`D${soloCap}`);
+  se('ps-civ',loreYears[1]?.subs.p1||'None');
+  const caravanEl=document.getElementById('ps-caravan');
+  if(caravanEl)caravanEl.textContent=caravanCaps.length?caravanCaps.join(' · '):'Basic capability only';
+
+  // Five years
+  const psYears=document.getElementById('ps-years');
+  if(psYears){
+    const labels=['I·13','II·14','III·15','IV·16','V·17'];
+    psYears.innerHTML=yearData.map((d,i)=>{
+      if(!d)return `<div class="ps-year"><span class="ps-yr-lbl">Year ${labels[i]}</span><span class="ps-yr-asp">—</span><span class="ps-yr-sub"></span></div>`;
+      const sub=d.subs.p3||d.subs.p2||d.subs.p1||'';
+      return `<div class="ps-year"><span class="ps-yr-lbl">Year ${labels[i]}</span><span class="ps-yr-asp">${ASPECTS.find(a=>a.id===d.aspect).name}</span><span class="ps-yr-sub">${sub}</span></div>`;
+    }).join('');
+  }
+
+  // Leverage
+  const psLev=document.getElementById('ps-lev-grid');
+  if(psLev){
+    const npcs=[
+      {key:'kingHector',label:'King Hector'},{key:'royalChamberlain',label:'Chamberlain'},
+      {key:'merchantConsortium',label:'Merchants'},{key:'cityWatch',label:'City Watch'},
+      {key:'dockworkersUnion',label:'Dockworkers'},{key:'courierNetwork',label:'Couriers'},
+      {key:'churchOfAxiom',label:'Church'},{key:'scholarsGuild',label:'Scholars'},
+      {key:'outskirtsBroker',label:'Broker'},
+    ];
+    psLev.innerHTML=npcs.map(n=>{
+      const score=leverage[n.key]||0;
+      const col=score>0?'#2c4a3a':score<0?'#8c3a1a':getComputedStyle(document.documentElement).getPropertyValue('--page-text-mid').trim();
+      return `<div class="ps-lev-item"><span class="ps-lev-name">${n.label}</span><span class="ps-lev-score" style="color:${col};">${score>0?'+':''}${score}</span></div>`;
+    }).join('');
+  }
+
+  // Interpretation
+  const psInterp=document.getElementById('ps-interp');
+  if(psInterp){
+    const interpEl=document.getElementById('awakening-interpretation');
+    psInterp.textContent=interpEl?interpEl.textContent:'Complete all five years to generate.';
+  }
+}
+
+// ═══════════════════ SAVE ═══════════════════
+function saveRecord(){
+  const awakeningReaction=gv('awakening-reaction');
+  const done=yearData.every(d=>d!==null);
+  const revealedSchool=done?Object.entries(affinities).reduce((a,b)=>b[1]>a[1]?b:a)[0]:null;
+  const heirName=gv('heir-name')||'';
+  const houseName=gv('house-name')||'';
+
+  if(!heirName.trim()||!houseName.trim()||!done){
+    const missing=[];
+    if(!heirName.trim())missing.push('your given name (Section 1)');
+    if(!houseName.trim())missing.push('your house name (Section 2)');
+    if(!done)missing.push('all five years of study (Section 3)');
+    alert(`Your record isn't complete yet — still missing: ${missing.join(', ')}.\n\nGo back and finish these before saving, or your GM won't be able to import this file correctly.`);
+    return;
+  }
+
+  // Combat profile derived
+  const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
+  const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
+  const hybridStyles=['Duelist-Mage','Spell and Steel','Quickcaster','Battlemage','Warden','Channeler'];
+  const style=combatYears[1]?.subs.p2||null;
+  const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
+  const totalTraining=yearData.filter(d=>d).length;
+
+  // Spell access
+  const magicCount=magicYears.length;
+  let startingSpells=[];
+  if(magicCount>=1&&revealedSchool) startingSpells=T1_SPELLS[revealedSchool]||[];
+  if(magicCount>=2&&revealedSchool){const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};const adjKey=adj[revealedSchool];if(adjKey&&T1_SPELLS[adjKey])startingSpells=[...startingSpells,T1_SPELLS[adjKey][0]+' (adjacent)'];}
+
+  const record={
+    version:'1.1',
+    timestamp:new Date().toISOString(),
+    identity:{
+      name:(gv('heir-name').trim()&&gv('house-name').trim())?`${gv('heir-name').trim()} of House ${gv('house-name').trim().replace(/^House\s+/i,'')}`:gv('heir-name'),
+      givenName:gv('heir-name'),
+      houseName:gv('house-name'),
+      succession:gv('succession'),originCity:gv('origin-city'),
+      councillorName:gv('councillor-name'),councillorTitle:gv('councillor-title'),
+      councillorRep:gv('npc-c-rep'),
+      councillorMethod:document.querySelector('#councillor-method .opt-btn.sel')?.textContent.trim()||'',
+      councillorGoal:gv('npc-c-goal'),councillorFear:gv('npc-c-fear'),
+      councillorExpectation:gv('npc-c-expect'),
+      hectorRelation:hectorRel,
+    },
+    house:{
+      name:gv('house-name'),seat:gv('origin-city'),
+      colorPrimary:document.getElementById('color-primary').value,
+      colorSecondary:document.getElementById('color-secondary').value,
+      sigilDesc:gv('sigil-desc'),sigil:sigilB64||null,district:selDistrict,
+      orientation:{
+        acquire:ownLabel(document.querySelector('#orient-acquire .opt-btn.sel')),
+        hold:ownLabel(document.querySelector('#orient-hold .opt-btn.sel')),
+        use:ownLabel(document.querySelector('#orient-use .opt-btn.sel')),
+      },
+      ideal1:document.querySelector('#ideal-1-grid .opt-btn.sel')?.textContent.trim()||'',
+      ideal2:document.querySelector('#ideal-2-grid .opt-btn.sel')?.textContent.trim()||'',
+      shadow:document.querySelector('#shadow-grid .opt-btn.sel')?.textContent.trim()||'',
+      shadowDetail:gv('shadow-detail'),
+      resources:Array.from(document.querySelectorAll('#resources-grid .opt-btn.sel')).map(b=>b.textContent.trim()),
+      founding:document.querySelector('#founding-grid .opt-btn.sel')?.textContent.trim()||'',
+      foundingDetail:gv('founding-detail'),
+      wound:document.querySelector('#wound-grid .opt-btn.sel')?.textContent.trim()||'',
+      woundDetail:gv('wound-detail'),
+      heirStanding:gv('heir-standing'),
+    },
+    study:{years:yearData},
+    awakening:{
+      affinities,revealedSchool,
+      awakeningReaction:gv('awakening-reaction'),
+      magicStudyYears:magicCount,
+      startingSpells,
+      tier2Available:magicCount>=3,
+      philosophicalOrientation:magicCount>=4?(magicYears[magicYears.length-1]?.subs.p3||null):null,
+    },
+    combatProfile:{
+      weaponSpecialty:combatYears[0]?.subs.p1||null,
+      fightingStyle:style,
+      signatureTechnique:combatYears[2]?.subs.p3||null,
+      hybridCapable:combatYears.length>0&&magicYears.length>0&&(style?hybridStyles.some(h=>style.includes(h.split(' ')[0])):false),
+      presenceLevel:combatYears.length===0?'Baseline':combatYears.length<=2?'Developing':'Trained',
+    },
+    capstone:(function(){
+      const a=getCapstoneAspect();
+      if(!a)return null;
+      const cs=CAPSTONES[a];
+      return {
+        aspect:a,
+        aspectName:ASPECTS.find(x=>x.id===a).name,
+        title:cs.title,
+        description:cs.desc,
+        usage:cs.usage,
+        leverageBonus:cs.leverageBonus,
+        leveragePenalty:cs.leveragePenalty,
+      };
+    })(),
+    startingLeverage:leverage,
+    caravanProfile:['commerce','statecraft','lore','diplomacy','command'].filter(a=>yearData.some(d=>d&&d.aspect===a)).map(a=>ASPECTS.find(x=>x.id===a).name),
+    explorationProfile:{
+      civilizationSpecialty:loreYears[1]?.subs.p1||null,
+      soloDepthCapability:Math.min(3,Math.floor(totalTraining/2)+1),
+    },
+    npcs:{
+      councillor:{name:gv('councillor-name'),reputation:gv('npc-c-rep'),goal:gv('npc-c-goal'),fear:gv('npc-c-fear'),expects:gv('npc-c-expect')},
+      ally:{name:gv('npc-ally-name'),faction:gv('npc-ally-faction'),type:gv('npc-ally-type'),want:gv('npc-ally-want'),knows:gv('npc-ally-know')},
+      rival:{name:gv('npc-rival-name'),faction:gv('npc-rival-faction'),type:gv('npc-rival-type'),want:gv('npc-rival-want'),leverage:gv('npc-rival-has')},
+      contact:{name:gv('npc-contact-name'),faction:document.getElementById('contact-faction-display')?.textContent||'',expects:gv('npc-contact-expect')},
+      wildCard:{name:gv('npc-wild-name'),category:gv('npc-wild-cat'),significance:gv('npc-wild-sig'),status:gv('npc-wild-status')},
+    },
+    awakeningReaction,
+  };
+
+  const blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const name=(gv('heir-name')||'heir').replace(/\s+/g,'_').toLowerCase();
+  a.href=url;a.download=`aow_heir_${name}.json`;a.click();URL.revokeObjectURL(url);
+}
+
+// ═══════════════════ INIT ═══════════════════
+function init(){
+  document.getElementById('rail').style.display='none';
+  initYears();initNPCSlots();
+  renderMap();renderBars();checkAwaken();renderSummary();calcLeverage();
+}
+init();
+</script>
+</body>
+</html>

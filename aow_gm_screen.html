@@ -1,0 +1,2723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age of Wonder — Wonderland · GM Screen</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0f0d0a;
+  --night-mid:#1a1410;
+  --night-panel:#141008;
+  --vellum:#f5eedf;
+  --vellum-dark:#e8dcc8;
+  --vellum-mid:#d4c4a8;
+  --ink:#2a1f14;
+  --ink-mid:#5c3d1e;
+  --ink-light:#8a6a48;
+  --gold:#8b6914;
+  --gold-bright:#c9a030;
+  --gold-dim:rgba(139,105,20,0.4);
+  --gold-faint:rgba(139,105,20,0.08);
+  --forest:#1e3a2a;
+  --forest-bright:#2a5a3a;
+  --crimson:#6b1a1a;
+  --crimson-bright:#9b2a2a;
+  --indigo:#3a3060;
+  --panel-border:rgba(139,105,20,0.18);
+}
+html[data-theme="light"]{
+  --night:#f5eedf;
+  --night-mid:#ebe1cc;
+  --night-panel:#e0d4ba;
+  --vellum:#2a1f14;
+  --vellum-dark:#3a2d1e;
+  --vellum-mid:#5c3d1e;
+  --panel-border:rgba(58,45,30,0.22);
+  --gold-faint:rgba(139,105,20,0.14);
+}
+
+html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
+
+/* ══════ SHELL ══════ */
+.gm-shell{display:grid;grid-template-rows:auto 1fr;height:100dvh;}
+
+/* ══════ TOP BAR ══════ */
+.top-bar{background:var(--night-panel);border-bottom:1px solid var(--panel-border);padding:.55rem 1.2rem;display:flex;align-items:center;gap:1.2rem;z-index:100;flex-shrink:0;}
+.top-bar-brand{display:flex;flex-direction:column;}
+.top-bar-title{font-family:'Cinzel Decorative',serif;font-size:.82rem;color:var(--gold-bright);letter-spacing:.04em;line-height:1;}
+.top-bar-sub{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-dim);margin-top:.15rem;}
+.session-type-toggle{display:flex;margin-left:.4rem;}
+.stype-btn{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.15em;text-transform:uppercase;padding:.26rem .6rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.stype-btn:first-child{border-right:none;}
+.stype-btn.active{background:var(--gold-faint);border-color:var(--gold);color:var(--gold-bright);}
+.top-bar-right{margin-left:auto;display:flex;align-items:center;gap:.7rem;}
+.session-counter{display:flex;align-items:center;gap:.4rem;}
+.session-label{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+.session-num{font-family:'Cinzel',serif;font-size:.88rem;color:var(--gold-bright);}
+.top-btn{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .7rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
+.top-btn:hover{border-color:var(--gold);color:var(--gold);}
+.top-btn.primary{border-color:var(--gold);color:var(--gold);}
+.top-btn.primary:hover{background:var(--gold-faint);}
+.save-indicator{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-dim);opacity:0;transition:opacity .3s;}
+.save-indicator.show{opacity:1;}
+
+/* ══════ MAIN GRID ══════ */
+.main-grid{display:grid;grid-template-columns:255px 1fr 310px;height:100%;overflow:hidden;min-height:0;}
+
+/* ══════ SHARED PANEL PIECES ══════ */
+.panel-header{padding:.75rem 1rem .55rem;border-bottom:1px solid var(--panel-border);flex-shrink:0;}
+.panel-eyebrow{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.18rem;}
+.panel-title{font-family:'Cinzel',serif;font-size:.75rem;color:var(--vellum-dark);font-weight:600;}
+
+/* ══════ LEFT — WEB PANEL ══════ */
+.web-panel{background:var(--night-panel);border-right:1px solid var(--panel-border);display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+.heir-pills{display:flex;flex-wrap:wrap;gap:.25rem;padding:.5rem .6rem;border-bottom:1px solid var(--panel-border);flex-shrink:0;}
+.heir-pill{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;padding:.22rem .5rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.heir-pill:hover{border-color:var(--gold-dim);color:var(--vellum-dark);}
+.heir-pill.active{border-color:var(--gold);color:var(--gold-bright);background:var(--gold-faint);}
+.heir-pill.all{border-color:var(--gold-dim);color:var(--gold-dim);}
+.heir-pill.all.active{border-color:var(--gold-bright);color:var(--gold-bright);}
+.web-scroll{flex:1;overflow-y:auto;padding:.5rem;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;min-height:0;}
+.cluster{margin-bottom:.7rem;}
+.cluster-label{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold-dim);padding:.18rem .35rem;margin-bottom:.25rem;display:block;border-bottom:1px solid rgba(139,105,20,0.1);}
+.node-card{padding:.4rem .55rem;margin-bottom:.22rem;border:1px solid var(--panel-border);background:rgba(255,255,255,0.02);cursor:pointer;transition:all .15s;position:relative;}
+.node-card:hover{border-color:var(--gold-dim);background:var(--gold-faint);}
+.node-card.has-weight{border-left:2px solid var(--gold-bright);}
+.node-card.primed{border-left:2px solid var(--crimson-bright);animation:pulse-border 2s infinite;}
+@keyframes pulse-border{0%,100%{border-left-color:var(--crimson-bright);}50%{border-left-color:rgba(155,42,42,0.25);}}
+.node-name{font-family:'Cinzel',serif;font-size:.62rem;font-weight:600;color:var(--vellum-dark);display:block;}
+.node-role{font-family:'EB Garamond',serif;font-size:.72rem;color:var(--ink-light);font-style:italic;display:block;line-height:1.2;}
+.node-weight-bar{height:2px;background:rgba(139,105,20,0.1);margin-top:.3rem;overflow:hidden;}
+.node-weight-fill{height:100%;background:var(--gold-bright);transition:width .4s ease;}
+.node-weight-fill.danger{background:var(--crimson-bright);}
+.node-tag{font-family:'Cinzel',serif;font-size:.38rem;letter-spacing:.1em;text-transform:uppercase;padding:.08rem .28rem;border:1px solid;display:inline-block;margin-top:.22rem;margin-right:.18rem;}
+.node-tag.crown{border-color:var(--gold-dim);color:var(--gold-dim);}
+.node-tag.faction{border-color:rgba(30,58,42,0.6);color:var(--forest-bright);}
+.node-tag.personal{border-color:rgba(58,48,96,0.6);color:#7a70b0;}
+.node-tag.satellite{border-color:rgba(92,61,30,0.4);color:var(--ink-light);}
+.weight-badge{position:absolute;top:.32rem;right:.45rem;font-family:'Cinzel',serif;font-size:.5rem;font-weight:700;}
+.weight-badge.pos{color:var(--gold-bright);}
+.weight-badge.neg{color:var(--crimson-bright);}
+.weight-badge.zero{color:var(--ink-light);}
+
+/* ══════ CENTER ══════ */
+.center-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--night);min-height:0;}
+
+/* composer */
+.event-composer{background:var(--night-mid);border-bottom:1px solid var(--panel-border);padding:.75rem 1rem;flex-shrink:0;overflow-y:auto;max-height:52vh;}
+.composer-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
+.composer-title{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+.event-type-row{display:flex;gap:.25rem;margin-bottom:.5rem;flex-wrap:wrap;}
+.event-type-btn{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;padding:.28rem .6rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.event-type-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.event-type-btn.active{border-color:var(--gold);color:var(--gold-bright);background:var(--gold-faint);}
+.event-type-btn.presence.active{border-color:var(--forest-bright);color:#5a9a6a;background:rgba(30,58,42,0.12);}
+.event-type-btn.revelation.active{border-color:var(--crimson-bright);color:#c06060;background:rgba(107,26,26,0.1);}
+.event-type-btn.exchange.active{border-color:#7a70b0;color:#a090d0;background:rgba(58,48,96,0.1);}
+.composer-row{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-bottom:.45rem;}
+.composer-row.three{grid-template-columns:1fr 1fr 1fr;}
+.composer-field-label{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.18rem;}
+.composer-select,.composer-input{font-family:'EB Garamond',serif;font-size:.86rem;background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);color:var(--vellum-dark);padding:.3rem .45rem;width:100%;transition:border .15s;}
+.composer-select:focus,.composer-input:focus{outline:none;border-color:var(--gold-dim);}
+.composer-select option{background:var(--night-mid);}
+.composer-textarea{font-family:'EB Garamond',serif;font-size:.86rem;background:rgba(255,255,255,0.03);border:1px solid var(--panel-border);color:var(--vellum-dark);padding:.3rem .45rem;width:100%;resize:none;height:48px;transition:border .15s;}
+.composer-textarea:focus{outline:none;border-color:var(--gold-dim);}
+.tier-row{display:flex;gap:.25rem;align-items:center;margin-bottom:.45rem;flex-wrap:wrap;}
+.tier-label{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);margin-right:.2rem;}
+.tier-pip{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.1em;padding:.25rem .55rem;border:1px solid var(--panel-border);color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.tier-pip:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.tier-pip.active{border-color:var(--gold);color:var(--gold-bright);background:var(--gold-faint);}
+.tier-pip.t4,.tier-pip.t5{border-color:rgba(107,26,26,0.35);}
+.tier-pip.t4.active,.tier-pip.t5.active{border-color:var(--crimson-bright);color:#c06060;background:rgba(107,26,26,0.1);}
+.direction-row{display:flex;gap:.25rem;align-items:center;margin-bottom:.45rem;}
+.dir-label{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);margin-right:.2rem;white-space:nowrap;}
+.dir-btn{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;padding:.28rem .7rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;flex:1;text-align:center;}
+.dir-btn.favorable.active{border-color:var(--forest-bright);color:#5a9a6a;background:rgba(30,58,42,0.12);}
+.dir-btn.hostile.active{border-color:var(--crimson-bright);color:#c06060;background:rgba(107,26,26,0.1);}
+.log-btn{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.18em;text-transform:uppercase;padding:.38rem 1.1rem;border:1px solid var(--gold);background:var(--gold-faint);color:var(--gold-bright);cursor:pointer;transition:all .2s;margin-top:.45rem;width:100%;}
+.stamina-selector{display:flex;gap:.4rem;}
+.stamina-btn{flex:1;padding:.5rem .3rem;border:1px solid var(--panel-border);background:var(--night-mid);cursor:pointer;text-align:center;transition:all .2s;font-family:'Cinzel',serif;font-size:.6rem;color:var(--ink-light);}
+.stamina-btn.active-0{border-color:var(--forest);color:var(--forest-bright);background:rgba(44,74,58,0.12);}
+.stamina-btn.active-1{border-color:var(--gold);color:var(--gold-bright);background:rgba(139,105,20,0.1);}
+.stamina-btn.active-2{border-color:var(--crimson);color:var(--gold-bright);background:rgba(107,26,26,0.1);}
+.stamina-btn.active-3{border-color:var(--crimson);color:var(--crimson-bright);background:rgba(107,26,26,0.15);}
+.wound-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;}
+.wound-btn{padding:.45rem .4rem;border:1px solid var(--panel-border);background:var(--night-mid);cursor:pointer;text-align:center;transition:all .2s;font-family:'Cinzel',serif;font-size:.58rem;color:var(--ink-light);}
+.wound-btn.active{border-color:var(--crimson);background:rgba(107,26,26,0.12);color:var(--crimson-bright);}
+.log-btn:hover{background:rgba(139,105,20,0.18);}
+
+/* event log — tabbed */
+.log-tabs{display:flex;border-bottom:1px solid var(--panel-border);flex-shrink:0;}
+.log-tab{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.15em;text-transform:uppercase;padding:.4rem .9rem;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.log-tab.active{color:var(--gold-bright);border-bottom-color:var(--gold);}
+.log-area{flex:1;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;}
+.log-pane{display:none;padding:.7rem .9rem;}
+.log-pane.active{display:block;}
+.log-empty{font-family:'EB Garamond',serif;font-style:italic;font-size:.9rem;color:var(--ink-light);text-align:center;margin-top:2.5rem;opacity:.45;line-height:1.7;}
+
+/* event entries */
+.log-entry{border-left:2px solid var(--panel-border);padding:.45rem .7rem;margin-bottom:.5rem;cursor:pointer;transition:border .15s;}
+.log-entry:hover{border-left-color:var(--gold-dim);}
+.log-entry.action{border-left-color:var(--gold);}
+.log-entry.presence{border-left-color:var(--forest-bright);}
+.log-entry.exchange{border-left-color:#7a70b0;}
+.log-entry.revelation{border-left-color:var(--crimson-bright);}
+.log-entry.expanded .log-hooks{display:block;}
+.log-entry-header{display:flex;align-items:baseline;gap:.45rem;margin-bottom:.18rem;}
+.log-entry-type{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.2em;text-transform:uppercase;}
+.log-entry-type.action{color:var(--gold);}
+.log-entry-type.presence{color:var(--forest-bright);}
+.log-entry-type.exchange{color:#7a70b0;}
+.log-entry-type.revelation{color:var(--crimson-bright);}
+.log-entry-dir{font-family:'Cinzel',serif;font-size:.38rem;letter-spacing:.1em;text-transform:uppercase;padding:.05rem .3rem;border:1px solid;}
+.log-entry-dir.favorable{border-color:rgba(30,58,42,0.5);color:var(--forest-bright);}
+.log-entry-dir.hostile{border-color:rgba(107,26,26,0.5);color:#c06060;}
+.log-entry-session{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.08em;color:var(--ink-light);margin-left:auto;}
+.log-entry-desc{font-family:'EB Garamond',serif;font-size:.88rem;color:var(--vellum-dark);line-height:1.5;}
+.log-entry-meta{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-light);margin-top:.18rem;}
+.log-hook-count{font-family:'Cinzel',serif;font-size:.38rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);margin-top:.2rem;}
+.log-hooks{display:none;margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--panel-border);}
+.log-hook-item{font-family:'EB Garamond',serif;font-size:.82rem;color:var(--vellum-mid);line-height:1.55;padding:.3rem 0;border-bottom:1px solid rgba(139,105,20,0.08);}
+.log-hook-item:last-child{border-bottom:none;}
+.log-hook-item-type{font-family:'Cinzel',serif;font-size:.38rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.1rem;}
+.log-hook-item-type.trigger-primed{color:var(--crimson-bright);}
+.log-hook-item-type.weight-moved{color:var(--gold-dim);}
+.log-hook-item-type.opportunity{color:#5a9a6a;}
+.log-hook-item-type.collision{color:#a090d0;}
+
+/* GM notes pane */
+.notes-pane{padding:.7rem .9rem;display:flex;flex-direction:column;gap:.5rem;}
+.notes-label{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.15rem;}
+.notes-textarea{font-family:'EB Garamond',serif;font-size:.9rem;background:rgba(255,255,255,0.02);border:1px solid var(--panel-border);color:var(--vellum-dark);padding:.45rem .55rem;width:100%;resize:none;transition:border .15s;line-height:1.65;}
+.notes-textarea:focus{outline:none;border-color:var(--gold-dim);}
+.notes-textarea.session-notes{height:140px;}
+.notes-textarea.between-notes{height:100px;}
+.notes-textarea.open-threads{height:80px;}
+
+/* ══════ RIGHT — HOOK PANEL ══════ */
+.hook-panel{background:var(--night-panel);border-left:1px solid var(--panel-border);display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+.hook-filter-row{display:flex;gap:.2rem;padding:.45rem .6rem;border-bottom:1px solid var(--panel-border);flex-shrink:0;flex-wrap:wrap;}
+.hook-filter-btn{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .45rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.hook-filter-btn.active{border-color:var(--gold-dim);color:var(--gold);}
+.hook-filter-btn.f-trigger.active{border-color:var(--crimson-bright);color:#c06060;}
+.hook-filter-btn.f-opportunity.active{border-color:rgba(30,58,42,0.8);color:#5a9a6a;}
+.hook-filter-btn.f-collision.active{border-color:rgba(58,48,96,0.8);color:#a090d0;}
+.hook-scroll{flex:1;overflow-y:auto;padding:.7rem;scrollbar-width:thin;scrollbar-color:var(--gold-dim) transparent;min-height:0;}
+.hook-empty{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);text-align:center;margin-top:3rem;line-height:1.75;opacity:.45;padding:0 .8rem;}
+.hook-card{border:1px solid var(--panel-border);padding:.65rem .75rem;margin-bottom:.55rem;background:rgba(255,255,255,0.015);}
+.hook-card.trigger-primed{border-color:rgba(155,42,42,0.6);background:rgba(107,26,26,0.06);}
+.hook-card.weight-moved{border-color:rgba(139,105,20,0.3);}
+.hook-card.opportunity{border-color:rgba(30,58,42,0.45);background:rgba(30,58,42,0.04);}
+.hook-card.collision{border-color:rgba(58,48,96,0.45);background:rgba(58,48,96,0.04);}
+.hook-card.deployed{opacity:.38;}
+.hook-type{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.22em;text-transform:uppercase;display:block;margin-bottom:.28rem;}
+.hook-type.trigger-primed{color:var(--crimson-bright);}
+.hook-type.weight-moved{color:var(--gold-dim);}
+.hook-type.opportunity{color:#5a9a6a;}
+.hook-type.collision{color:#a090d0;}
+.hook-text{font-family:'EB Garamond',serif;font-size:.88rem;color:var(--vellum-dark);line-height:1.65;}
+.hook-entities{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-light);margin-top:.3rem;border-top:1px solid var(--panel-border);padding-top:.28rem;}
+.hook-actions{display:flex;gap:.3rem;margin-top:.4rem;}
+.hook-btn{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.14em;text-transform:uppercase;padding:.18rem .45rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.hook-btn:hover{border-color:var(--gold-dim);color:var(--gold);}
+.hook-btn.deployed{border-color:var(--forest-bright);color:var(--forest-bright);}
+.hook-btn.dismiss{color:rgba(92,61,30,0.5);}
+.hook-btn.dismiss:hover{border-color:var(--crimson-bright);color:#c06060;}
+.hook-session-tag{font-family:'Cinzel',serif;font-size:.38rem;letter-spacing:.1em;color:var(--ink-light);margin-left:auto;align-self:center;}
+
+/* ══════ DRAWER ══════ */
+.drawer{position:fixed;right:0;top:0;bottom:0;width:340px;background:var(--night-mid);border-left:1px solid var(--gold-dim);z-index:400;transform:translateX(100%);transition:transform .22s ease;overflow-y:auto;padding:1.1rem;}
+.drawer.open{transform:translateX(0);}
+.drawer-close{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);cursor:pointer;margin-bottom:.9rem;display:block;}
+.drawer-close:hover{color:var(--gold);}
+.drawer-name{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold-bright);margin-bottom:.18rem;line-height:1.2;}
+.drawer-role{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.75rem;display:block;}
+.drawer-section{margin-bottom:.75rem;}
+.drawer-section-label{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);border-bottom:1px solid var(--panel-border);padding-bottom:.18rem;margin-bottom:.38rem;display:block;}
+.drawer-text{font-family:'EB Garamond',serif;font-size:.88rem;color:var(--vellum-dark);line-height:1.65;}
+.drawer-score-row{display:flex;align-items:center;gap:.45rem;margin-bottom:.28rem;}
+.drawer-heir-name{font-family:'Cinzel',serif;font-size:.56rem;color:var(--vellum-mid);flex:1;}
+.drawer-score{font-family:'Cinzel',serif;font-size:.88rem;font-weight:700;min-width:2rem;text-align:center;}
+.drawer-score.pos{color:var(--gold-bright);}
+.drawer-score.neg{color:var(--crimson-bright);}
+.drawer-score.zero{color:var(--ink-light);}
+.drawer-adj{font-family:'Cinzel',serif;font-size:.68rem;padding:.08rem .38rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .1s;}
+.drawer-adj:hover{border-color:var(--gold-dim);color:var(--gold);}
+.weight-fill-bar{height:3px;background:rgba(139,105,20,0.1);margin:.28rem 0;overflow:hidden;}
+.weight-fill-inner{height:100%;transition:width .4s;}
+.drawer-notes-area{font-family:'EB Garamond',serif;font-size:.86rem;background:rgba(255,255,255,0.02);border:1px solid var(--panel-border);color:var(--vellum-dark);padding:.3rem .4rem;width:100%;resize:none;height:70px;margin-top:.3rem;}
+.drawer-notes-area:focus{outline:none;border-color:var(--gold-dim);}
+
+/* ══════ MODAL ══════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--night-mid);border:1px solid var(--gold-dim);padding:1.4rem;width:460px;max-height:82vh;overflow-y:auto;}
+.modal-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.25rem;}
+.modal-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);margin-bottom:.9rem;line-height:1.6;}
+.modal-heirs{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem;}
+.modal-heir-item{padding:.45rem .65rem;border:1px solid var(--panel-border);display:flex;align-items:center;gap:.55rem;}
+.modal-heir-name{font-family:'Cinzel',serif;font-size:.68rem;color:var(--vellum-dark);}
+.modal-heir-school{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);}
+.modal-heir-house{font-family:'EB Garamond',serif;font-style:italic;font-size:.8rem;color:var(--ink-light);margin-left:auto;}
+.modal-collision-list{font-family:'EB Garamond',serif;font-size:.88rem;color:#a090d0;line-height:1.65;padding:.5rem .65rem;border:1px solid rgba(58,48,96,0.4);background:rgba(58,48,96,0.06);margin-bottom:.6rem;}
+.modal-btn-row{display:flex;gap:.5rem;margin-top:.4rem;}
+.modal-btn{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;padding:.36rem .9rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.modal-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.modal-btn.primary{border-color:var(--gold);color:var(--gold);}
+.modal-btn.primary:hover{background:var(--gold-faint);}
+
+/* confirm overlay */
+.confirm-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.92);z-index:600;display:none;align-items:center;justify-content:center;}
+.confirm-overlay.show{display:flex;}
+.confirm-box{background:var(--night-mid);border:1px solid var(--gold-dim);padding:1.4rem;width:340px;text-align:center;}
+.confirm-title{font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold-bright);margin-bottom:.5rem;}
+.confirm-body{font-family:'EB Garamond',serif;font-size:.92rem;color:var(--vellum-mid);line-height:1.65;margin-bottom:1rem;}
+.confirm-actions{display:flex;gap:.5rem;justify-content:center;}
+
+/* scrollbars */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(139,105,20,0.2);border-radius:2px;}
+
+/* ══════ MOBILE ══════ */
+.mobile-tab-nav{display:none;}
+
+@media(max-width:768px){
+  html,body{overflow:auto;}
+  .gm-shell{grid-template-rows:auto auto 1fr;height:100dvh;}
+  .top-bar{flex-wrap:wrap;gap:.4rem;padding:.45rem .7rem;}
+  .top-bar-sub{display:none;}
+  .session-type-toggle{margin-left:0;order:3;width:100%;}
+  .stype-btn{flex:1;text-align:center;}
+  .top-bar-right{margin-left:auto;gap:.4rem;}
+  .session-label{display:none;}
+  .top-btn{font-size:.44rem;padding:.24rem .55rem;}
+  .save-indicator{display:none;}
+  .main-grid{display:block;height:100%;overflow:hidden;position:relative;}
+  .web-panel,.center-panel,.hook-panel{position:absolute;inset:0;display:none;height:100%;}
+  .web-panel.mob-active,.center-panel.mob-active,.hook-panel.mob-active{display:flex;}
+  .web-panel{overflow:hidden;}
+  .center-panel{flex-direction:column;overflow:hidden;}
+  .event-composer{overflow-y:auto;max-height:58vh;flex-shrink:0;}
+  .composer-row,.composer-row.three{grid-template-columns:1fr;}
+  .hook-panel{flex-direction:column;}
+  .drawer{width:100%;border-left:none;border-top:1px solid var(--gold-dim);}
+  .modal-box{width:92vw;padding:1rem;}
+  .mobile-tab-nav{display:flex;background:var(--night-panel);border-bottom:1px solid var(--panel-border);flex-shrink:0;}
+  .mob-tab{flex:1;font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;padding:.52rem .3rem;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;text-align:center;position:relative;}
+  .mob-tab.active{color:var(--gold-bright);border-bottom-color:var(--gold);}
+  .mob-badge{position:absolute;top:.2rem;right:calc(50% - 1.2rem);background:var(--crimson-bright);color:#fff;font-size:.34rem;padding:.04rem .22rem;border-radius:1px;display:none;}
+  .mob-badge.show{display:inline-block;}
+}
+
+/* ══════ THEME TOGGLE ══════ */
+.theme-toggle{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
+.theme-toggle:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ══════ GLOBAL SEARCH ══════ */
+.search-trigger{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
+.search-trigger:hover{border-color:var(--gold);color:var(--gold);}
+.search-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:700;display:none;align-items:flex-start;justify-content:center;padding-top:8vh;}
+.search-overlay.show{display:flex;}
+.search-box{background:var(--night-mid);border:1px solid var(--gold-dim);width:540px;max-width:92vw;max-height:74vh;display:flex;flex-direction:column;overflow:hidden;}
+.search-input-row{padding:.8rem .9rem;border-bottom:1px solid var(--panel-border);display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
+.search-input{flex:1;background:transparent;border:none;outline:none;color:var(--vellum-dark);font-family:'EB Garamond',serif;font-size:1.05rem;}
+.search-input::placeholder{color:var(--ink-light);}
+.search-esc{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.1em;color:var(--ink-light);border:1px solid var(--panel-border);padding:.15rem .4rem;flex-shrink:0;}
+.search-results{overflow-y:auto;padding:.5rem;}
+.search-result-item{padding:.55rem .7rem;cursor:pointer;transition:background .12s;display:flex;align-items:baseline;gap:.5rem;border-left:2px solid transparent;}
+.search-result-item:hover,.search-result-item.kbd-active{background:var(--gold-faint);border-left-color:var(--gold);}
+.search-result-name{font-family:'Cinzel',serif;font-size:.78rem;color:var(--vellum-dark);}
+.search-result-meta{font-size:.74rem;color:var(--ink-light);font-style:italic;}
+.search-result-type{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin-left:auto;flex-shrink:0;}
+.search-empty{padding:1.5rem;text-align:center;color:var(--ink-light);font-style:italic;font-size:.88rem;}
+
+/* ══════ QUICK NPC POPOVER ══════ */
+.quick-pop{position:fixed;z-index:650;background:var(--night-mid);border:1px solid var(--gold-dim);width:280px;padding:.8rem .9rem;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+.quick-pop.show{display:block;}
+.quick-pop-name{font-family:'Cinzel Decorative',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.15rem;}
+.quick-pop-role{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.5rem;}
+.quick-pop-row{font-size:.82rem;color:var(--vellum-mid);line-height:1.5;margin-bottom:.3rem;}
+.quick-pop-row strong{color:var(--vellum-dark);font-weight:600;}
+.quick-pop-weight{display:flex;align-items:center;gap:.4rem;margin-top:.4rem;}
+.quick-pop-open{font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin-top:.5rem;display:block;cursor:pointer;}
+.quick-pop-open:hover{color:var(--gold);}
+.entity-link{color:var(--gold-bright);cursor:pointer;border-bottom:1px dotted var(--gold-dim);text-decoration:none;}
+.entity-link:hover{color:var(--gold);}
+
+/* ══════ RECAP ══════ */
+.recap-trigger{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
+.recap-trigger:hover{border-color:var(--gold);color:var(--gold);}
+.recap-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:700;display:none;align-items:center;justify-content:center;}
+.recap-overlay.show{display:flex;}
+.recap-box{background:var(--night-mid);border:1px solid var(--gold-dim);width:480px;max-width:92vw;max-height:80vh;overflow-y:auto;padding:1.3rem 1.4rem;}
+.recap-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold-bright);margin-bottom:.3rem;}
+.recap-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);margin-bottom:1rem;}
+.recap-item{border-left:2px solid var(--panel-border);padding:.5rem .7rem;margin-bottom:.5rem;}
+.recap-item-type{font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.15rem;}
+.recap-item-text{font-size:.88rem;color:var(--vellum-mid);line-height:1.55;}
+.recap-empty{text-align:center;color:var(--ink-light);font-style:italic;padding:2rem 0;}
+.recap-close{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;padding:.4rem 1rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;margin-top:.8rem;}
+.recap-close:hover{border-color:var(--gold-dim);color:var(--gold);}
+
+/* ══════ SESSION CHECKLIST (landing) ══════ */
+.checklist-overlay{position:fixed;inset:0;background:radial-gradient(ellipse at top,rgba(139,105,20,0.06),transparent 60%),var(--night);z-index:800;display:flex;align-items:center;justify-content:center;opacity:1;transition:opacity .4s;}
+.checklist-overlay.hide{opacity:0;pointer-events:none;}
+.checklist-box{width:560px;max-width:92vw;max-height:84vh;overflow-y:auto;padding:2rem;text-align:center;}
+.checklist-sigil{font-size:1.8rem;color:var(--gold-dim);opacity:.5;margin-bottom:.8rem;}
+.checklist-eyebrow{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;}
+.checklist-title{font-family:'Cinzel Decorative',serif;font-size:1.6rem;color:var(--gold-bright);margin-bottom:.3rem;}
+.checklist-session{font-family:'Cinzel',serif;font-size:.7rem;color:var(--ink-light);margin-bottom:1.6rem;}
+.checklist-section{text-align:left;margin-bottom:1.2rem;}
+.checklist-section-title{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);border-bottom:1px solid var(--panel-border);padding-bottom:.3rem;margin-bottom:.5rem;}
+.checklist-row{display:flex;align-items:baseline;gap:.5rem;font-size:.85rem;color:var(--vellum-mid);padding:.3rem 0;border-bottom:1px solid rgba(139,105,20,0.06);}
+.checklist-row-tag{font-family:'Cinzel',serif;font-size:.62rem;font-weight:700;flex-shrink:0;}
+.checklist-row-tag.danger{color:var(--crimson-bright);}
+.checklist-row-tag.gold{color:var(--gold-bright);}
+.checklist-empty-line{font-size:.82rem;color:var(--ink-light);font-style:italic;padding:.4rem 0;}
+.checklist-enter{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;padding:.6rem 2.2rem;border:1px solid var(--gold);background:var(--gold-faint);color:var(--gold-bright);cursor:pointer;transition:all .2s;margin-top:.6rem;}
+.checklist-enter:hover{background:rgba(139,105,20,0.2);}
+.checklist-skip{display:block;margin:.6rem auto 0;font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-light);cursor:pointer;background:none;border:none;}
+.checklist-skip:hover{color:var(--gold-dim);}
+
+/* ══════ HOOK POLISH ══════ */
+.hook-card{position:relative;overflow:hidden;}
+.hook-icon{font-size:.85rem;margin-right:.3rem;}
+.hook-card.trigger-primed{animation:hook-arrive .4s ease;}
+.hook-card.new-hook{animation:hook-arrive .4s ease;}
+@keyframes hook-arrive{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:translateX(0);}}
+.spotlight-flash{position:fixed;inset:0;z-index:600;pointer-events:none;background:radial-gradient(circle at 80% 30%,rgba(155,42,42,0.18),transparent 55%);opacity:0;animation:spotlight-pulse 1.1s ease-out;}
+@keyframes spotlight-pulse{0%{opacity:0;}15%{opacity:1;}100%{opacity:0;}}
+</style>
+</head>
+<body>
+
+<!-- SESSION CHECKLIST LANDING -->
+<div class="checklist-overlay" id="checklist-overlay">
+  <div class="checklist-box">
+    <div class="checklist-sigil">◈</div>
+    <div class="checklist-eyebrow">Wonderland</div>
+    <div class="checklist-title">Before You Begin</div>
+    <div class="checklist-session" id="checklist-session-label">Session 1</div>
+    <div class="checklist-section">
+      <div class="checklist-section-title">Primed — Ready to Fire</div>
+      <div id="checklist-primed"></div>
+    </div>
+    <div class="checklist-section">
+      <div class="checklist-section-title">Open Threads</div>
+      <div id="checklist-threads"></div>
+    </div>
+    <div class="checklist-section">
+      <div class="checklist-section-title">Carried From Last Session</div>
+      <div id="checklist-between"></div>
+    </div>
+    <button class="checklist-enter" onclick="dismissChecklist()">Begin Session</button>
+    <button class="checklist-skip" onclick="dismissChecklist()">Skip</button>
+  </div>
+</div>
+
+<!-- GLOBAL SEARCH -->
+<div class="search-overlay" id="search-overlay" onclick="if(event.target===this)closeSearch()">
+  <div class="search-box">
+    <div class="search-input-row">
+      <span style="color:var(--gold-dim);">⌕</span>
+      <input class="search-input" id="search-input" type="text" placeholder="Search NPCs, heirs, factions…" oninput="renderSearchResults()" onkeydown="searchKeyNav(event)"/>
+      <span class="search-esc" onclick="closeSearch()">ESC</span>
+    </div>
+    <div class="search-results" id="search-results"></div>
+  </div>
+</div>
+
+<!-- QUICK NPC POPOVER -->
+<div class="quick-pop" id="quick-pop"></div>
+
+<!-- RECAP -->
+<div class="recap-overlay" id="recap-overlay" onclick="if(event.target===this)closeRecap()">
+  <div class="recap-box">
+    <div class="recap-title">What Just Happened</div>
+    <div class="recap-sub" id="recap-sub">Last few events this session</div>
+    <div id="recap-content"></div>
+    <button class="recap-close" onclick="closeRecap()">Close</button>
+  </div>
+</div>
+
+<div class="gm-shell">
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="top-bar-brand">
+    <div class="top-bar-title">Wonderland</div>
+    <div class="top-bar-sub">State Engine · Age of Wonder · GM Screen</div>
+  </div>
+  <div class="session-type-toggle" id="mode-toggle">
+    <button class="stype-btn active" onclick="setMode('session',this)">Session</button>
+    <button class="stype-btn" onclick="setMode('tools',this)">Tools</button>
+  </div>
+  <div class="session-type-toggle">
+    <button class="stype-btn active" onclick="setSessionType('main',this)">Main</button>
+    <button class="stype-btn" onclick="setSessionType('solo',this)">Solo</button>
+  </div>
+  <div class="top-bar-right">
+    <span class="save-indicator" id="save-indicator">saved</span>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
+    <button class="search-trigger" onclick="openSearch()">⌕ Search</button>
+    <button class="recap-trigger" onclick="openRecap()">↻ Recap</button>
+    <div class="session-counter">
+      <span class="session-label">Session</span>
+      <span class="session-num" id="session-display">1</span>
+    </div>
+    <button class="top-btn" onclick="confirmAdvanceSession()">Advance →</button>
+    <input type="file" id="heir-file-input" accept=".json" multiple style="display:none" onchange="handleHeirImport(this)"/>
+    <button class="top-btn primary" onclick="document.getElementById('heir-file-input').click()">⬆ Import Heirs</button>
+  </div>
+</div>
+
+<!-- MOBILE NAV -->
+<nav class="mobile-tab-nav">
+  <button class="mob-tab active" onclick="mobTab('web',this)">Web</button>
+  <button class="mob-tab" onclick="mobTab('center',this)">Log <span class="mob-badge" id="log-badge"></span></button>
+  <button class="mob-tab" onclick="mobTab('hooks',this)">Hooks <span class="mob-badge" id="hook-badge"></span></button>
+</nav>
+
+<!-- MAIN GRID -->
+<div class="main-grid" id="session-main-grid">
+
+  <!-- LEFT: WEB -->
+  <div class="web-panel mob-active" id="panel-web">
+    <div class="panel-header">
+      <span class="panel-eyebrow">Leverage Web</span>
+      <span class="panel-title">Shemsara · All Nodes</span>
+    </div>
+    <div class="heir-pills" id="heir-filter-pills">
+      <button class="heir-pill all active" onclick="filterWeb('all',this)">All</button>
+    </div>
+    <div class="web-scroll" id="web-scroll"></div>
+  </div>
+
+  <!-- CENTER: LOG + NOTES -->
+  <div class="center-panel" id="panel-center">
+
+    <div class="event-composer">
+      <div class="composer-label-row">
+        <span class="composer-title">Log an Event</span>
+      </div>
+      <div class="event-type-row">
+        <button class="event-type-btn active" onclick="selectEventType('action',this)">Action</button>
+        <button class="event-type-btn presence" onclick="selectEventType('presence',this)">Presence</button>
+        <button class="event-type-btn exchange" onclick="selectEventType('exchange',this)">Exchange</button>
+        <button class="event-type-btn revelation" onclick="selectEventType('revelation',this)">Revelation</button>
+      </div>
+
+      <!-- ACTION -->
+      <div id="fields-action">
+        <div class="tier-row">
+          <span class="tier-label">Tier</span>
+          <button class="tier-pip active" onclick="selectTier(1,this)">T1</button>
+          <button class="tier-pip" onclick="selectTier(2,this)">T2</button>
+          <button class="tier-pip" onclick="selectTier(3,this)">T3</button>
+          <button class="tier-pip t4" onclick="selectTier(4,this)">T4</button>
+          <button class="tier-pip t5" onclick="selectTier(5,this)">T5</button>
+        </div>
+        <div class="direction-row">
+          <span class="dir-label">Direction</span>
+          <button class="dir-btn favorable active" onclick="selectDirection('favorable',this)">↑ Favorable</button>
+          <button class="dir-btn hostile" onclick="selectDirection('hostile',this)">↓ Hostile</button>
+        </div>
+        <div class="composer-row three">
+          <div>
+            <span class="composer-field-label">Actor</span>
+            <select class="composer-select" id="actor-select"><option value="">— select —</option></select>
+          </div>
+          <div>
+            <span class="composer-field-label">Action Type</span>
+            <select class="composer-select" id="action-type-select">
+              <option value="political">Political Move</option>
+              <option value="statecraft">Statecraft</option>
+              <option value="magic">Magic — Public</option>
+              <option value="combat">Combat</option>
+              <option value="caravan">Caravan</option>
+              <option value="exploration">Exploration</option>
+              <option value="outskirts">Outskirts Activity</option>
+            </select>
+          </div>
+          <div>
+            <span class="composer-field-label">Aimed At</span>
+            <select class="composer-select" id="target-select"><option value="">— select —</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRESENCE -->
+      <div id="fields-presence" style="display:none;">
+        <div class="composer-row">
+          <div>
+            <span class="composer-field-label">Who Was Seen</span>
+            <select class="composer-select" id="presence-heir-select"><option value="">— select —</option></select>
+          </div>
+          <div>
+            <span class="composer-field-label">Location</span>
+            <select class="composer-select" id="presence-location-select">
+              <option value="outskirts">Outskirts</option>
+              <option value="banquet">Noble Banquet</option>
+              <option value="docks">The Docks</option>
+              <option value="scholars">Scholars District</option>
+              <option value="merchants">Merchant Quarter</option>
+              <option value="crown">Crown Presence</option>
+              <option value="church">Church of the Axiom</option>
+              <option value="ruin">A Ruin</option>
+              <option value="solo_meeting">Private Meeting</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <span class="composer-field-label">Witnessed By</span>
+          <select class="composer-select" id="witnessed-by-select"><option value="">— unknown / unlogged —</option></select>
+        </div>
+      </div>
+
+      <!-- EXCHANGE -->
+      <div id="fields-exchange" style="display:none;">
+        <div class="composer-row three">
+          <div>
+            <span class="composer-field-label">From</span>
+            <select class="composer-select" id="exchange-from-select"><option value="">— select —</option></select>
+          </div>
+          <div>
+            <span class="composer-field-label">Type</span>
+            <select class="composer-select" id="exchange-type-select">
+              <option value="information">Information</option>
+              <option value="favor">Favor Called In</option>
+              <option value="debt">Debt Created</option>
+              <option value="item">Item / Resource</option>
+              <option value="protection">Protection Offered</option>
+            </select>
+          </div>
+          <div>
+            <span class="composer-field-label">To</span>
+            <select class="composer-select" id="exchange-to-select"><option value="">— select —</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- REVELATION -->
+      <div id="fields-revelation" style="display:none;">
+        <div class="composer-row">
+          <div>
+            <span class="composer-field-label">What Was Revealed</span>
+            <select class="composer-select" id="revelation-type-select">
+              <option value="house_shadow">House Shadow Exposed</option>
+              <option value="secret_exposed">Personal Secret</option>
+              <option value="rival_leverage">Rival Leverage Made Public</option>
+              <option value="npc_allegiance">NPC True Allegiance</option>
+              <option value="document_found">Document / Record Found</option>
+              <option value="magic_exposed">Magic Use Witnessed</option>
+              <option value="outskirts_exposed">Outskirts Activity Exposed</option>
+            </select>
+          </div>
+          <div>
+            <span class="composer-field-label">Concerning</span>
+            <select class="composer-select" id="revelation-subject-select"><option value="">— select —</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:.4rem;">
+        <span class="composer-field-label">What Happened — Result</span>
+        <textarea class="composer-textarea" id="event-result-text" placeholder="Describe the outcome as it happened at the table…"></textarea>
+      </div>
+      <button class="log-btn" onclick="logEvent()">Log Event → Generate Hooks</button>
+    </div>
+
+    <!-- LOG TABS -->
+    <div class="log-tabs">
+      <button class="log-tab active" onclick="showLogPane('events',this)">Events</button>
+      <button class="log-tab" onclick="showLogPane('notes',this)">GM Notes</button>
+    </div>
+    <div class="log-area">
+      <div class="log-pane active" id="pane-events">
+        <div class="log-empty" id="log-empty">No events logged yet.<br>Record what happens — the web remembers.</div>
+      </div>
+      <div class="log-pane notes-pane" id="pane-notes">
+        <div>
+          <span class="notes-label">This Session</span>
+          <textarea class="notes-textarea session-notes" id="notes-session" placeholder="What's happening. Decisions made. Threads pulled. Anything the engine doesn't capture but you need to remember." oninput="saveNotes()"></textarea>
+        </div>
+        <div>
+          <span class="notes-label">Between Sessions — Setup</span>
+          <textarea class="notes-textarea between-notes" id="notes-between" placeholder="Solo session outcomes. What the Rivals are doing. Effects to surface at the next main session." oninput="saveNotes()"></textarea>
+        </div>
+        <div>
+          <span class="notes-label">Open Threads</span>
+          <textarea class="notes-textarea open-threads" id="notes-threads" placeholder="Unresolved hooks. Questions the web raised that haven't been answered. Leverage the players don't know they have." oninput="saveNotes()"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: HOOKS -->
+  <div class="hook-panel" id="panel-hooks">
+    <div class="panel-header">
+      <span class="panel-eyebrow">Wonderland Engine</span>
+      <span class="panel-title">Hooks · Ripples · Triggers</span>
+    </div>
+    <div class="hook-filter-row">
+      <button class="hook-filter-btn active" onclick="filterHooks('all',this)">All</button>
+      <button class="hook-filter-btn f-trigger" onclick="filterHooks('trigger-primed',this)">Triggers</button>
+      <button class="hook-filter-btn f-opportunity" onclick="filterHooks('opportunity',this)">Opportunity</button>
+      <button class="hook-filter-btn f-collision" onclick="filterHooks('collision',this)">Collision</button>
+    </div>
+    <div class="hook-scroll" id="hook-scroll">
+      <div class="hook-empty" id="hook-empty">Log an event to see what it sets in motion.<br><br>The engine reads the web and surfaces what the action means — not just what it does.</div>
+    </div>
+  </div>
+
+</div><!-- end main-grid -->
+
+<!-- TOOLS MODE -->
+<div class="main-grid" id="panel-tools" style="display:none;grid-template-columns:1fr;">
+  <div class="center-panel tools-panel-inner" style="border-right:none;">
+    <div class="tool-subtabs" style="display:flex;gap:.4rem;padding:.6rem .9rem 0;">
+      <button class="stype-btn active" id="toolsub-exploration-btn" onclick="setToolSubTab('exploration',this)">Exploration</button>
+      <button class="stype-btn" id="toolsub-caravan-btn" onclick="setToolSubTab('caravan',this)">Caravan</button>
+      <button class="stype-btn" id="toolsub-solo-btn" onclick="setToolSubTab('solo',this)">Solo Prep</button>
+      <button class="stype-btn" id="toolsub-opponent-btn" onclick="setToolSubTab('opponent',this)">Opponent</button>
+    </div>
+
+    <div id="toolsub-exploration-panel">
+    <div class="event-composer">
+      <div class="composer-label-row">
+        <span class="composer-title">Chamber & Reward Generator</span>
+      </div>
+      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Pick which civilization left the ruin and how deep it sits. Depth gates both danger and reward — D6 is Void Touched only, since nothing from the Architects or Predecessor Courts reaches that far down.</div>
+      <div class="composer-row three">
+        <div>
+          <span class="composer-field-label">Civilization</span>
+          <select class="composer-select" id="tool-civ-select">
+            <option value="architect">The Architects</option>
+            <option value="predecessor">The Predecessor Courts</option>
+            <option value="void">The Void Touched</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Depth</span>
+          <select class="composer-select" id="tool-depth-select">
+            <option value="D1">D1</option>
+            <option value="D2">D2</option>
+            <option value="D3">D3</option>
+            <option value="D4">D4</option>
+            <option value="D5">D5</option>
+            <option value="D6">D6</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Site Size</span>
+          <select class="composer-select" id="tool-count-select">
+            <option value="1">Single Chamber</option>
+            <option value="3">Full Site — 3</option>
+            <option value="5">Full Site — 5</option>
+            <option value="8">Full Site — 8</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+      </div>
+      <div id="tool-custom-count-row" style="display:none;margin-top:.4rem;">
+        <span class="composer-field-label">How many chambers?</span>
+        <input type="number" class="composer-select" id="tool-custom-count" min="1" max="20" value="6" style="width:100%;"/>
+      </div>
+      <button class="log-btn" onclick="runGenerator()">Generate</button>
+    </div>
+    <div class="log-area">
+      <div class="log-pane active" id="tool-results-pane">
+        <div class="log-empty" id="tool-results-empty">Pick a civilization and depth, then generate. Each chamber arrives with its situation, danger, and reward already named — nothing left to invent on the spot unless you want to.</div>
+        <div id="tool-results-list" style="padding:.7rem .9rem;"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="toolsub-caravan-panel" style="display:none;">
+    <div class="event-composer">
+      <div class="composer-label-row">
+        <span class="composer-title">Caravan Event Generator</span>
+      </div>
+      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Score the three Momentum components 0–4 to match the situation, same as the SRD's starting Momentum table. Generate the run — each event arrives with its situation, resolution paths, and Momentum effect already written.</div>
+      <div class="composer-row three">
+        <div>
+          <span class="composer-field-label">Route (0\u20134)</span>
+          <select class="composer-select" id="caravan-route-select">
+            <option value="0">0 — No established path</option>
+            <option value="1">1</option>
+            <option value="2" selected>2 — Partial path, mixed territory</option>
+            <option value="3">3</option>
+            <option value="4">4 — Clear established path</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Cohesion (0\u20134)</span>
+          <select class="composer-select" id="caravan-cohesion-select">
+            <option value="0">0 — Multiple compromised parties</option>
+            <option value="1">1</option>
+            <option value="2" selected>2 — One uncertain element</option>
+            <option value="3">3</option>
+            <option value="4">4 — Single trusted courier, vetted</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Cover (0\u20134)</span>
+          <select class="composer-select" id="caravan-cover-select">
+            <option value="0">0 — Movement fully visible</option>
+            <option value="1">1</option>
+            <option value="2" selected>2 — Partially obscured</option>
+            <option value="3">3</option>
+            <option value="4">4 — Not observable by hostile parties</option>
+          </select>
+        </div>
+      </div>
+      <div class="composer-row" style="margin-top:.4rem;">
+        <div>
+          <span class="composer-field-label">Number of Events</span>
+          <select class="composer-select" id="caravan-count-select">
+            <option value="1">1 — Quick check</option>
+            <option value="3" selected>3 — Short run</option>
+            <option value="5">5 — Full transit</option>
+          </select>
+        </div>
+      </div>
+      <button class="log-btn" onclick="runCaravanGenerator()">Generate Run</button>
+    </div>
+    <div class="log-area">
+      <div class="log-pane active" id="caravan-results-pane">
+        <div class="log-empty" id="caravan-results-empty">Score the three components, then generate. Starting Momentum computes automatically from the SRD's formula.</div>
+        <div id="caravan-results-list" style="padding:.7rem .9rem;"></div>
+      </div>
+    </div>
+    <div class="event-composer" style="border-top:1px solid var(--panel-border);">
+      <div class="composer-label-row">
+        <span class="composer-title" style="font-size:.62rem;">Momentum Hit Zero? Look Up the Failure State</span>
+      </div>
+      <div class="composer-row">
+        <select class="composer-select" id="caravan-failure-select" onchange="document.getElementById('caravan-failure-result').innerHTML=renderCaravanFailureLookup(this.value)">
+          <option value="">— select what happened —</option>
+          <option value="delayed">Delayed</option>
+          <option value="compromised">Compromised</option>
+          <option value="damaged">Damaged</option>
+          <option value="captured">Captured</option>
+          <option value="scattered">Scattered</option>
+        </select>
+      </div>
+      <div id="caravan-failure-result" style="margin-top:.5rem;"></div>
+    </div>
+    </div>
+
+    <div id="toolsub-solo-panel" style="display:none;">
+    <div class="event-composer">
+      <div class="composer-label-row">
+        <span class="composer-title">Solo Session Prep</span>
+      </div>
+      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Pick the heir running the solo session. This reads their current leverage web and session zero training to show exactly what's legally available — and what isn't — before you sit down with them.</div>
+      <div class="composer-row">
+        <select class="composer-select" id="solo-heir-select" onchange="renderSoloPrep()">
+          <option value="">— select heir —</option>
+        </select>
+      </div>
+    </div>
+    <div class="log-area">
+      <div class="log-pane active" id="solo-results-pane">
+        <div class="log-empty" id="solo-results-empty">Import heirs and pick one to see their solo session boundaries.</div>
+        <div id="solo-results-list" style="padding:.7rem .9rem;"></div>
+      </div>
+    </div>
+    </div>
+
+    <div id="toolsub-opponent-panel" style="display:none;">
+    <div class="event-composer">
+      <div class="composer-label-row">
+        <span class="composer-title">Combat Opponent Builder</span>
+      </div>
+      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Produces a complete, legal opponent — presence, stamina, and a real technique with trigger and slot cost — in the same vocabulary as the play sheet. Not a generator with randomness; this is a quick stat-out for someone you need ready before the exchange starts.</div>
+      <div class="composer-row three">
+        <div>
+          <span class="composer-field-label">Training Level</span>
+          <select class="composer-select" id="opp-training-select">
+            <option value="untrained">Untrained — no Combat years</option>
+            <option value="developing" selected>Developing — 1\u20132 Combat years</option>
+            <option value="trained">Trained — 3+ Combat years</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Weapon</span>
+          <select class="composer-select" id="opp-weapon-select">
+            <option value="Sword">Sword</option>
+            <option value="Spear">Spear</option>
+            <option value="Wand">Wand</option>
+            <option value="Staff">Staff</option>
+            <option value="Dagger">Dagger</option>
+            <option value="Projectile">Projectile</option>
+          </select>
+        </div>
+        <div>
+          <span class="composer-field-label">Location</span>
+          <select class="composer-select" id="opp-location-select">
+            <option value="inside">Inside the Barrier — non-lethal stakes</option>
+            <option value="outside">Outside the Barrier — real stakes</option>
+          </select>
+        </div>
+      </div>
+      <button class="log-btn" onclick="runOpponentBuilder()">Build Opponent</button>
+    </div>
+    <div class="log-area">
+      <div class="log-pane active" id="opponent-results-pane">
+        <div class="log-empty" id="opponent-results-empty">Pick training level, weapon, and location, then build. A trained opponent gets a real technique with trigger and cost — an untrained one gets a basic strike only, exactly as the rules require.</div>
+        <div id="opponent-results-list" style="padding:.7rem .9rem;"></div>
+      </div>
+    </div>
+
+    <div id="opponent-tracker" style="display:none;border-top:1px solid var(--panel-border);">
+      <div class="event-composer">
+        <div class="composer-label-row">
+          <span class="composer-title">Live State — Call This As It Changes</span>
+        </div>
+        <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Tap as exchanges land. This is the opponent's mirror of what a player tracks on their own Play Sheet — nothing more.</div>
+        <div class="composer-field-label" style="margin-bottom:.3rem;">Stamina</div>
+        <div class="stamina-selector" id="opp-stamina-selector">
+          <div class="stamina-btn active-0" data-stage="0" onclick="setOpponentStamina(0,this)">Fresh</div>
+          <div class="stamina-btn" data-stage="1" onclick="setOpponentStamina(1,this)">Winded</div>
+          <div class="stamina-btn" data-stage="2" onclick="setOpponentStamina(2,this)">Strained</div>
+          <div class="stamina-btn" data-stage="3" onclick="setOpponentStamina(3,this)">Spent</div>
+        </div>
+        <div class="composer-field-label" style="margin:.7rem 0 .3rem;">Wounds</div>
+        <div class="wound-grid" id="opp-wound-grid">
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'weapon-arm')" data-wound="weapon-arm"><span class="wound-name">Weapon Arm</span></div>
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'shield-arm')" data-wound="shield-arm"><span class="wound-name">Shield Arm</span></div>
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'legs')" data-wound="legs"><span class="wound-name">Legs</span></div>
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'torso')" data-wound="torso"><span class="wound-name">Torso</span></div>
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'head')" data-wound="head"><span class="wound-name">Head</span></div>
+          <div class="wound-btn" onclick="toggleOpponentWound(this,'presence')" data-wound="presence"><span class="wound-name">Presence</span></div>
+        </div>
+        <div id="opp-technique-row" style="margin-top:.7rem;display:none;">
+          <label style="display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--ink-light);cursor:pointer;">
+            <input type="checkbox" id="opp-technique-used" onchange="renderOpponentTrackerStatus()"/>
+            <span>Technique already fired this encounter</span>
+          </label>
+        </div>
+        <div id="opp-tracker-status" style="margin-top:.7rem;font-size:.82rem;line-height:1.6;color:var(--ink-light);"></div>
+        <button class="log-btn" style="margin-top:.8rem;background:var(--crimson);" onclick="endOpponentTracking()">Combat Ends — Clear Tracker</button>
+      </div>
+    </div>
+    </div>
+
+  </div>
+</div><!-- end tools panel -->
+
+</div><!-- end gm-shell -->
+
+<!-- NPC DRAWER -->
+<div class="drawer" id="npc-drawer">
+  <span class="drawer-close" onclick="closeDrawer()">← Close</span>
+  <div id="drawer-content"></div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal-box">
+    <div class="modal-title">Heir Records Imported</div>
+    <div class="modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
+    <div id="imported-heirs-list" class="modal-heirs"></div>
+    <div id="collision-notice"></div>
+    <div class="modal-btn-row">
+      <button class="modal-btn primary" onclick="closeImportModal()">Enter the Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM ADVANCE SESSION -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Advance to Next Session?</div>
+    <div class="confirm-body">The session counter will increment. A snapshot of current state will be saved. This cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="modal-btn primary" onclick="doAdvanceSession()">Advance</button>
+      <button class="modal-btn" onclick="document.getElementById('confirm-overlay').classList.remove('show')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- REWARD EXPORT -->
+<div class="confirm-overlay" id="reward-export-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Give This to a Player</div>
+    <div class="confirm-body" id="reward-export-preview">—</div>
+    <div style="margin:.8rem 0;text-align:left;">
+      <span class="composer-field-label">Which heir receives this?</span>
+      <select class="composer-select" id="reward-export-heir-select" style="width:100%;"></select>
+    </div>
+    <div class="confirm-actions">
+      <button class="modal-btn primary" onclick="confirmRewardExport()">Download for This Heir</button>
+      <button class="modal-btn" onclick="document.getElementById('reward-export-overlay').classList.remove('show')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// WORLD DATA
+// ═══════════════════════════════════════════
+const SCHOOLS={
+  ALT:{name:'Alteration',axiom:'Changes the nature of what exists from within.',color:'#c9703a'},
+  CON:{name:'Conjuration',axiom:'Changes absence into presence.',color:'#3a7ac9'},
+  NEG:{name:'Negation',axiom:'Changes existence into absence.',color:'#6a6ac9'},
+  DIV:{name:'Divination',axiom:'Changes ignorance into knowledge.',color:'#c9a93a'},
+  TRN:{name:'Transposition',axiom:'Changes the position of a thing.',color:'#3ac970'},
+  DOM:{name:'Dominion',axiom:'Changes the will of another.',color:'#c93a8a'},
+};
+
+// Three previous civilizations, per the SRD's Exploration chapter. Each produces a
+// structurally different reward — this is why the Reward Generator branches by
+// civilization rather than treating every find as the same kind of object.
+const CIVILIZATIONS={
+  architect:{
+    name:'The Architects',
+    rewardShape:'item',
+    flavor:'Mechanism and structure. The Architects integrated will into physical construction — what they left still operates.',
+    danger:'Physical. Mechanisms at full activation.',
+    descTemplates:[
+      'a {adj} mechanism, still humming with residual will','a {adj} construct half-sunk into the chamber floor','a {adj} apparatus built into the wall itself','a {adj} device left mid-function, as if its makers stepped away mid-thought'
+    ],
+  },
+  predecessor:{
+    name:'The Predecessor Courts',
+    rewardShape:'document',
+    flavor:'A political civilization. What they left is administrative — record rooms, succession documents, the infrastructure of a governing body that predates Aetheria Nova.',
+    danger:'Political. Other interested parties want what was found, or want it to stay lost.',
+    descTemplates:[
+      'a sealed succession record, wax still intact','an administrative ledger from a council that no longer exists','a personal correspondence between two figures history does not name','a founding-era document the current order has strong reasons to keep buried'
+    ],
+  },
+  void:{
+    name:'The Void Touched',
+    rewardShape:'item',
+    flavor:'Unknown in advance. What these spaces contain looks like what it looks like and does things that are not what it looks like. The axiom\'s normal behavior may not apply consistently here.',
+    danger:'The space itself. Consequence of contact with something not of the world in the conventional sense.',
+    descTemplates:[
+      'an object that looks like {mundane} but is unmistakably not','something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be','a {mundane}, ordinary in every visible way, that the Read school cannot fully explain','what appears to be a {mundane} until you look at it the second time'
+    ],
+  },
+};
+
+// Depth table — D1 through D6, ported directly from the SRD's Exploration chapter.
+const DEPTH_TABLE={
+  D1:{requirement:'Any heir. No specialized preparation required.',civAccess:['architect','predecessor','void'],rewardTier:1,rewardText:'Tier one spell fragments. Basic technique scrolls. Documents from public-facing functions.'},
+  D2:{requirement:'One year of Lore or Combat OR Divination T1.',civAccess:['architect','predecessor','void'],rewardTier:1,rewardText:'Cross-school fragment combinations. Technique scrolls extending weapon specialties. Succession documents.'},
+  D3:{requirement:'Two+ years relevant Lore OR Divination T2 OR Combat T2. Solo ceiling for most heirs.',civAccess:['architect','predecessor','void'],rewardTier:2,rewardText:'Tier two spell fragments. Technique scrolls for signature advancement. Pre-founding documents.'},
+  D4:{requirement:'Three+ years combined Lore/Combat OR Divination T3 OR a prepared group. Party encounters recommended.',civAccess:['architect','predecessor','void'],rewardTier:3,rewardText:'Rare tier three fragments. Kingdom-level political documents. Architect artifacts functioning as implements.'},
+  D5:{requirement:'Exceptional multi-domain preparation. Group encounters strongly indicated.',civAccess:['architect','predecessor','void'],rewardTier:4,rewardText:'Tier four fragments. Legitimacy-restructuring documents. Void Touched artifacts of unpredictable capability.'},
+  D6:{requirement:'Maximum preparation and capability. Not designed to be survivable — designed to be understood.',civAccess:['void'],rewardTier:5,rewardText:'Unknown. Restricted archive only. The Archivist General does not discuss it with the unprepared.'},
+};
+
+// ═══════════════════════════════════════════
+// REWARD GENERATOR — vocabularies
+// ═══════════════════════════════════════════
+const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful'];
+const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub'];
+const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still'];
+const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark'];
+const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing'];
+const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims'];
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function generateReward(civKey,depthKey){
+  const civ=CIVILIZATIONS[civKey];
+  const depth=DEPTH_TABLE[depthKey];
+  if(!civ||!depth) return null;
+  if(!depth.civAccess.includes(civKey)) return {error:`${civ.name} does not reach ${depthKey}. ${depthKey==='D6'?'Only Void Touched spaces exist at this depth.':'Choose a different civilization or depth.'}`};
+
+  if(civ.rewardShape==='document'){
+    return {
+      shape:'document',
+      civ:civKey, civName:civ.name, depth:depthKey,
+      subject:pick(DOC_SUBJECTS),
+      implicates:pick(DOC_IMPLICATES),
+      desc:pick(civ.descTemplates),
+      danger:civ.danger,
+      rewardTier:depth.rewardTier,
+    };
+  }
+
+  // item shape — Architect or Void Touched
+  const schoolKeys=Object.keys(SCHOOLS);
+  const schoolKey=pick(schoolKeys);
+  const school=SCHOOLS[schoolKey];
+  const name=`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`;
+  const tier=Math.min(6,depth.rewardTier);
+  const descTemplate=pick(civ.descTemplates);
+  const desc=descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
+
+  return {
+    shape:'item',
+    civ:civKey, civName:civ.name, depth:depthKey,
+    name, school:schoolKey, schoolName:school.name, schoolColor:school.color,
+    tier, desc, danger:civ.danger,
+    rewardTier:depth.rewardTier,
+  };
+}
+
+function generateSite(civKey,depthKey,count){
+  const chambers=[];
+  for(let i=0;i<count;i++){
+    chambers.push({
+      index:i+1,
+      reward:generateReward(civKey,depthKey),
+    });
+  }
+  return chambers;
+}
+
+// ═══════════════════════════════════════════
+// CARAVAN EVENT GENERATOR — Chapter Five, verbatim from the SRD
+// ═══════════════════════════════════════════
+
+// Five event types. Weight reflects the SRD's framing: Obstacle/Threat/
+// Complication are the norm, Opportunity/Intelligence are described as
+// bonuses beyond reaching the destination, so they fire less often.
+const CARAVAN_EVENT_TYPES=[
+  {key:'obstacle',name:'Obstacle',tag:'Something Blocks the Path',weight:3,
+    examples:['a Watch checkpoint that wants to inspect the package','a district border where the controlling house has posted someone who asks questions','a gathering in the Outskirts that makes a specific route temporarily impassable'],
+    resolution:'Direct transit if leverage with the controlling faction is sufficient. Alternative route if Route component can sustain the detour. Bribery or favor expenditure to clear the obstacle. Negation magic to suppress whatever is creating the blockage. Each path has a Momentum cost and some have political costs.',
+    momentumNote:'Costs Momentum to push through directly, or costs Route component to detour around.'},
+  {key:'threat',name:'Threat',tag:'Something Is Pursuing',weight:3,
+    examples:["another heir's agent following a courier",'a Watch detail responding to a tip about what is being transported','an Outskirts figure who has decided the package is worth taking'],
+    resolution:'Maintain Momentum above the pursuit threshold until arrival. Create a diversion that eliminates the pursuit. Transposition magic to remove the caravan from the pursuit\'s path. Turn and confront the threat — which ends the caravan encounter and begins a combat or political encounter depending on who the threat is. Each path has different consequences for Cover.',
+    momentumNote:'Activates chase mechanics — Momentum races against the pursuit\'s pressure.'},
+  {key:'complication',name:'Complication',tag:'Something Internal Goes Wrong',weight:3,
+    examples:['a courier who has been approached by another heir and is considering the offer','a sealed document that arrives with evidence of having been opened','a contact who was supposed to facilitate transit but is no longer available'],
+    resolution:'Divination magic to determine whether the courier has been compromised before the message is handed over. Dominion magic to reinforce Cohesion — double-flagged, discovery risk. Replace the compromised element before it reaches the destination. Accept the Cohesion loss and push through with reduced Momentum.',
+    momentumNote:'Attacks Cohesion directly — unresolved Complications become leverage for whoever created them.'},
+  {key:'opportunity',name:'Opportunity',tag:'Something Useful Appears',weight:1,
+    examples:['a courier who, while moving through the Scholarly District, overhears something valuable','a route that passes through a faction\'s territory and creates an opportunity to make contact','a package being delivered that creates a natural moment to establish relationship with the recipient beyond the formal delivery'],
+    resolution:'Exploit the opportunity at the cost of Momentum — the caravan slows while the heir engages. Pass the opportunity and maintain Momentum. Divination school read to determine whether the opportunity is genuine or a setup.',
+    momentumNote:'Costs nothing but time to exploit — and time in a caravan encounter is Momentum. Exploited opportunities generate leverage movement outside the normal political action system.'},
+  {key:'intelligence',name:'Intelligence',tag:'Information the Caravan Carries or Encounters',weight:1,
+    examples:["a sealed message that the recipient's response reveals was misdirection",'a courier who arrives with additional information they gathered while moving','a route that passes through territory where something is visibly wrong'],
+    resolution:'Act on the intelligence mid-transit, which costs Momentum and may change the destination or purpose of the movement. Deliver the caravan as planned and use the intelligence separately. Suppress the intelligence — Negation school. Share the intelligence with another heir, which creates a political moment with its own leverage implications.',
+    momentumNote:'Does not affect Momentum directly — affects what happens after the caravan arrives.'},
+];
+
+// Five failure states — what happens if Momentum hits zero before arrival.
+const CARAVAN_FAILURE_STATES={
+  delayed:{name:'Delayed',severity:'neutral',
+    desc:'The caravan arrives but late. The timing was the point. The delivery still completes — whatever it was meant to accomplish before a deadline must now be accomplished differently, if at all.'},
+  compromised:{name:'Compromised',severity:'neutral',
+    desc:'The caravan arrives but something in it has been read, copied, or altered in transit. The recipient receives what was sent but the sender does not know whether the contents are still confidential. Whoever compromised it now has information they were not supposed to have.'},
+  damaged:{name:'Damaged',severity:'loss',
+    desc:'Something in the caravan was physically lost or destroyed in transit. The specific damage depends on what the caravan was carrying. Reconstructing what was lost costs political actions, not caravan Momentum.'},
+  captured:{name:'Captured',severity:'loss',
+    desc:'The caravan and everything in it is now in someone else\'s possession. The highest-consequence failure state — whoever captured it controls its contents and can use that knowledge as leverage.'},
+  scattered:{name:'Scattered',severity:'debt',
+    desc:'The caravan fragmented — different elements went different directions under pressure and arrival cannot be confirmed for any of them. The heir does not know which elements succeeded until information begins returning, which may take one or more sessions. The most information-expensive failure state.'},
+};
+
+function pickWeighted(arr){
+  const total=arr.reduce((s,x)=>s+x.weight,0);
+  let r=Math.random()*total;
+  for(const x of arr){ if(r<x.weight) return x; r-=x.weight; }
+  return arr[arr.length-1];
+}
+
+function calcStartingMomentum(route,cohesion,cover){
+  // SRD formula: sum the three 0-4 scores, divide by 1.2, round to nearest whole.
+  // The SRD's own worked example (0+2+1=3, /1.2=2.5) rounds DOWN to 2, not up to 3 —
+  // i.e. round-half-down, not JS's default Math.round which rounds .5 up. Using
+  // a small epsilon-adjusted floor to match the SRD's stated example precisely.
+  const sum=route+cohesion+cover;
+  const raw=sum/1.2;
+  return Math.floor(raw+0.4999999);
+}
+
+function generateCaravanEvent(){
+  const type=pickWeighted(CARAVAN_EVENT_TYPES);
+  const example=pick(type.examples);
+  return {
+    typeKey:type.key,typeName:type.name,tag:type.tag,
+    situation:example,
+    resolution:type.resolution,
+    momentumNote:type.momentumNote,
+  };
+}
+
+function generateCaravanRun(route,cohesion,cover,count){
+  const startingMomentum=calcStartingMomentum(route,cohesion,cover);
+  const events=[];
+  for(let i=0;i<count;i++){
+    events.push({index:i+1,event:generateCaravanEvent()});
+  }
+  return {startingMomentum,route,cohesion,cover,events};
+}
+
+const WORLD_NPCS = [
+  {key:'kingHector',name:'King Hector',role:'The Monarch · Seat of Legitimacy',cluster:'crown',weight:'high',responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:['royalChamberlain']},
+  {key:'royalChamberlain',name:'Royal Chamberlain',role:'Keeper of Royal Access',cluster:'crown',weight:'high',responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:['kingHector']},
+  {key:'merchantConsortium',name:'Merchant Guildmaster',role:'Controls Trade & Commerce',cluster:'factions',weight:'medium',responds:'Commercial advantage. Competitor intelligence. Harbor protection.',conductors:['dockworkersForeman','outskirtsBroker']},
+  {key:'watchCommander',name:'Watch Commander',role:'Commands the City Watch',cluster:'factions',weight:'medium',responds:'Order. Resources. Actionable threat intelligence.',conductors:['royalChamberlain','merchantConsortium']},
+  {key:'dockworkersForeman',name:'Dockworkers Foreman',role:'Controls Harbor Labor',cluster:'factions',weight:'medium',responds:'Fair coin. Worker protection. Predictable dealing.',conductors:['merchantConsortium','outskirtsBroker']},
+  {key:'courierMaster',name:'Courier Master',role:'Controls Information Flow',cluster:'factions',weight:'medium',responds:'Coin and information trades. Sells to all parties equally.',conductors:['outskirtsBroker','archivistGeneral']},
+  {key:'highPriest',name:'High Priest of the Axiom',role:'Controls Religious Legitimacy',cluster:'factions',weight:'medium',responds:'Theological alignment. Generosity. Moral consistency.',conductors:['royalChamberlain','archivistGeneral']},
+  {key:'archivistGeneral',name:'Archivist General',role:'Controls Historical Records',cluster:'factions',weight:'medium',responds:'Truth. Knowledge preservation. The long view.',conductors:['highPriest','courierMaster']},
+  {key:'outskirtsBroker',name:'Outskirts Broker',role:'Controls the Black Market',cluster:'outskirts',weight:'special',responds:'Coin. Favors. Willingness to operate outside the law.',conductors:'all'},
+];
+
+// ═══════════════════════════════════════════
+// NPC PERFORMANCE CODEX
+// Authored once, not generated — these are nine specific named people, not
+// a randomized pool. Every detail here extrapolates directly from what the
+// SRD already establishes about each NPC's psychology and history; nothing
+// contradicts or invents beyond it. Built to be read in the seconds before
+// a scene starts, not studied in advance.
+// ═══════════════════════════════════════════
+const NPC_CODEX = {
+  kingHector:{
+    voice:'Measured, unhurried. Never raises his voice because he has never needed to. Asks one precise question rather than several vague ones.',
+    presence:'Sits or stands like someone who has never once worried about being interrupted. Makes direct eye contact and holds it slightly longer than comfortable — he is reading you, not performing for you.',
+    tell:'When he has already decided against someone, he becomes faultlessly polite. Warmth costs him nothing to fake; the absence of warmth is the actual signal.',
+    line:'"Tell me what you did. Not what you meant to do."',
+    crossedBy:'Being managed instead of dealt with plainly. He has seen every performance twice. The fastest way to lose ground with him is to assume he hasn\'t.'},
+  royalChamberlain:{
+    voice:'Precise, administrative, never wastes a word. Speaks in the cadence of someone reading a schedule even when the topic is personal.',
+    presence:'Always seems to be doing two things at once — listening to you while tracking three other obligations. Never fully still.',
+    tell:'A pause before saying "let me see what I can arrange" means the calendar was never actually full — they are deciding whether you have earned the slot.',
+    line:'"His Majesty\'s time is the kingdom\'s time. I am simply the one who remembers that when others forget."',
+    crossedBy:'Being treated as an obstacle rather than a person with their own pressures. Heirs who go around them instead of through them get remembered for it.'},
+  merchantConsortium:{
+    voice:'Fast, transactional, mentally pricing everything as they speak. Finishes sentences a beat before you expect.',
+    presence:'Always glancing toward the door or the ledger — not rude, just permanently aware of the next thing.',
+    tell:'Stops negotiating entirely and goes quiet when they realize they\'re talking to someone who actually understands trade. That silence is respect, not disinterest.',
+    line:'"I\'ve given eleven years to this guild. I didn\'t do it by mistaking politeness for profit."',
+    crossedBy:'Wasting their time with a meeting that produces nothing. They\'ll take the meeting once. A second wasted meeting ends the relationship.'},
+  watchCommander:{
+    voice:'Blunt, economical, soldier\'s cadence. Answers the question asked, not the question implied.',
+    presence:'Stands like they\'re still in formation even at rest. Watches exits, not faces.',
+    tell:'Their jaw sets when someone asks them to bend the law rather than enforce it more effectively — the request itself is the offense, regardless of how it\'s phrased.',
+    line:'"I enforce. I don\'t adjudicate. Take the politics somewhere else."',
+    crossedBy:'Being asked to exceed their mandate. They will not be talked into becoming someone\'s personal force.'},
+  dockworkersForeman:{
+    voice:'Plain-spoken, working cadence, no court polish and no interest in acquiring any.',
+    presence:'Physically present in a way courtiers aren\'t — calloused hands, sun on the skin, the bearing of someone who has actually carried weight.',
+    tell:'Elected three times running by people who don\'t have to like you to vote for you. Trusts the second time someone keeps a promise; never trusts the first.',
+    line:'"You showed up once with a promise. Come back when it\'s kept and we\'ll talk about a second one."',
+    crossedBy:'Treating the Union as a tool instead of people. They\'ll know immediately, and the harbor gets inconveniently slow.'},
+  courierMaster:{
+    voice:'Quiet, deliberate, never says more than the exchange requires. Lets silences sit instead of filling them.',
+    presence:'Easy to forget is in the room — which is precisely the point. Notices everything, reveals almost nothing.',
+    tell:'A faint, knowing half-smile when an heir tries to fish for information through the message patterns. They know exactly what\'s being attempted.',
+    line:'"I don\'t read the letters. I don\'t have to."',
+    crossedBy:'Any attempt to compromise message security. They\'ll take the coin, route the message anyway, and quietly note who asked.'},
+  highPriest:{
+    voice:'Warm but exact — every word chosen for what it implies, not just what it states. Speaks like someone used to being quoted.',
+    presence:'Stillness that reads as deliberate, not passive. Folds hands, holds silence before answering anything that matters.',
+    tell:'Generosity that arrives immediately for the genuinely faithful and arrives slowly, with questions, for the merely useful.',
+    line:'"The Axiom does not ask if you are perfect. It asks if you are honest about what you are."',
+    crossedBy:'A visible gap between stated ideal and private behavior. They are discerning about which contradictions they\'ll overlook — and an heir never knows which ones in advance.'},
+  archivistGeneral:{
+    voice:'Dry, exact, footnotes everything. Corrects imprecise language reflexively, even mid-conversation.',
+    presence:'Surrounded by paper even when there is no paper nearby — the bearing of someone whose attention always has a card catalog running underneath it.',
+    tell:'Same flat, unhurried "no" regardless of how the request is dressed up. Three councillors got the same answer three different ways and never got a different word.',
+    line:'"The record will say what happened. It will not say what was convenient."',
+    crossedBy:'Asking them to alter the historical record, however gently framed. The Guild\'s credibility is the only currency they have, and they will not spend it.'},
+  outskirtsBroker:{
+    voice:'Casual, unbothered, never raises stakes through tone — the price does that. Speaks like every conversation is the hundredth one just like it.',
+    presence:'Comfortable in spaces no one else in Shemsara would be comfortable in. Never the most powerful person in the room and never bothered by that.',
+    tell:'Prices go up the moment moral hesitation shows on someone\'s face. Confidence is read as competence; visible discomfort is read as leverage.',
+    line:'"I don\'t care what you\'re buying it for. I care that you can pay for it."',
+    crossedBy:'Being caught favoring one side. Neutrality is survival, not principle — break it and the Broker stops existing in the way that makes them useful.'},
+};
+
+const LOCATION_WITNESSES = {
+  outskirts:['outskirtsBroker'],
+  banquet:['royalChamberlain','kingHector','merchantConsortium','highPriest'],
+  docks:['dockworkersForeman','merchantConsortium','watchCommander'],
+  scholars:['archivistGeneral','highPriest'],
+  merchants:['merchantConsortium','dockworkersForeman'],
+  crown:['kingHector','royalChamberlain'],
+  church:['highPriest','archivistGeneral'],
+  ruin:[],
+  solo_meeting:[],
+};
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let state = {
+  session:1, sessionType:'main', selectedDirection:'favorable',
+  selectedEventType:'action', selectedTier:1,
+  activeFilter:'all', hookFilter:'all', drawerNode:null,
+  _unreadHooks:0, _unreadLog:0,
+  heirs:[], nodes:{}, events:[], hooks:[],
+  notes:{session:'',between:'',threads:''},
+  snapshots:[],
+  lastGeneratedRewards:[], // transient — not persisted, regenerated each session
+};
+
+const STORAGE_KEY = 'aow-wonderland-v1';
+
+// ═══════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════
+function save() {
+  try {
+    // Don't store render-only fields, store everything meaningful
+    const toStore = {
+      session: state.session,
+      sessionType: state.sessionType,
+      heirs: state.heirs,
+      nodes: state.nodes,
+      events: state.events,
+      hooks: state.hooks,
+      notes: state.notes,
+      snapshots: state.snapshots,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    const ind = document.getElementById('save-indicator');
+    if (ind) { ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 1200); }
+  } catch(e) { console.warn('Save failed:', e); }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    Object.assign(state, saved);
+    return true;
+  } catch(e) { return false; }
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init() {
+  // Always seed world NPCs first
+  WORLD_NPCS.forEach(n => {
+    if (!state.nodes[n.key]) {
+      state.nodes[n.key] = {
+        ...n, scores:{}, accumWeight:0,
+        triggerThreshold: n.weight==='high'?8:n.weight==='special'?3:5,
+        deployedHooks:[],
+      };
+    } else {
+      // Merge static data back in case schema updated
+      Object.assign(state.nodes[n.key], {
+        name:n.name, role:n.role, cluster:n.cluster,
+        weight:n.weight, responds:n.responds, conductors:n.conductors,
+      });
+    }
+  });
+
+  document.getElementById('session-display').textContent = state.session;
+
+  // Restore notes
+  const ns = document.getElementById('notes-session');
+  const nb = document.getElementById('notes-between');
+  const nt = document.getElementById('notes-threads');
+  if (ns) ns.value = state.notes.session || '';
+  if (nb) nb.value = state.notes.between || '';
+  if (nt) nt.value = state.notes.threads || '';
+
+  renderWeb();
+  populateSelects();
+  renderEventLog();
+  renderHooks();
+  renderHeirPills();
+}
+
+// ═══════════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════════
+function handleHeirImport(input) {
+  const files = Array.from(input.files);
+  let loaded = 0;
+  const collisions = [];
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const col = ingestHeirRecord(data);
+        collisions.push(...col);
+        loaded++;
+        if (loaded === files.length) {
+          if (collisions.length) detectCollisions(collisions);
+          renderAll();
+          showImportModal(collisions);
+          save();
+        }
+      } catch(err) { console.error('Import error:', err); }
+    };
+    reader.readAsText(file);
+  });
+  input.value = '';
+}
+
+function ingestHeirRecord(data) {
+  const collisions = [];
+  // Deduplicate by name
+  const existingNames = state.heirs.map(h => h.name.toLowerCase());
+  const name = data.identity?.name || 'Unknown Heir';
+  if (existingNames.includes(name.toLowerCase())) return collisions;
+
+  const heirKey = name.toLowerCase().replace(/\s+/g,'_') + '_' + Date.now();
+  const heir = {
+    key:heirKey, name,
+    house:data.house?.name||'—',
+    school:data.awakening?.revealedSchool||'—',
+    hectorRelation:data.hectorRelation||'neutral',
+    district:data.house?.district||'—',
+    npcs:data.npcs||{},
+    startingLeverage:data.startingLeverage||{},
+    raw:data,
+  };
+  state.heirs.push(heir);
+
+  // Key translation — heir record uses faction-centric keys, GM screen uses NPC-centric keys
+  const KEY_MAP = {
+    cityWatch:        'watchCommander',
+    dockworkersUnion: 'dockworkersForeman',
+    courierNetwork:   'courierMaster',
+    churchOfAxiom:    'highPriest',
+    scholarsGuild:    'archivistGeneral',
+    // These match already but include for completeness
+    kingHector:       'kingHector',
+    royalChamberlain: 'royalChamberlain',
+    merchantConsortium:'merchantConsortium',
+    outskirtsBroker:  'outskirtsBroker',
+  };
+  // Seed starting leverage
+  Object.entries(heir.startingLeverage).forEach(([rawKey, score]) => {
+    const nodeKey = KEY_MAP[rawKey] || rawKey;
+    if (state.nodes[nodeKey]) state.nodes[nodeKey].scores[heirKey] = score||0;
+  });
+
+  // Hector relation
+  const hMap = {allied:2,friendly:1,neutral:0,strained:-1,hostile:-2};
+  if (state.nodes.kingHector) state.nodes.kingHector.scores[heirKey] = hMap[heir.hectorRelation]??0;
+
+  // Personal NPCs
+  ['ally','rival','contact','wildCard'].forEach(slot => {
+    const npc = heir.npcs[slot];
+    if (!npc?.name) return;
+    const npcKey = npc.name.toLowerCase().replace(/\s+/g,'_');
+    if (!state.nodes[npcKey]) {
+      const factionStr = (npc.faction||'').toLowerCase();
+      const isPositioned = factionStr && !factionStr.includes('independent') && !factionStr.includes('none');
+      const cluster = isPositioned ? 'positioned' : 'satellite';
+      const worldLink = resolveFactionalLink(factionStr);
+      state.nodes[npcKey] = {
+        key:npcKey, name:npc.name,
+        role:`${capitalize(slot)} · ${heir.name}`,
+        cluster, weight:'personal',
+        scores:{[heirKey]: slot==='rival'?-1:1},
+        accumWeight: slot==='rival'?2:0,
+        triggerThreshold:4,
+        worldLink, ownerHeir:heirKey, slot, npcData:npc,
+        deployedHooks:[],
+      };
+    } else {
+      if (!state.nodes[npcKey].sharedBy) state.nodes[npcKey].sharedBy=[];
+      state.nodes[npcKey].sharedBy.push({heirKey,slot,heirName:heir.name});
+      collisions.push({node:state.nodes[npcKey], heirKey, slot, heirName:heir.name});
+    }
+  });
+
+  // Councillor
+  if (heir.npcs?.councillor?.name) {
+    const cKey = heir.npcs.councillor.name.toLowerCase().replace(/\s+/g,'_');
+    if (!state.nodes[cKey]) {
+      state.nodes[cKey] = {
+        key:cKey, name:heir.npcs.councillor.name,
+        role:`Councillor · ${heir.name}`,
+        cluster:'councillor', weight:'personal',
+        scores:{[heirKey]:1}, accumWeight:0, triggerThreshold:4,
+        worldLink:'kingHector', ownerHeir:heirKey, slot:'councillor',
+        npcData:heir.npcs.councillor, deployedHooks:[],
+      };
+    }
+  }
+  return collisions;
+}
+
+function resolveFactionalLink(f) {
+  const map = {merchant:'merchantConsortium',watch:'watchCommander','city watch':'watchCommander',dock:'dockworkersForeman',courier:'courierMaster',church:'highPriest',axiom:'highPriest',scholar:'archivistGeneral',guild:'archivistGeneral',military:'watchCommander',outskirts:'outskirtsBroker',crown:'royalChamberlain'};
+  for (const [k,v] of Object.entries(map)) { if (f.includes(k)) return v; }
+  return null;
+}
+
+function detectCollisions(collisions) {
+  collisions.forEach(col => {
+    state.hooks.push({
+      type:'collision',
+      text:`${col.node.name} appears in multiple heir records — shared node. Actions targeting them ripple to all connected heirs simultaneously. The web is already entangled here before play begins.`,
+      entities:[col.node.name],
+      session:state.session, deployed:false, dismissed:false,
+      eventId:'import',
+    });
+  });
+}
+
+function showImportModal(collisions) {
+  const list = document.getElementById('imported-heirs-list');
+  list.innerHTML = state.heirs.map(h=>`
+    <div class="modal-heir-item">
+      <div style="flex:1"><div class="modal-heir-name">${h.name}</div><div class="modal-heir-house">${h.house}</div></div>
+      <div class="modal-heir-school">${h.school||'—'}</div>
+    </div>`).join('');
+  const cn = document.getElementById('collision-notice');
+  if (collisions?.length) {
+    cn.innerHTML = `<div class="modal-collision-list"><strong style="font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.1em;">Shared Nodes Detected</strong><br>${collisions.map(c=>`${c.node.name} — ${c.heirName}'s ${c.slot}`).join('<br>')}</div>`;
+  } else { cn.innerHTML = ''; }
+  document.getElementById('import-modal').classList.add('show');
+}
+function closeImportModal() { document.getElementById('import-modal').classList.remove('show'); }
+
+// ═══════════════════════════════════════════
+// SESSION ADVANCE
+// ═══════════════════════════════════════════
+function confirmAdvanceSession() { document.getElementById('confirm-overlay').classList.add('show'); }
+function doAdvanceSession() {
+  // snapshot current state
+  state.snapshots.push({
+    session: state.session,
+    timestamp: Date.now(),
+    notes: {...state.notes},
+    hookCount: state.hooks.length,
+    eventCount: state.events.length,
+  });
+  state.session++;
+  // archive session notes to between-notes
+  if (state.notes.session) {
+    state.notes.between = `[Session ${state.session-1}]\n${state.notes.session}\n\n${state.notes.between}`.trim();
+    state.notes.session = '';
+    const ns = document.getElementById('notes-session');
+    const nb = document.getElementById('notes-between');
+    if (ns) ns.value = '';
+    if (nb) nb.value = state.notes.between;
+  }
+  document.getElementById('session-display').textContent = state.session;
+  document.getElementById('confirm-overlay').classList.remove('show');
+  save();
+}
+
+// ═══════════════════════════════════════════
+// COMPOSER CONTROLS
+// ═══════════════════════════════════════════
+function selectEventType(type, btn) {
+  state.selectedEventType = type;
+  document.querySelectorAll('.event-type-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['action','presence','exchange','revelation'].forEach(t=>{
+    document.getElementById(`fields-${t}`).style.display = t===type?'block':'none';
+  });
+}
+function selectTier(tier, btn) {
+  state.selectedTier = tier;
+  document.querySelectorAll('.tier-pip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function selectDirection(dir, btn) {
+  state.selectedDirection = dir;
+  document.querySelectorAll('.dir-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function setSessionType(type, btn) {
+  state.sessionType = type;
+  document.querySelectorAll('.stype-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  save();
+}
+function showLogPane(pane, btn) {
+  document.querySelectorAll('.log-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.log-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`pane-${pane}`).classList.add('active');
+  btn.classList.add('active');
+}
+function saveNotes() {
+  state.notes.session = document.getElementById('notes-session')?.value||'';
+  state.notes.between = document.getElementById('notes-between')?.value||'';
+  state.notes.threads = document.getElementById('notes-threads')?.value||'';
+  save();
+}
+
+// ═══════════════════════════════════════════
+// LOG EVENT
+// ═══════════════════════════════════════════
+function logEvent() {
+  const type = state.selectedEventType;
+  const result = document.getElementById('event-result-text')?.value.trim();
+  if (!result) { alert('Add a result description before logging.'); return; }
+
+  const eventId = 'evt_' + Date.now();
+  let event = {id:eventId, type, result, session:state.session, sessionType:state.sessionType, hookIds:[]};
+
+  if (type==='action') {
+    event.tier = state.selectedTier;
+    event.direction = state.selectedDirection;
+    event.actor = document.getElementById('actor-select')?.value||'';
+    event.actionType = document.getElementById('action-type-select')?.value||'political';
+    event.target = document.getElementById('target-select')?.value||'';
+  } else if (type==='presence') {
+    event.heir = document.getElementById('presence-heir-select')?.value||'';
+    event.location = document.getElementById('presence-location-select')?.value||'';
+    event.witnessedBy = document.getElementById('witnessed-by-select')?.value||'';
+  } else if (type==='exchange') {
+    event.from = document.getElementById('exchange-from-select')?.value||'';
+    event.exchangeType = document.getElementById('exchange-type-select')?.value||'information';
+    event.to = document.getElementById('exchange-to-select')?.value||'';
+  } else if (type==='revelation') {
+    event.revelationType = document.getElementById('revelation-type-select')?.value||'';
+    event.subject = document.getElementById('revelation-subject-select')?.value||'';
+  }
+
+  state.events.push(event);
+  const hookCountBefore=state.hooks.length;
+  applyWeightAndGenerateHooks(event);
+  const newlyAdded=state.hooks.slice(0,state.hooks.length-hookCountBefore);
+  document.getElementById('event-result-text').value = '';
+
+  renderEventLog();
+  renderWeb();
+  renderHooks();
+  updateBadges();
+  save();
+
+  if(newlyAdded.some(h=>h.type==='trigger-primed')) flashSpotlight();
+}
+
+// ═══════════════════════════════════════════
+// WEIGHT ENGINE
+// ═══════════════════════════════════════════
+function applyWeightAndGenerateHooks(event) {
+  const newHooks = [];
+
+  if (event.type==='action') {
+    const tier = event.tier;
+    const sign = event.direction==='hostile'?-1:1;
+    const baseWeight = tier * 1.5;
+    const actor = event.actor;
+    const target = event.target;
+
+    if (target && state.nodes[target]) {
+      const tn = state.nodes[target];
+      tn.accumWeight = (tn.accumWeight||0) + baseWeight;
+
+      // Score delta — direction-aware, fixed tier math
+      if (!tn.scores) tn.scores={};
+      if (!tn._fractional) tn._fractional={};
+      const deltaMag = tier===5?2:tier>=3?1:0;
+      const fracDelta = tier===2?0.5:tier===1?0.25:0;
+      if (deltaMag>0) {
+        tn.scores[actor] = Math.min(5,Math.max(-5,(tn.scores[actor]||0)+(sign*deltaMag)));
+      } else if (fracDelta>0) {
+        tn._fractional[actor] = (tn._fractional[actor]||0)+(sign*fracDelta);
+        if (Math.abs(tn._fractional[actor])>=1) {
+          const carry = Math.sign(tn._fractional[actor]);
+          tn.scores[actor] = Math.min(5,Math.max(-5,(tn.scores[actor]||0)+carry));
+          tn._fractional[actor] = 0;
+        }
+      }
+
+      // Primary hook
+      push(newHooks,event,'weight-moved',generateActionHook(event,tn,sign),[getEntityName(actor),tn.name]);
+
+      // Trigger check
+      if (tn.accumWeight >= tn.triggerThreshold) {
+        push(newHooks,event,'trigger-primed',generateTriggerHook(tn,event),[tn.name]);
+        tn.accumWeight = 0;
+      }
+
+      // Ripple
+      propagateWeight(target, baseWeight*0.6, actor, sign, newHooks, event, 1);
+
+      // Rival cross-check
+      state.heirs.forEach(h=>{
+        if (h.key===actor) return;
+        const rivalNpc = h.npcs?.rival;
+        if (!rivalNpc?.name) return;
+        const rKey = rivalNpc.name.toLowerCase().replace(/\s+/g,'_');
+        if (rKey===target) {
+          push(newHooks,event,'opportunity',
+            `This action touched ${tn.name}, who is ${h.name}'s Rival. ${h.name} will hear about it — direction and what the Rival does next determines whether this helps or hurts.`,
+            [getEntityName(actor),tn.name,h.name]);
+        }
+      });
+    }
+
+    if (event.actionType==='outskirts') {
+      if (state.nodes.outskirtsBroker) state.nodes.outskirtsBroker.accumWeight += baseWeight;
+      push(newHooks,event,'weight-moved',
+        `The Broker knows. Whatever ${getEntityName(actor)} did in the Outskirts is now in his ledger. He will not use it immediately — that is not how he works. But he will use it.`,
+        [getEntityName(actor),'Outskirts Broker']);
+    }
+  }
+
+  else if (event.type==='presence') {
+    const heir = event.heir;
+    const witnesses = LOCATION_WITNESSES[event.location]||[];
+    witnesses.forEach(wKey=>{ if(state.nodes[wKey]) state.nodes[wKey].accumWeight+=1; });
+    const witnessNames = witnesses.map(w=>state.nodes[w]?.name).filter(Boolean);
+    push(newHooks,event,'weight-moved',generatePresenceHook(event,witnessNames),[getEntityName(heir),...witnessNames]);
+
+    // Second-order propagation through witnesses
+    witnesses.forEach(wKey=>{
+      const wNode = state.nodes[wKey];
+      if (!wNode) return;
+      getNodeConductors(wNode).slice(0,2).forEach(cKey=>{
+        if (!state.nodes[cKey]||witnesses.includes(cKey)) return;
+        state.nodes[cKey].accumWeight += 0.5;
+        push(newHooks,event,'weight-moved',
+          `${wNode.name} witnessed ${getEntityName(heir)} at ${event.location.replace(/_/g,' ')}. That information moves to ${state.nodes[cKey].name} — they share interests.`,
+          [getEntityName(heir),wNode.name,state.nodes[cKey].name]);
+      });
+    });
+
+    if (event.location==='outskirts') {
+      if (state.nodes.outskirtsBroker) state.nodes.outskirtsBroker.accumWeight+=2;
+      push(newHooks,event,'trigger-primed',
+        `${getEntityName(heir)} was seen in the Outskirts. The Broker tracks every heir who walks through. This visit is now leverage — not yet. Just weight in his ledger, waiting for the moment it becomes worth something.`,
+        [getEntityName(heir),'Outskirts Broker']);
+    }
+  }
+
+  else if (event.type==='exchange') {
+    const from=event.from, to=event.to, eType=event.exchangeType;
+    [from,to].forEach(key=>{ if(key&&state.nodes[key]) state.nodes[key].accumWeight+=2; });
+    push(newHooks,event,'weight-moved',generateExchangeHook(event),[getEntityName(from),getEntityName(to)]);
+    [from,to].forEach(key=>{
+      if (!key||!state.nodes[key]) return;
+      getNodeConductors(state.nodes[key]).slice(0,1).forEach(cKey=>{
+        if (!state.nodes[cKey]) return;
+        state.nodes[cKey].accumWeight+=1;
+        push(newHooks,event,'weight-moved',
+          `The exchange between ${getEntityName(from)} and ${getEntityName(to)} reaches ${state.nodes[cKey].name} through ${state.nodes[key].name}'s connections.`,
+          [state.nodes[key].name,state.nodes[cKey].name]);
+      });
+    });
+    if (eType==='debt') push(newHooks,event,'opportunity',
+      `A debt between ${getEntityName(from)} and ${getEntityName(to)} is a live wire. Every future action by either party conducts through this obligation until it is settled — or weaponized.`,
+      [getEntityName(from),getEntityName(to)]);
+    if (eType==='information') push(newHooks,event,'opportunity',
+      `Information moved from ${getEntityName(from)} to ${getEntityName(to)}. Information doesn't stay where it lands — consider who ${getEntityName(to)} speaks to and what they'd do with what they now know.`,
+      [getEntityName(from),getEntityName(to)]);
+  }
+
+  else if (event.type==='revelation') {
+    const rType=event.revelationType, subject=event.subject;
+    const affected = getRevealedNodes(rType,subject);
+    affected.forEach(key=>{ if(state.nodes[key]) state.nodes[key].accumWeight+=4; });
+    push(newHooks,event,'trigger-primed',generateRevelationHook(event,affected),[getEntityName(subject),...affected.map(k=>state.nodes[k]?.name).filter(Boolean)]);
+    affected.forEach(key=>{
+      const node=state.nodes[key]; if(!node) return;
+      push(newHooks,event,'trigger-primed',
+        `${node.name} has processed the revelation about ${getEntityName(subject)}. They respond to: ${node.responds?.split('.')[0]||'what they value most'}. This changes how they read every heir's next approach.`,
+        [node.name,getEntityName(subject)]);
+    });
+    if (rType==='house_shadow') push(newHooks,event,'trigger-primed',
+      `A house shadow is now public. The Councillor's primary fear has materialized. The Chamberlain will note it. Hector will hear within the session. This is not recoverable through normal political means — something structural must change.`,
+      [getEntityName(subject),'Royal Chamberlain','King Hector']);
+  }
+
+  // Tag hooks with event id and prepend
+  newHooks.forEach(h=>{ h.eventId=event.id; });
+  event.hookIds = newHooks.map(h=>h.id);
+  state.hooks = [...newHooks, ...state.hooks];
+}
+
+function push(arr, event, type, text, entities) {
+  const id = 'hook_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+  arr.push({id,type,text,entities,session:state.session,deployed:false,dismissed:false,eventId:event?.id});
+}
+
+function getNodeConductors(node) {
+  if (node.conductors==='all') return Object.keys(state.nodes).filter(k=>k!==node.key);
+  if (Array.isArray(node.conductors)&&node.conductors.length>0) return node.conductors;
+  if (node.worldLink) return [node.worldLink];
+  return [];
+}
+
+function propagateWeight(nodeKey, weight, actorKey, sign, hooks, event, depth) {
+  if (depth>2||weight<0.3) return;
+  const node = state.nodes[nodeKey];
+  if (!node) return;
+  getNodeConductors(node).slice(0,2).forEach(cKey=>{
+    const cNode=state.nodes[cKey]; if(!cNode) return;
+    cNode.accumWeight=(cNode.accumWeight||0)+weight;
+    if (weight>=0.45) {
+      push(hooks,event,'weight-moved',generateRippleHook(node,cNode,actorKey,weight,sign),[node.name,cNode.name]);
+    }
+    if (cNode.accumWeight>=cNode.triggerThreshold) {
+      push(hooks,event,'trigger-primed',generateTriggerHook(cNode,{actor:actorKey}),[cNode.name]);
+      cNode.accumWeight=0;
+    }
+    propagateWeight(cKey,weight*0.5,actorKey,sign,hooks,event,depth+1);
+  });
+}
+
+// ═══════════════════════════════════════════
+// HOOK GENERATORS
+// ═══════════════════════════════════════════
+function generateActionHook(event, tn, sign) {
+  const actor = getEntityName(event.actor);
+  const tierWord = ['minor','notable','significant','major','decisive'][event.tier-1]||'significant';
+  const dir = sign>0?'favorable':'hostile';
+  const score = tn.scores?.[event.actor]??0;
+  let ctx = '';
+  if (score>=3) ctx=`${actor} already has strong standing with ${tn.name} — this deepens a relationship with real institutional weight.`;
+  else if (score<=-3) ctx=`${tn.name} is actively opposed to ${actor}. This action lands in hostile territory and will be read through that lens.`;
+  else if (score===0) ctx=`${tn.name} has no established read on ${actor} yet. This is their first real data point.`;
+  else if (score>0) ctx=`${actor} has some standing with ${tn.name}. A ${dir} move here builds on existing recognition.`;
+  else ctx=`${actor} is already in negative standing with ${tn.name}. This either begins repair or compounds the damage.`;
+  const typeMap={political:`${actor} made a ${tierWord} ${dir} political move toward ${tn.name}. ${ctx} ${tn.responds?`${tn.name} responds to ${tn.responds.split('.')[0]}.`:''}`,statecraft:`${actor} exercised statecraft — administrative or governance action touching ${tn.name}'s domain. ${ctx} Statecraft moves are slower than political maneuvers but harder to reverse.`,magic:`${actor} used magic publicly. ${tn.name} will hear about it. ${ctx}`,combat:`${actor} fought — the outcome is now part of their visible record. ${tn.name} will hear. ${ctx}`,exploration:`${actor} entered a ruin. The fact of the trip is known. ${ctx}`,caravan:`${actor} moved something through the city. ${ctx}`,outskirts:`${actor} acted in the Outskirts toward ${tn.name}'s interests. ${ctx}`};
+  return typeMap[event.actionType]||`${actor} acted at tier ${event.tier} — ${dir}. ${ctx}`;
+}
+
+function generatePresenceHook(event, witnessNames) {
+  const h = getEntityName(event.heir);
+  const loc = event.location.replace(/_/g,' ');
+  if (!witnessNames.length) return `${h} was at ${loc}. No institutional witness recorded — but absence of record is not absence of observation.`;
+  return `${h} was seen at ${loc} by ${witnessNames[0]}${witnessNames.length>1?` and ${witnessNames.slice(1).join(', ')}`:''}. Presence is information. ${witnessNames[0]} now knows ${h} was there.`;
+}
+
+function generateExchangeHook(event) {
+  const f=getEntityName(event.from), t=getEntityName(event.to), et=event.exchangeType.replace(/_/g,' ');
+  return `${f} and ${t} exchanged ${et}. The edge between them has weight now. Both parties know something about the other — including what the other was willing to do.`;
+}
+
+function generateRippleHook(src, cond, actorKey, weight, sign) {
+  const a=getEntityName(actorKey), dir=sign>0?'toward':'against';
+  const intensity=weight>=1.2?'strong ripple':weight>=0.6?'ripple':'echo';
+  return `What ${a} did ${dir} ${src.name} sent a ${intensity} to ${cond.name}. These nodes are connected — ${cond.name} is now reading the situation differently.`;
+}
+
+function generateTriggerHook(node, event) {
+  const a=event?.actor?getEntityName(event.actor):'accumulated events';
+  return `${node.name} has reached a threshold. Weight from ${a} and prior events has accumulated enough to move them. This is a world event, not a score adjustment. ${node.responds?`They respond to ${node.responds.split('.')[0].toLowerCase()}.`:''} Consider what form their response takes.`;
+}
+
+function generateRevelationHook(event, affected) {
+  const s=getEntityName(event.subject), rt=event.revelationType.replace(/_/g,' ');
+  const names=affected.map(k=>state.nodes[k]?.name).filter(Boolean).join(', ');
+  return `A revelation concerning ${s}: ${rt}. This does not stay contained — ${names||'connected nodes'} will process and respond. Revelations at this level are permanent conditions in the web.`;
+}
+
+function getRevealedNodes(rType, subject) {
+  const always=['royalChamberlain','kingHector'];
+  const byType={house_shadow:['royalChamberlain','kingHector','highPriest'],secret_exposed:['courierMaster','outskirtsBroker'],rival_leverage:['outskirtsBroker'],npc_allegiance:['courierMaster','royalChamberlain'],document_found:['archivistGeneral','royalChamberlain'],magic_exposed:['watchCommander','highPriest'],outskirts_exposed:['outskirtsBroker','watchCommander']};
+  return [...new Set([...always,...(byType[rType]||[])])];
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function renderAll() { renderWeb(); populateSelects(); renderEventLog(); renderHooks(); renderHeirPills(); }
+
+function renderHeirPills() {
+  const c = document.getElementById('heir-filter-pills');
+  if (!c) return;
+  const allBtn = c.querySelector('.heir-pill.all');
+  c.innerHTML='';
+  if (allBtn) c.appendChild(allBtn);
+  else { const b=document.createElement('button'); b.className='heir-pill all active'; b.textContent='All'; b.onclick=()=>filterWeb('all',b); c.appendChild(b); }
+  state.heirs.forEach(h=>{
+    const b=document.createElement('button'); b.className='heir-pill'; b.textContent=h.name.split(' ')[0];
+    b.dataset.heirKey=h.key;
+    b.onclick=()=>filterWeb(h.key,b); c.appendChild(b);
+  });
+}
+
+function filterWeb(key, btn) {
+  state.activeFilter=key;
+  document.querySelectorAll('.heir-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderWeb();
+}
+
+function filterHooks(type, btn) {
+  state.hookFilter=type;
+  document.querySelectorAll('.hook-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHooks();
+}
+
+function renderWeb() {
+  const c=document.getElementById('web-scroll'); if(!c) return;
+  const clusters={crown:{label:'Crown · High Weight',nodes:[]},factions:{label:'Factions',nodes:[]},outskirts:{label:'Outskirts',nodes:[]},councillor:{label:'Councillors',nodes:[]},positioned:{label:'Positioned NPCs',nodes:[]},satellite:{label:'Satellite NPCs',nodes:[]}};
+  Object.values(state.nodes).forEach(n=>{ const cl=clusters[n.cluster]; if(cl) cl.nodes.push(n); });
+  c.innerHTML=Object.entries(clusters).map(([ck,cl])=>{
+    if(!cl.nodes.length) return '';
+    return `<div class="cluster"><span class="cluster-label">${cl.label}</span>${cl.nodes.map(n=>renderNodeCard(n)).join('')}</div>`;
+  }).join('');
+}
+
+function renderNodeCard(node) {
+  const isPrimed=node.accumWeight>=(node.triggerThreshold||5);
+  const hasWeight=node.accumWeight>0;
+  const fillPct=Math.min(100,Math.round(((node.accumWeight||0)/(node.triggerThreshold||5))*100));
+  let scoreBadge='';
+  if (state.activeFilter!=='all') {
+    const sc=node.scores?.[state.activeFilter]??null;
+    if (sc!==null) { const cls=sc>0?'pos':sc<0?'neg':'zero'; scoreBadge=`<span class="weight-badge ${cls}">${sc>0?'+':''}${sc}</span>`; }
+  }
+  const tagClass=node.cluster==='crown'?'crown':node.cluster==='factions'||node.cluster==='outskirts'?'faction':node.cluster==='positioned'?'personal':'satellite';
+  return `<div class="node-card ${isPrimed?'primed':hasWeight?'has-weight':''}" onclick="openDrawer('${node.key}')">
+    ${scoreBadge}
+    <span class="node-name">${node.name}</span>
+    <span class="node-role">${node.role}</span>
+    ${hasWeight?`<div class="node-weight-bar"><div class="node-weight-fill ${fillPct>=80?'danger':''}" style="width:${fillPct}%"></div></div>`:''}
+    <span class="node-tag ${tagClass}">${node.cluster}</span>
+    ${node.slot?`<span class="node-tag personal">${node.slot}</span>`:''}
+  </div>`;
+}
+
+function renderEventLog() {
+  const c=document.getElementById('pane-events'); if(!c) return;
+  const empty=document.getElementById('log-empty');
+  if (!state.events.length) { if(empty) empty.style.display='block'; return; }
+  if (empty) empty.style.display='none';
+  const entries=[...state.events].reverse().map(ev=>{
+    const hooks=state.hooks.filter(h=>h.eventId===ev.id);
+    const hCount=hooks.length;
+    let meta='';
+    if (ev.type==='action') meta=`T${ev.tier} · ${ev.actionType} · ${getEntityName(ev.actor)} → ${getEntityName(ev.target)}`;
+    else if (ev.type==='presence') meta=`${getEntityName(ev.heir)} · ${(ev.location||'').replace(/_/g,' ')}`;
+    else if (ev.type==='exchange') meta=`${getEntityName(ev.from)} ↔ ${getEntityName(ev.to)} · ${(ev.exchangeType||'').replace(/_/g,' ')}`;
+    else if (ev.type==='revelation') meta=`${(ev.revelationType||'').replace(/_/g,' ')} · ${getEntityName(ev.subject)}`;
+    const hooksHtml=hooks.map(h=>`<div class="log-hook-item"><span class="log-hook-item-type ${h.type}">${h.type.replace(/-/g,' ')}</span>${h.text}</div>`).join('');
+    const dirTag=ev.direction?`<span class="log-entry-dir ${ev.direction}">${ev.direction==='favorable'?'↑':'↓'}</span>`:'';
+    return `<div class="log-entry ${ev.type}" onclick="toggleEntry(this)">
+      <div class="log-entry-header">
+        <span class="log-entry-type ${ev.type}">${ev.type}</span>
+        ${dirTag}
+        <span class="log-entry-session">S${ev.session}</span>
+      </div>
+      <div class="log-entry-desc">${ev.result}</div>
+      ${meta?`<div class="log-entry-meta">${meta}</div>`:''}
+      ${hCount?`<div class="log-hook-count">▸ ${hCount} hook${hCount>1?'s':''} — tap to expand</div>`:''}
+      ${hooksHtml?`<div class="log-hooks">${hooksHtml}</div>`:''}
+    </div>`;
+  }).join('');
+  c.innerHTML=`<div id="log-empty" style="display:none" class="log-empty"></div>${entries}`;
+}
+
+function toggleEntry(el) { el.classList.toggle('expanded'); }
+
+function renderHooks() {
+  const c=document.getElementById('hook-scroll'); if(!c) return;
+  const empty=document.getElementById('hook-empty');
+  const visible=state.hooks.filter(h=>!h.dismissed&&(state.hookFilter==='all'||h.type===state.hookFilter));
+  if (!visible.length) { if(empty) empty.style.display='block'; return; }
+  if (empty) empty.style.display='none';
+  const ICONS={'trigger-primed':'⚡','weight-moved':'◆','opportunity':'✦','collision':'⟁'};
+  c.innerHTML=visible.map((hook,i)=>{
+    const realIdx=state.hooks.indexOf(hook);
+    const entityHtml=(hook.entities||[]).map(name=>{
+      const node=Object.values(state.nodes).find(n=>n.name===name);
+      return node?`<span class="entity-link" onclick="event.stopPropagation();showQuickPop('${node.key}',event)">${name}</span>`:name;
+    }).join(' · ');
+    return `<div class="hook-card ${hook.type} ${hook.deployed?'deployed':''}">
+      <span class="hook-type ${hook.type}"><span class="hook-icon">${ICONS[hook.type]||''}</span>${hook.type.replace(/-/g,' ')}</span>
+      <div class="hook-text">${hook.text}</div>
+      ${hook.entities?.length?`<div class="hook-entities">${entityHtml}</div>`:''}
+      <div class="hook-actions">
+        <button class="hook-btn ${hook.deployed?'deployed':''}" onclick="deployHook(${realIdx})">${hook.deployed?'✦ Deployed':'Mark Deployed'}</button>
+        <button class="hook-btn dismiss" onclick="dismissHook(${realIdx})">Dismiss</button>
+        <span class="hook-session-tag">S${hook.session}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function flashSpotlight(){
+  const flash=document.createElement('div');
+  flash.className='spotlight-flash';
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.remove(),1200);
+}
+
+// ═══════════════════════════════════════════
+// QUICK NPC POPOVER
+// ═══════════════════════════════════════════
+function showQuickPop(nodeKey,evt){
+  const node=state.nodes[nodeKey];
+  if(!node)return;
+  const pop=document.getElementById('quick-pop');
+  const thresh=node.triggerThreshold||5;
+  const pct=Math.min(100,Math.round(((node.accumWeight||0)/thresh)*100));
+  const topScores=Object.entries(node.scores||{})
+    .map(([hk,sc])=>({name:getEntityName(hk),score:sc}))
+    .sort((a,b)=>Math.abs(b.score)-Math.abs(a.score))
+    .slice(0,3);
+
+  pop.innerHTML=`
+    <div class="quick-pop-name">${node.name}</div>
+    <span class="quick-pop-role">${node.role||node.cluster}</span>
+    ${node.responds?`<div class="quick-pop-row"><strong>Responds to:</strong> ${node.responds}</div>`:''}
+    ${topScores.length?`<div class="quick-pop-row"><strong>Notable leverage:</strong> ${topScores.map(s=>`${s.name} ${s.score>0?'+':''}${s.score}`).join(', ')}</div>`:''}
+    <div class="quick-pop-weight"><span style="font-size:.72rem;color:var(--ink-light);">Weight: ${Math.round(node.accumWeight||0)}/${thresh} (${pct}%)</span></div>
+    <span class="quick-pop-open" onclick="closeQuickPop();openDrawer('${nodeKey}')">Open Full Drawer →</span>
+  `;
+
+  // Position near the click, staying on-screen
+  const x=Math.min((evt?.clientX||window.innerWidth/2)+10, window.innerWidth-300);
+  const y=Math.min((evt?.clientY||window.innerHeight/2)+10, window.innerHeight-220);
+  pop.style.left=`${Math.max(10,x)}px`;
+  pop.style.top=`${Math.max(10,y)}px`;
+  pop.classList.add('show');
+
+  setTimeout(()=>document.addEventListener('click',closeQuickPopOnOutsideClick),0);
+}
+function closeQuickPop(){
+  document.getElementById('quick-pop').classList.remove('show');
+  document.removeEventListener('click',closeQuickPopOnOutsideClick);
+}
+function closeQuickPopOnOutsideClick(e){
+  const pop=document.getElementById('quick-pop');
+  if(pop&&!pop.contains(e.target)) closeQuickPop();
+}
+
+// ═══════════════════════════════════════════
+// DRAWER
+// ═══════════════════════════════════════════
+function renderCodexSection(codex){
+  return `<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;margin:.5rem 0;">
+    <span class="drawer-section-label" style="color:var(--gold-bright);">Performing This NPC</span>
+    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Voice —</strong> ${codex.voice}</div>
+    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Presence —</strong> ${codex.presence}</div>
+    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Tell —</strong> ${codex.tell}</div>
+    <div class="drawer-text" style="margin-bottom:.4rem;font-style:italic;color:var(--gold);">${codex.line}</div>
+    <div class="drawer-text" style="color:var(--crimson-bright);"><strong>Crossed by —</strong> ${codex.crossedBy}</div>
+  </div>`;
+}
+
+function openDrawer(nodeKey) {
+  const node=state.nodes[nodeKey]; if(!node) return;
+  state.drawerNode=nodeKey;
+  const thresh=node.triggerThreshold||5;
+  const fillPct=Math.min(100,Math.round(((node.accumWeight||0)/thresh)*100));
+  const scoreRows=state.heirs.map(h=>{
+    const sc=node.scores?.[h.key]??0;
+    const cls=sc>0?'pos':sc<0?'neg':'zero';
+    return `<div class="drawer-score-row">
+      <span class="drawer-heir-name">${h.name}</span>
+      <button class="drawer-adj" onclick="adjustScore('${nodeKey}','${h.key}',-1)">−</button>
+      <span class="drawer-score ${cls}">${sc>0?'+':''}${sc}</span>
+      <button class="drawer-adj" onclick="adjustScore('${nodeKey}','${h.key}',1)">+</button>
+    </div>`;
+  }).join('');
+  document.getElementById('drawer-content').innerHTML=`
+    <div class="drawer-name">${node.name}</div>
+    <span class="drawer-role">${node.role}</span>
+    ${node.responds?`<div class="drawer-section"><span class="drawer-section-label">Responds To</span><div class="drawer-text">${node.responds}</div></div>`:''}
+    ${NPC_CODEX[nodeKey]?renderCodexSection(NPC_CODEX[nodeKey]):''}
+    ${node.npcData?`<div class="drawer-section"><span class="drawer-section-label">Session Zero Data</span><div class="drawer-text">${[node.npcData.want?`Wants: ${node.npcData.want}`:'',node.npcData.knows?`Knows: ${node.npcData.knows}`:'',node.npcData.leverage?`Holds: ${node.npcData.leverage}`:'',node.npcData.expects?`Expects: ${node.npcData.expects}`:'',node.npcData.goal?`Goal: ${node.npcData.goal}`:'',node.npcData.fear?`Fear: ${node.npcData.fear}`:''].filter(Boolean).join('<br>')}</div></div>`:''}
+    <div class="drawer-section"><span class="drawer-section-label">Leverage Scores</span>${state.heirs.length?scoreRows:`<div class="drawer-text" style="opacity:.4">No heirs imported.</div>`}</div>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Accumulated Weight · ${Math.round(node.accumWeight||0)} / ${thresh}</span>
+      <div class="weight-fill-bar"><div class="weight-fill-inner" style="width:${fillPct}%;background:${fillPct>=80?'var(--crimson-bright)':'var(--gold-bright)'}"></div></div>
+    </div>
+    ${node.worldLink?`<div class="drawer-section"><span class="drawer-section-label">Conducts Through</span><div class="drawer-text">${state.nodes[node.worldLink]?.name||node.worldLink}</div></div>`:''}
+    <div class="drawer-section">
+      <span class="drawer-section-label">GM Notes — This NPC</span>
+      <textarea class="drawer-notes-area" id="drawer-notes-${nodeKey}" placeholder="Private notes on this NPC. Not visible to players." oninput="saveNodeNote('${nodeKey}',this.value)">${node.gmNote||''}</textarea>
+    </div>
+  `;
+  document.getElementById('npc-drawer').classList.add('open');
+}
+
+function closeDrawer() { document.getElementById('npc-drawer').classList.remove('open'); state.drawerNode=null; }
+
+function adjustScore(nodeKey, heirKey, delta) {
+  if (!state.nodes[nodeKey].scores) state.nodes[nodeKey].scores={};
+  const cur=state.nodes[nodeKey].scores[heirKey]||0;
+  state.nodes[nodeKey].scores[heirKey]=Math.min(5,Math.max(-5,cur+delta));
+  openDrawer(nodeKey); renderWeb(); save();
+}
+
+function saveNodeNote(nodeKey, val) {
+  if (state.nodes[nodeKey]) { state.nodes[nodeKey].gmNote=val; save(); }
+}
+
+// ═══════════════════════════════════════════
+// HOOK ACTIONS
+// ═══════════════════════════════════════════
+function deployHook(idx) { state.hooks[idx].deployed=!state.hooks[idx].deployed; renderHooks(); save(); }
+function dismissHook(idx) { state.hooks[idx].dismissed=true; renderHooks(); renderEventLog(); save(); }
+
+// ═══════════════════════════════════════════
+// SELECTS
+// ═══════════════════════════════════════════
+function populateSelects() {
+  const heirOpts=state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
+  const worldOpts=WORLD_NPCS.map(n=>`<option value="${n.key}">${n.name}</option>`).join('');
+  const personalOpts=Object.values(state.nodes).filter(n=>n.weight==='personal').map(n=>`<option value="${n.key}">${n.name}</option>`).join('');
+  const allOpts=`<option value="">— select —</option>${heirOpts?`<optgroup label="Heirs">${heirOpts}</optgroup>`:''}<optgroup label="World NPCs">${worldOpts}</optgroup>${personalOpts?`<optgroup label="Personal NPCs">${personalOpts}</optgroup>`:''}`;
+  const nodeOpts=`<option value="">— unknown / unlogged —</option>${worldOpts}${personalOpts}`;
+  const heirOnly=`<option value="">— select —</option>${heirOpts}`;
+  const set=(id,html)=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; };
+  set('actor-select',allOpts); set('target-select',allOpts);
+  set('presence-heir-select',heirOnly); set('witnessed-by-select',nodeOpts);
+  set('exchange-from-select',allOpts); set('exchange-to-select',allOpts);
+  set('revelation-subject-select',allOpts);
+}
+
+// ═══════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════
+function getEntityName(key) {
+  if (!key) return '—';
+  const h=state.heirs.find(h=>h.key===key); if(h) return h.name;
+  const n=state.nodes[key]; if(n) return n.name;
+  return key;
+}
+function capitalize(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function updateBadges() {
+  const isMobile=window.innerWidth<=768;
+  if (!isMobile) return;
+  const hooksActive=document.querySelector('.mob-tab:nth-child(3)')?.classList.contains('active');
+  const logActive=document.querySelector('.mob-tab:nth-child(2)')?.classList.contains('active');
+  if (!hooksActive) { state._unreadHooks=(state._unreadHooks||0)+1; const b=document.getElementById('hook-badge'); if(b){b.textContent=state._unreadHooks;b.classList.add('show');} }
+}
+
+function mobTab(panel, btn) {
+  document.querySelectorAll('#session-main-grid .web-panel,#session-main-grid .center-panel,#session-main-grid .hook-panel').forEach(el=>el.classList.remove('mob-active'));
+  document.querySelectorAll('.mob-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const map={web:'#panel-web',center:'#panel-center',hooks:'#panel-hooks'};
+  document.querySelector(map[panel])?.classList.add('mob-active');
+  if (panel==='hooks') { state._unreadHooks=0; const b=document.getElementById('hook-badge'); if(b){b.textContent='';b.classList.remove('show');} }
+}
+
+// ═══════════════════════════════════════════
+// MODE SWITCH — Session vs Tools
+// ═══════════════════════════════════════════
+function setMode(mode,btn){
+  const toggle=document.getElementById('mode-toggle');
+  toggle.querySelectorAll('.stype-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const sessionGrid=document.getElementById('session-main-grid');
+  const toolsGrid=document.getElementById('panel-tools');
+  const mobileNav=document.querySelector('.mobile-tab-nav');
+  if(mode==='tools'){
+    sessionGrid.style.display='none';
+    toolsGrid.style.display='grid';
+    if(mobileNav) mobileNav.style.display='none';
+  } else {
+    sessionGrid.style.display='';
+    toolsGrid.style.display='none';
+    if(mobileNav) mobileNav.style.display='';
+  }
+}
+
+document.addEventListener('change',(e)=>{
+  if(e.target?.id==='tool-count-select'){
+    const customRow=document.getElementById('tool-custom-count-row');
+    if(customRow) customRow.style.display=e.target.value==='custom'?'block':'none';
+  }
+  if(e.target?.id==='tool-depth-select'||e.target?.id==='tool-civ-select'){
+    syncCivDepthAvailability();
+  }
+});
+
+function syncCivDepthAvailability(){
+  // D6 is Void Touched only, per the SRD. Reflect that constraint in the picker
+  // itself rather than letting the GM pick an invalid combo and only finding out after.
+  const depthSel=document.getElementById('tool-depth-select');
+  const civSel=document.getElementById('tool-civ-select');
+  if(!depthSel||!civSel) return;
+  const depth=DEPTH_TABLE[depthSel.value];
+  Array.from(civSel.options).forEach(opt=>{
+    const allowed=depth.civAccess.includes(opt.value);
+    opt.disabled=!allowed;
+  });
+  if(civSel.options[civSel.selectedIndex]?.disabled){
+    const firstAllowed=Array.from(civSel.options).find(o=>!o.disabled);
+    if(firstAllowed) civSel.value=firstAllowed.value;
+  }
+}
+
+function runGenerator(){
+  const civKey=document.getElementById('tool-civ-select').value;
+  const depthKey=document.getElementById('tool-depth-select').value;
+  const countSel=document.getElementById('tool-count-select').value;
+  const count=countSel==='custom'?(parseInt(document.getElementById('tool-custom-count').value)||1):parseInt(countSel);
+
+  const empty=document.getElementById('tool-results-empty');
+  const list=document.getElementById('tool-results-list');
+  if(empty) empty.style.display='none';
+
+  const chambers=generateSite(civKey,depthKey,count);
+  state.lastGeneratedRewards=chambers.map(ch=>ch.reward); // addressable by index for export
+
+  list.innerHTML=chambers.map((ch,i)=>{
+    const r=ch.reward;
+    if(!r) return '';
+    if(r.error){
+      return `<div class="hook-card collision"><span class="hook-type collision">Chamber ${ch.index}</span><div class="hook-text">${r.error}</div></div>`;
+    }
+    const civDef=CIVILIZATIONS[r.civ];
+    const exportBtn=`<button class="hook-btn" style="margin-top:.5rem;" onclick="openRewardExport(${i})">⬇ Give to Player</button>`;
+    if(r.shape==='document'){
+      return `<div class="hook-card opportunity" style="margin-bottom:.7rem;">
+        <span class="hook-type opportunity">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
+        <div class="hook-text"><strong>Found:</strong> ${r.desc}</div>
+        <div class="hook-entities">Concerns: ${r.subject} — implicates ${r.implicates}</div>
+        <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
+        ${exportBtn}
+      </div>`;
+    }
+    return `<div class="hook-card weight-moved" style="margin-bottom:.7rem;border-left:3px solid ${r.schoolColor};">
+      <span class="hook-type weight-moved">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
+      <div class="hook-text"><strong>${r.name}</strong> — ${r.desc}</div>
+      <div class="hook-entities">${r.schoolName} · Tier ${r.tier} effect</div>
+      <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
+      ${exportBtn}
+    </div>`;
+  }).join('');
+}
+
+function setToolSubTab(tab,btn){
+  document.querySelectorAll('.tool-subtabs .stype-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('toolsub-exploration-panel').style.display=tab==='exploration'?'block':'none';
+  document.getElementById('toolsub-caravan-panel').style.display=tab==='caravan'?'block':'none';
+  document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'block':'none';
+  document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'block':'none';
+  if(tab==='solo') populateSoloHeirSelect();
+}
+
+// ═══════════════════════════════════════════
+// COMBAT OPPONENT BUILDER
+// One technique per weapon, each derived directly from that weapon's own
+// specialty mechanic (same source as the play sheet's WEAPON_SPECIALTIES),
+// so an opponent's capability is never inventing something the rules don't
+// support for that weapon.
+// ═══════════════════════════════════════════
+// Ported verbatim from the play sheet so opponent specialty text always
+// matches what a player would see for the same weapon on their own sheet.
+const WEAPON_SPECIALTIES_REF={
+  Sword:'Range of Response — can split Act slot between strike and defense once per exchange without technique cost.',
+  Spear:'Reach Dominance — opponent must spend Move and React slots to close distance while you hold Move.',
+  Wand:'Cast Acceleration — spells treated one tier lower for slot cost only. No physical defense.',
+  Staff:'Barrier Generation — once per encounter spend React slot to absorb one wound state completely.',
+  Dagger:'Initiative Advantage — in simultaneous Act declarations your action resolves first.',
+  Projectile:'Engagement Denial — can target any participant regardless of position. Reloading costs Move slot.',
+};
+
+const OPPONENT_WEAPON_TECHNIQUES={
+  Sword:{name:'Parry Riposte',trigger:'Opponent has committed both Act and React in the same exchange.',slots:'Act + React',effect:'A counter-strike that fires immediately once the trigger is met — punishes a fighter who over-commits trying to both attack and defend at once.'},
+  Spear:{name:'Held Ground',trigger:'Opponent attempts to close distance while this fighter holds Move.',slots:'Move + React',effect:'Forces the closing opponent to spend Move and React just to arrive — reach denies the approach before it lands.'},
+  Wand:{name:'Snapcast',trigger:'Opponent has committed Act to a physical strike with no React reserved.',slots:'Act',effect:'A tier one spell fired in the gap a committed striker leaves open — costs only Act because the weapon specialty treats it one tier lower.'},
+  Staff:{name:'Absorbing Ward',trigger:'An incoming hit would otherwise land a wound state.',slots:'React',effect:'Spends once per encounter to absorb one wound state completely — the staff specialty made real as a single emergency block.'},
+  Dagger:{name:'First Cut',trigger:'Both fighters declare Act in the same exchange.',slots:'Act',effect:'Resolves before the opponent\'s simultaneous action — the Initiative Advantage means this fighter\'s strike lands first, every time slots tie.'},
+  Projectile:{name:'Repositioned Shot',trigger:'Any participant is in range, regardless of cover or formal positioning.',slots:'Act (+ Move to reload after)',effect:'Targets anyone present, not just whoever is directly engaged — the Engagement Denial specialty applied as an actual shot.'},
+};
+
+const OPPONENT_PRESENCE_BY_TRAINING={
+  untrained:'Baseline',
+  developing:'Developing',
+  trained:'Trained',
+};
+
+function runOpponentBuilder(){
+  const training=document.getElementById('opp-training-select').value;
+  const weapon=document.getElementById('opp-weapon-select').value;
+  const location=document.getElementById('opp-location-select').value;
+
+  const empty=document.getElementById('opponent-results-empty');
+  const list=document.getElementById('opponent-results-list');
+  if(empty) empty.style.display='none';
+
+  const presence=OPPONENT_PRESENCE_BY_TRAINING[training];
+  const specialty=WEAPON_SPECIALTIES_REF[weapon];
+  const hasTechnique=training!=='untrained';
+  const technique=hasTechnique?OPPONENT_WEAPON_TECHNIQUES[weapon]:null;
+
+  const stakesNote=location==='inside'
+    ?'Inside the barrier — non-lethal. The fight ends at Spent stamina or three wound states. Neither side is at risk of death.'
+    :'Outside the barrier — real stakes apply. Spent stamina here is the moment the fight becomes about survival, not winning. Flight is always an option, and its success depends on Leg wound status, stamina, terrain, and whether this opponent commits to pursuit.';
+
+  let html=`<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
+    <span class="hook-type weight-moved">Presence & Capability</span>
+    <div class="hook-text"><strong>${presence}</strong> presence. Weapon: <strong>${weapon}</strong>.</div>
+    <div class="hook-entities">${weapon} specialty: ${specialty}</div>
+    ${training==='untrained'?`<div class="hook-entities" style="color:var(--crimson-bright);">No Combat training — zero technique access. This opponent's Act slot produces a basic strike only, exactly per the rules for zero Combat aspect years. Do not improvise a technique for them mid-fight.</div>`:''}
+  </div>`;
+
+  if(hasTechnique){
+    html+=`<div class="hook-card opportunity" style="margin-bottom:.7rem;">
+      <span class="hook-type opportunity">Technique — ${technique.name}</span>
+      <div class="hook-text"><strong>Trigger:</strong> ${technique.trigger}</div>
+      <div class="hook-entities"><strong>Slot cost:</strong> ${technique.slots}</div>
+      <div class="hook-entities"><strong>Effect:</strong> ${technique.effect}</div>
+      ${training==='developing'?`<div class="hook-entities" style="color:var(--gold-bright);">Developing training — one technique only. This is the full extent of what they can pull off; don't stack a second technique onto them mid-fight.</div>`:`<div class="hook-entities" style="color:var(--gold-bright);">Trained — this technique plus a signature-level confidence in basic strikes. They know exactly when to wait for the trigger.</div>`}
+    </div>`;
+  }
+
+  html+=`<div class="hook-card collision">
+    <span class="hook-type collision">Stakes — ${location==='inside'?'Inside the Barrier':'Outside the Barrier'}</span>
+    <div class="hook-text">${stakesNote}</div>
+  </div>`;
+
+  list.innerHTML=html;
+
+  // Reveal the live tracker for this opponent and reset it clean —
+  // a freshly built opponent always starts Fresh with no wounds.
+  currentOpponent={training,weapon,location,hasTechnique,techniqueName:technique?technique.name:null};
+  opponentState={stamina:0,wounds:[]};
+  const tracker=document.getElementById('opponent-tracker');
+  if(tracker) tracker.style.display='block';
+  document.querySelectorAll('#opp-stamina-selector .stamina-btn').forEach(b=>b.classList.remove('active-0','active-1','active-2','active-3'));
+  document.querySelector('#opp-stamina-selector .stamina-btn[data-stage="0"]')?.classList.add('active-0');
+  document.querySelectorAll('#opp-wound-grid .wound-btn').forEach(b=>b.classList.remove('active'));
+  const techRow=document.getElementById('opp-technique-row');
+  if(techRow) techRow.style.display=hasTechnique?'block':'none';
+  const techUsed=document.getElementById('opp-technique-used');
+  if(techUsed) techUsed.checked=false;
+  renderOpponentTrackerStatus();
+}
+
+// ═══════════════════════════════════════════
+// LIVE OPPONENT TRACKER — lightweight, single-opponent state for the
+// duration of one fight. Not persisted across sessions; cleared explicitly
+// when combat ends, or silently replaced the next time an opponent is built.
+// ═══════════════════════════════════════════
+let currentOpponent=null;
+let opponentState={stamina:0,wounds:[]};
+
+const OPPONENT_STAMINA_LABELS=['Fresh','Winded','Strained','Spent'];
+
+function setOpponentStamina(stage,btn){
+  opponentState.stamina=stage;
+  document.querySelectorAll('#opp-stamina-selector .stamina-btn').forEach(b=>b.classList.remove('active-0','active-1','active-2','active-3'));
+  btn.classList.add(`active-${stage}`);
+  renderOpponentTrackerStatus();
+}
+
+function toggleOpponentWound(btn,key){
+  const idx=opponentState.wounds.indexOf(key);
+  if(idx>=0){opponentState.wounds.splice(idx,1);btn.classList.remove('active');}
+  else{opponentState.wounds.push(key);btn.classList.add('active');}
+  renderOpponentTrackerStatus();
+}
+
+function renderOpponentTrackerStatus(){
+  const el=document.getElementById('opp-tracker-status');
+  if(!el||!currentOpponent)return;
+  const staminaLabel=OPPONENT_STAMINA_LABELS[opponentState.stamina];
+  const woundCount=opponentState.wounds.length;
+  const techUsed=document.getElementById('opp-technique-used')?.checked;
+
+  let lines=[];
+  lines.push(`<strong>${staminaLabel}</strong>${woundCount?` · ${woundCount} wound${woundCount>1?'s':''}`:' · no wounds'}`);
+
+  if(opponentState.stamina>=3){
+    lines.push(`<span style="color:var(--crimson-bright);">Spent — no techniques available. ${currentOpponent.location==='inside'?'This is the trigger for combat resolution inside the barrier.':'Outside the barrier, this is the point where death becomes a real possibility.'}</span>`);
+  } else if(currentOpponent.hasTechnique&&techUsed&&currentOpponent.training==='developing'){
+    lines.push(`<span style="color:var(--gold-bright);">Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.</span>`);
+  }
+
+  if(opponentState.wounds.includes('presence')){
+    lines.push(`<span style="color:var(--crimson-bright);">Presence wound — all techniques unavailable until at least one stage of recovery.</span>`);
+  }
+  if(opponentState.wounds.includes('torso')){
+    lines.push(`Torso wound — stamina will degrade faster than normal from here.`);
+  }
+  if(opponentState.wounds.includes('head')){
+    lines.push(`Head wound — Read is degraded regardless of stamina; this opponent's initiative is unreliable now.`);
+  }
+  if(woundCount>=3&&currentOpponent.location==='inside'){
+    lines.push(`<span style="color:var(--gold-bright);">Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.</span>`);
+  }
+
+  el.innerHTML=lines.join('<br>');
+}
+
+function endOpponentTracking(){
+  if(!confirm('Clear this opponent\'s tracked state? Use this once the fight is fully resolved.'))return;
+  currentOpponent=null;
+  opponentState={stamina:0,wounds:[]};
+  const tracker=document.getElementById('opponent-tracker');
+  if(tracker) tracker.style.display='none';
+  const empty=document.getElementById('opponent-results-empty');
+  const list=document.getElementById('opponent-results-list');
+  if(list) list.innerHTML='';
+  if(empty) empty.style.display='block';
+}
+
+function populateSoloHeirSelect(){
+  const sel=document.getElementById('solo-heir-select');
+  if(!sel)return;
+  const currentVal=sel.value;
+  sel.innerHTML='<option value="">— select heir —</option>'+state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
+  if(state.heirs.some(h=>h.key===currentVal)) sel.value=currentVal;
+}
+
+function renderSoloPrep(){
+  const heirKey=document.getElementById('solo-heir-select').value;
+  const empty=document.getElementById('solo-results-empty');
+  const list=document.getElementById('solo-results-list');
+  if(!heirKey){ if(empty)empty.style.display='block'; if(list)list.innerHTML=''; return; }
+  const heir=state.heirs.find(h=>h.key===heirKey);
+  if(!heir) return;
+  if(empty) empty.style.display='none';
+
+  // Find every node where this heir is at +1 or above — the standing required
+  // for T3 Leverage actions (info/position/Outskirts categories specifically;
+  // T3 confrontational requires the main session regardless of standing).
+  const eligibleNodes=Object.values(state.nodes).filter(n=>(n.scores?.[heirKey]||0)>=1);
+
+  // Exploration solo depth ceiling — read directly from the heir's own
+  // session zero export rather than recomputed, since the heir record
+  // already applies the SRD's exact formula.
+  const soloDepth=heir.raw?.explorationProfile?.soloDepthCapability||1;
+  const isDivCaster=heir.raw?.awakening?.revealedSchool==='DIV';
+  const divExtended=isDivCaster&&heir.raw?.awakening?.tier2Available;
+
+  let html='';
+
+  html+=`<div class="hook-card opportunity" style="margin-bottom:.7rem;">
+    <span class="hook-type opportunity">Always Available — T1 and T2</span>
+    <div class="hook-text">Any T1 (Introduce) or T2 (Cultivate) action, with any NPC or faction, regardless of current standing. These cannot affect another heir's scores directly — they only build ${heir.name}'s own position.</div>
+  </div>`;
+
+  if(eligibleNodes.length){
+    const nodeList=eligibleNodes.map(n=>`${n.name} (+${n.scores[heirKey]})`).join(', ');
+    html+=`<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
+      <span class="hook-type weight-moved">Available — T3 Information / Positioning / Outskirts</span>
+      <div class="hook-text">Standing at +1 or above with: <strong>${nodeList}</strong>. Against these specifically, ${heir.name} may use Information actions (gathering intel via contacts or Divination), Positioning actions (establishing presence ahead of a main session confrontation), or Outskirts actions (black market, misinformation, off-record resource movement).</div>
+      <div class="hook-entities" style="color:var(--crimson-bright);">Outskirts actions here are the primary vector for betrayal — effects land on another heir's relationships without them knowing why, surfacing at the next main session.</div>
+    </div>`;
+  } else {
+    html+=`<div class="hook-card collision" style="margin-bottom:.7rem;">
+      <span class="hook-type collision">No T3 Options Yet</span>
+      <div class="hook-text">${heir.name} isn't at +1 or above with any node yet. Only T1/T2 actions are available in this solo session until standing improves somewhere.</div>
+    </div>`;
+  }
+
+  html+=`<div class="hook-card collision" style="margin-bottom:.7rem;">
+    <span class="hook-type collision">Not Available — Do Not Allow</span>
+    <div class="hook-text">T3 Confrontational actions, T4 Maneuvers, and T5 Removal actions all require the main session — they involve consequences other players must be able to respond to in real time. No standing level changes this. If a player asks to force a confrontation or move against another heir's score directly in a solo session, the answer is no regardless of how good the leverage looks on paper.</div>
+  </div>`;
+
+  html+=`<div class="hook-card opportunity">
+    <span class="hook-type opportunity">Exploration — Solo Depth Ceiling</span>
+    <div class="hook-text">${heir.name} can solo up to <strong>D${soloDepth}</strong> safely.${divExtended?' Their Divination training lets them read one depth level beyond this during the Read phase before committing — extended awareness, not an extended formal ceiling.':''} Attempting deeper proceeds without the preparation that depth requires — the chamber still produces its full reward and consequence regardless of whether they're ready to read or respond to it correctly.</div>
+  </div>`;
+
+  list.innerHTML=html;
+}
+
+function runCaravanGenerator(){
+  const route=parseInt(document.getElementById('caravan-route-select').value);
+  const cohesion=parseInt(document.getElementById('caravan-cohesion-select').value);
+  const cover=parseInt(document.getElementById('caravan-cover-select').value);
+  const count=parseInt(document.getElementById('caravan-count-select').value);
+
+  const empty=document.getElementById('caravan-results-empty');
+  const list=document.getElementById('caravan-results-list');
+  if(empty) empty.style.display='none';
+
+  const run=generateCaravanRun(route,cohesion,cover,count);
+
+  const momentumCard=`<div class="hook-card opportunity" style="margin-bottom:.7rem;">
+    <span class="hook-type opportunity">Starting Momentum</span>
+    <div class="hook-text"><strong>${run.startingMomentum} / 10</strong> — from Route ${route}, Cohesion ${cohesion}, Cover ${cover}</div>
+    <div class="hook-entities">${run.startingMomentum<=2?'Already in danger before a single event fires.':run.startingMomentum>=8?'Ideal conditions — events will need to compound to threaten this run.':'Functional but not optimized — a few mishandled events can turn this.'}</div>
+  </div>`;
+
+  const eventCards=run.events.map(e=>{
+    const ev=e.event;
+    return `<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
+      <span class="hook-type weight-moved">Event ${e.index} · ${ev.typeName}</span>
+      <div class="hook-text"><strong>${ev.tag}:</strong> ${ev.situation}</div>
+      <div class="hook-entities">Resolution paths: ${ev.resolution}</div>
+      <div class="hook-entities" style="color:var(--crimson-bright);">${ev.momentumNote}</div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML=momentumCard+eventCards;
+}
+
+function renderCaravanFailureLookup(failureKey){
+  const f=CARAVAN_FAILURE_STATES[failureKey];
+  if(!f)return'';
+  return `<div class="hook-card ${f.severity==='loss'?'collision':'opportunity'}">
+    <span class="hook-type ${f.severity==='loss'?'collision':'opportunity'}">Failure State · ${f.name}</span>
+    <div class="hook-text">${f.desc}</div>
+  </div>`;
+}
+
+syncCivDepthAvailability();
+
+// ═══════════════════════════════════════════
+// REWARD EXPORT — hand a generated reward to a specific player
+// ═══════════════════════════════════════════
+let rewardExportPendingIndex=null;
+
+function openRewardExport(index){
+  const r=state.lastGeneratedRewards[index];
+  if(!r||r.error) return;
+  rewardExportPendingIndex=index;
+
+  const preview=document.getElementById('reward-export-preview');
+  if(r.shape==='document'){
+    preview.textContent=`${r.desc} — concerns ${r.subject}, implicates ${r.implicates}.`;
+  } else {
+    preview.textContent=`"${r.name}" — ${r.schoolName}, Tier ${r.tier}. ${r.desc}`;
+  }
+
+  const heirSelect=document.getElementById('reward-export-heir-select');
+  if(!state.heirs.length){
+    heirSelect.innerHTML=`<option value="">No heirs imported yet</option>`;
+  } else {
+    heirSelect.innerHTML=state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
+  }
+
+  document.getElementById('reward-export-overlay').classList.add('show');
+}
+
+function confirmRewardExport(){
+  if(rewardExportPendingIndex===null) return;
+  const r=state.lastGeneratedRewards[rewardExportPendingIndex];
+  const heirKey=document.getElementById('reward-export-heir-select').value;
+  if(!r||!heirKey) return;
+  const heir=state.heirs.find(h=>h.key===heirKey);
+  if(!heir) return;
+
+  // Shape the export to match exactly what the play sheet's state.loot / state.documents expect.
+  let payload;
+  if(r.shape==='document'){
+    payload={
+      kind:'document',
+      forHeir:heir.name,
+      name:`${civNameSafe(r.civ)} record — ${r.subject}`,
+      subject:r.subject,
+      implicates:r.implicates,
+      desc:r.desc,
+      danger:r.danger,
+      source:`${CIVILIZATIONS[r.civ].name} · ${r.depth}`,
+    };
+  } else {
+    payload={
+      kind:'item',
+      forHeir:heir.name,
+      name:r.name,
+      type:'Artifact',
+      encounter:'Exploration',
+      effect:`${r.schoolName} · Tier ${r.tier}. ${r.desc}`,
+      danger:r.danger,
+      source:`${CIVILIZATIONS[r.civ].name} · ${r.depth}`,
+    };
+  }
+
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safeName=heir.name.replace(/\s+/g,'_').toLowerCase();
+  const itemName=(payload.name||'reward').replace(/\s+/g,'_').toLowerCase();
+  a.href=url;a.download=`aow_reward_${safeName}_${itemName}.json`;a.click();
+  URL.revokeObjectURL(url);
+
+  document.getElementById('reward-export-overlay').classList.remove('show');
+  rewardExportPendingIndex=null;
+}
+
+function civNameSafe(civKey){
+  return CIVILIZATIONS[civKey]?.name?.replace('The ','')||'Unknown';
+}
+
+// ═══════════════════════════════════════════
+// SESSION CHECKLIST (landing)
+// ═══════════════════════════════════════════
+function showSessionChecklist(){
+  const overlay=document.getElementById('checklist-overlay');
+  if(!overlay) return;
+  document.getElementById('checklist-session-label').textContent=`Session ${state.session} · ${state.sessionType==='solo'?'Solo':'Main'}`;
+
+  // Primed nodes — close to or at their trigger threshold
+  const primedEl=document.getElementById('checklist-primed');
+  const primed=Object.values(state.nodes).filter(n=>(n.accumWeight||0)>=(n.triggerThreshold||5)*0.75);
+  if(primed.length){
+    primedEl.innerHTML=primed.map(n=>{
+      const pct=Math.round(((n.accumWeight||0)/(n.triggerThreshold||5))*100);
+      return `<div class="checklist-row"><span class="checklist-row-tag danger">●</span><span>${n.name} — ${pct}% to threshold</span></div>`;
+    }).join('');
+  } else {
+    primedEl.innerHTML=`<div class="checklist-empty-line">Nothing primed. The web is quiet — for now.</div>`;
+  }
+
+  // Open threads from notes
+  const threadsEl=document.getElementById('checklist-threads');
+  if(state.notes.threads&&state.notes.threads.trim()){
+    threadsEl.innerHTML=`<div class="checklist-row" style="border-bottom:none;white-space:pre-wrap;">${state.notes.threads.trim()}</div>`;
+  } else {
+    threadsEl.innerHTML=`<div class="checklist-empty-line">No open threads logged yet.</div>`;
+  }
+
+  // Between-session notes
+  const betweenEl=document.getElementById('checklist-between');
+  if(state.notes.between&&state.notes.between.trim()){
+    const preview=state.notes.between.trim().slice(0,280);
+    betweenEl.innerHTML=`<div class="checklist-row" style="border-bottom:none;white-space:pre-wrap;">${preview}${state.notes.between.trim().length>280?'…':''}</div>`;
+  } else {
+    betweenEl.innerHTML=`<div class="checklist-empty-line">Nothing carried in from solo sessions.</div>`;
+  }
+
+  overlay.classList.remove('hide');
+}
+function dismissChecklist(){
+  const overlay=document.getElementById('checklist-overlay');
+  if(overlay){overlay.classList.add('hide');setTimeout(()=>{overlay.style.display='none';},400);}
+}
+
+// ═══════════════════════════════════════════
+// GLOBAL SEARCH
+// ═══════════════════════════════════════════
+function openSearch(){
+  const overlay=document.getElementById('search-overlay');
+  overlay.classList.add('show');
+  const input=document.getElementById('search-input');
+  input.value='';
+  setTimeout(()=>input.focus(),50);
+  renderSearchResults();
+}
+function closeSearch(){
+  document.getElementById('search-overlay').classList.remove('show');
+}
+function renderSearchResults(){
+  const q=(document.getElementById('search-input')?.value||'').trim().toLowerCase();
+  const results=document.getElementById('search-results');
+
+  let items=[];
+  Object.values(state.nodes).forEach(n=>{
+    if(!q||n.name.toLowerCase().includes(q)||(n.role||'').toLowerCase().includes(q)){
+      items.push({type:'node',key:n.key,name:n.name,meta:n.role||n.cluster,weight:n.weight});
+    }
+  });
+  state.heirs.forEach(h=>{
+    if(!q||h.name.toLowerCase().includes(q)||(h.house||'').toLowerCase().includes(q)){
+      items.push({type:'heir',key:h.key,name:h.name,meta:h.house||'Heir'});
+    }
+  });
+
+  if(!items.length){
+    results.innerHTML=`<div class="search-empty">No matches${q?` for "${q}"`:''}.</div>`;
+    return;
+  }
+  // Cap results when query is empty to avoid an overwhelming dump
+  if(!q) items=items.slice(0,12);
+
+  results.innerHTML=items.map((it,i)=>`
+    <div class="search-result-item ${i===0?'kbd-active':''}" data-type="${it.type}" data-key="${it.key}" onclick="selectSearchResult('${it.type}','${it.key}')">
+      <span class="search-result-name">${it.name}</span>
+      <span class="search-result-meta">${it.meta}</span>
+      <span class="search-result-type">${it.type==='heir'?'Heir':'NPC'}</span>
+    </div>
+  `).join('');
+}
+function selectSearchResult(type,key){
+  closeSearch();
+  if(type==='node') openDrawer(key);
+  else if(type==='heir'){
+    // Filter the web to this heir's perspective — match by key, not by guessed name text
+    const btn=document.querySelector(`.heir-pill[data-heir-key="${key}"]`);
+    if(btn) filterWeb(key,btn);
+  }
+}
+function searchKeyNav(e){
+  const results=document.querySelectorAll('.search-result-item');
+  if(e.key==='Escape'){closeSearch();return;}
+  if(!results.length)return;
+  const activeIdx=Array.from(results).findIndex(r=>r.classList.contains('kbd-active'));
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    const next=Math.min(activeIdx+1,results.length-1);
+    results.forEach(r=>r.classList.remove('kbd-active'));
+    results[next].classList.add('kbd-active');
+    results[next].scrollIntoView({block:'nearest'});
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    const prev=Math.max(activeIdx-1,0);
+    results.forEach(r=>r.classList.remove('kbd-active'));
+    results[prev].classList.add('kbd-active');
+    results[prev].scrollIntoView({block:'nearest'});
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    const active=results[activeIdx>=0?activeIdx:0];
+    if(active) selectSearchResult(active.dataset.type,active.dataset.key);
+  }
+}
+document.addEventListener('keydown',(e)=>{
+  if((e.key==='/'||((e.metaKey||e.ctrlKey)&&e.key==='k'))&&!document.getElementById('search-overlay').classList.contains('show')){
+    const tag=document.activeElement?.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+    e.preventDefault();
+    openSearch();
+  }
+});
+
+// ═══════════════════════════════════════════
+// RECAP
+// ═══════════════════════════════════════════
+function openRecap(){
+  const overlay=document.getElementById('recap-overlay');
+  const content=document.getElementById('recap-content');
+  const sub=document.getElementById('recap-sub');
+  const recent=[...state.events].slice(-4).reverse();
+
+  if(!recent.length){
+    content.innerHTML=`<div class="recap-empty">Nothing logged yet this session.</div>`;
+    sub.textContent='Log an event and it will show up here.';
+  } else {
+    sub.textContent=`Last ${recent.length} event${recent.length>1?'s':''} — newest first`;
+    content.innerHTML=recent.map(ev=>{
+      const hooks=state.hooks.filter(h=>h.eventId===ev.id);
+      const topHook=hooks.find(h=>h.type==='trigger-primed')||hooks[0];
+      return `<div class="recap-item">
+        <span class="recap-item-type">${ev.type}</span>
+        <div class="recap-item-text">${ev.result}</div>
+        ${topHook?`<div class="recap-item-text" style="margin-top:.35rem;color:var(--gold-dim);font-style:italic;">↳ ${topHook.text}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+  overlay.classList.add('show');
+}
+function closeRecap(){
+  document.getElementById('recap-overlay').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme',theme);
+  const btn=document.getElementById('theme-toggle');
+  if(btn) btn.innerHTML = theme==='light' ? '☾ Dark' : '☀ Light';
+  try{localStorage.setItem('aow-gm-theme',theme);}catch(e){}
+}
+function toggleTheme(){
+  const current=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  applyTheme(current==='light'?'dark':'light');
+}
+(function initTheme(){
+  let saved='dark';
+  try{saved=localStorage.getItem('aow-gm-theme')||'dark';}catch(e){}
+  applyTheme(saved);
+})();
+
+const hadSave = load();
+init();
+if (window.innerWidth<=768) document.querySelector('.web-panel')?.classList.add('mob-active');
+showSessionChecklist();
+</script>
+</body>
+</html>

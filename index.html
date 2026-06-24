@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age of Wonder</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0f0d0a;
+  --night-mid:#1a1410;
+  --night-panel:#141008;
+  --vellum:#f5eedf;
+  --vellum-dark:#e8dcc8;
+  --vellum-mid:#d4c4a8;
+  --ink-light:#8a6a48;
+  --gold:#8b6914;
+  --gold-bright:#c9a030;
+  --gold-dim:rgba(139,105,20,0.35);
+  --gold-faint:rgba(139,105,20,0.08);
+  --forest-bright:#2a5a3a;
+  --crimson-bright:#9b2a2a;
+  --panel-border:rgba(139,105,20,0.18);
+}
+
+html{font-size:15px;scroll-behavior:smooth;}
+body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;min-height:100vh;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;align-items:center;}
+
+/* ══════ HEADER ══════ */
+.site-header{width:100%;max-width:860px;padding:5rem 2rem 3rem;text-align:center;position:relative;}
+.header-rule{width:120px;height:1px;background:var(--gold-dim);margin:0 auto 2.5rem;}
+.site-eyebrow{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:1rem;}
+.site-title{font-family:'Cinzel Decorative',serif;font-size:clamp(2rem,6vw,3.8rem);color:var(--gold-bright);line-height:1.1;margin-bottom:.8rem;letter-spacing:.02em;}
+.site-subtitle{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:2rem;display:block;}
+.site-desc{font-family:'EB Garamond',serif;font-size:1.05rem;color:var(--vellum-mid);line-height:1.85;max-width:560px;margin:0 auto;font-style:italic;}
+.header-rule-bottom{width:200px;height:1px;background:var(--gold-dim);margin:2.5rem auto 0;}
+
+/* ornamental seal */
+.seal{width:64px;height:64px;border:1px solid var(--gold-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 2rem;position:relative;}
+.seal::before{content:'';position:absolute;inset:4px;border:1px solid rgba(139,105,20,0.15);border-radius:50%;}
+.seal-inner{font-family:'Cinzel Decorative',serif;font-size:1.1rem;color:var(--gold-bright);}
+
+/* ══════ MAIN ══════ */
+.main{width:100%;max-width:860px;padding:3rem 2rem 5rem;}
+
+/* section label */
+.section-eyebrow{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:1.5rem;text-align:center;}
+
+/* document cards */
+.doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;margin-bottom:4rem;}
+.doc-card{border:1px solid var(--panel-border);background:rgba(255,255,255,0.018);padding:1.6rem 1.5rem 1.4rem;display:flex;flex-direction:column;text-decoration:none;transition:all .2s;position:relative;overflow:hidden;}
+.doc-card::before{content:'';position:absolute;inset:0;background:var(--gold-faint);opacity:0;transition:opacity .2s;}
+.doc-card:hover{border-color:var(--gold-dim);}
+.doc-card:hover::before{opacity:1;}
+.doc-card-num{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.8rem;}
+.doc-card-title{font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold-bright);font-weight:600;display:block;margin-bottom:.35rem;line-height:1.3;}
+.doc-card-role{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:.8rem;}
+.doc-card-desc{font-family:'EB Garamond',serif;font-size:.9rem;color:var(--vellum-mid);line-height:1.7;flex:1;}
+.doc-card-action{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-top:1.1rem;display:block;transition:color .15s;}
+.doc-card:hover .doc-card-action{color:var(--gold-bright);}
+.doc-card-divider{width:32px;height:1px;background:var(--panel-border);margin:.7rem 0;}
+
+/* player card accent */
+.doc-card.player{border-color:rgba(139,105,20,0.22);}
+.doc-card.gm{border-color:rgba(107,26,26,0.25);}
+.doc-card.gm .doc-card-title{color:#c06060;}
+.doc-card.gm .doc-card-action{color:rgba(155,42,42,0.5);}
+.doc-card.gm:hover{border-color:rgba(155,42,42,0.5);}
+.doc-card.gm:hover .doc-card-action{color:#c06060;}
+.doc-card.gm::before{background:rgba(107,26,26,0.05);}
+
+/* ══════ HOW IT WORKS ══════ */
+.flow-section{margin-bottom:4rem;}
+.flow-title{font-family:'Cinzel',serif;font-size:.75rem;color:var(--vellum-dark);font-weight:600;text-align:center;margin-bottom:.4rem;}
+.flow-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.92rem;color:var(--ink-light);text-align:center;margin-bottom:2rem;}
+.flow-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;}
+.flow-steps::before{content:'';position:absolute;top:22px;left:calc(12.5%);right:calc(12.5%);height:1px;background:var(--panel-border);z-index:0;}
+.flow-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 .8rem;position:relative;z-index:1;}
+.flow-node{width:44px;height:44px;border:1px solid var(--panel-border);background:var(--night-panel);display:flex;align-items:center;justify-content:center;margin-bottom:.7rem;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;color:var(--gold-bright);flex-shrink:0;}
+.flow-step-title{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:var(--vellum-dark);margin-bottom:.3rem;}
+.flow-step-desc{font-family:'EB Garamond',serif;font-size:.8rem;color:var(--ink-light);line-height:1.55;}
+.flow-arrow{position:absolute;top:14px;right:-8px;font-family:'Cinzel',serif;font-size:.6rem;color:var(--gold-dim);z-index:2;}
+
+/* ══════ SETTING BLOCK ══════ */
+.setting-block{border:1px solid var(--panel-border);padding:1.8rem 2rem;margin-bottom:4rem;background:rgba(255,255,255,0.012);}
+.setting-title{font-family:'Cinzel',serif;font-size:.75rem;color:var(--vellum-dark);font-weight:600;margin-bottom:.5rem;}
+.setting-body{font-family:'EB Garamond',serif;font-size:.95rem;color:var(--vellum-mid);line-height:1.85;}
+.setting-body p{margin-bottom:.8rem;}
+.setting-body p:last-child{margin-bottom:0;}
+
+/* ══════ FOOTER ══════ */
+.site-footer{width:100%;max-width:860px;padding:1.5rem 2rem 3rem;border-top:1px solid var(--panel-border);display:flex;align-items:center;justify-content:space-between;}
+.footer-left{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+.footer-right{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);}
+
+/* scrollbars */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(139,105,20,0.2);}
+
+/* ══════ MOBILE ══════ */
+@media(max-width:600px){
+  .site-header{padding:3rem 1.2rem 2rem;}
+  .main{padding:2rem 1.2rem 4rem;}
+  .doc-grid{grid-template-columns:1fr;}
+  .flow-steps{grid-template-columns:1fr 1fr;gap:1.5rem;}
+  .flow-steps::before{display:none;}
+  .flow-arrow{display:none;}
+  .site-footer{flex-direction:column;gap:.5rem;text-align:center;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="seal"><span class="seal-inner">A</span></div>
+  <span class="site-eyebrow">Shemsara · Arc One</span>
+  <h1 class="site-title">Age of Wonder</h1>
+  <span class="site-subtitle">A tabletop roleplaying system</span>
+  <p class="site-desc">Six noble heirs. Nine power brokers. One city that doesn't hand out seats. A campaign of political leverage, magical awakening, and the slow accumulation of weight that moves the world.</p>
+  <div class="header-rule-bottom"></div>
+</header>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- SETTING -->
+  <div class="setting-block">
+    <div class="setting-title">The Kingdom of Aetheria Nova</div>
+    <div class="setting-body">
+      <p>Shemsara is a city built on the principle that authority is earned, not inherited. Six noble houses each send one heir to the city at thirteen. For five years they study, build relationships, and survive a political environment where every faction has interests and every NPC has something they want in return for what they're worth.</p>
+      <p>At eighteen the crystal ceremony reveals each heir's magical school. The campaign begins the morning after. The arc one win condition is the legitimacy threshold — King Hector at +2, three factions at +2, two peer councillors at +1, one powerful endorsement at +3. Any method. The system records the score. The story records how they got there.</p>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="flow-section">
+    <div class="section-eyebrow">How the documents work together</div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="flow-node">S0</div>
+        <div class="flow-step-title">Session Zero</div>
+        <div class="flow-step-desc">Each player completes the Heir Record. Five years of choices. Export a JSON file.</div>
+        <div class="flow-arrow">→</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-node">GM</div>
+        <div class="flow-step-title">World Seeded</div>
+        <div class="flow-step-desc">GM imports all six JSONs into Wonderland. The leverage web populates before session one.</div>
+        <div class="flow-arrow">→</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-node">S1</div>
+        <div class="flow-step-title">Play Begins</div>
+        <div class="flow-step-desc">Players run the Play Sheet. GM runs Wonderland. Neither sees the other's view.</div>
+        <div class="flow-arrow">→</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-node">∞</div>
+        <div class="flow-step-title">Web Evolves</div>
+        <div class="flow-step-desc">Every action accumulates weight. Triggers fire. The world responds without dice.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GETTING STARTED — PLAYER STEPS -->
+  <div class="setting-block" style="margin-bottom:4rem;">
+    <div class="setting-title">Getting Started — If You're a Player</div>
+    <div class="setting-body">
+      <p style="margin-bottom:1.2rem;">Six steps. No installs, no accounts, nothing to set up beyond a web browser you already have.</p>
+      <ol style="list-style:none;padding:0;margin:0;">
+        <li style="display:flex;gap:.8rem;margin-bottom:.9rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">1.</span>
+          <span>Tap <strong>Heir Record</strong> below. Fill out all seven sections — your identity, your house, five years of study, and your key relationships. Take your time with this one; everything else builds from it.</span>
+        </li>
+        <li style="display:flex;gap:.8rem;margin-bottom:.9rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">2.</span>
+          <span>At the end, tap <strong>Save Record</strong>. Your phone or computer downloads a small file — something like <code style="font-size:.85em;">aow_heir_yourname.json</code>. It goes to wherever your device normally saves downloads — usually a folder called <strong>Downloads</strong> or <strong>Files</strong>. You don't need to open it or do anything with it yet — just know it exists.</span>
+        </li>
+        <li style="display:flex;gap:.8rem;margin-bottom:.9rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">3.</span>
+          <span>Send that file to your GM — drag it into Discord, email it, whatever's easiest. This is the only thing your GM needs from you before session one.</span>
+        </li>
+        <li style="display:flex;gap:.8rem;margin-bottom:.9rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">4.</span>
+          <span>Come back to this page and tap <strong>Play Sheet</strong> instead.</span>
+        </li>
+        <li style="display:flex;gap:.8rem;margin-bottom:.9rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">5.</span>
+          <span>Tap <strong>Import Session Zero Record</strong>. Your device will ask you to pick a file — choose the same <code style="font-size:.85em;">.json</code> file from step 2. Your whole character appears instantly.</span>
+        </li>
+        <li style="display:flex;gap:.8rem;">
+          <span style="font-family:'Cinzel',serif;color:var(--gold-bright);font-weight:700;flex-shrink:0;">6.</span>
+          <span>That's it. Bookmark the Play Sheet page, or just remember to come back to this link. It saves everything automatically on this device, in this browser — always open it the same way and your character will be exactly how you left it.</span>
+        </li>
+      </ol>
+      <p style="margin-top:1.3rem;padding-top:1rem;border-top:1px solid var(--panel-border);font-style:italic;font-size:.88rem;color:var(--ink-light);">Running the table instead? Collect each player's <code style="font-size:.9em;">.json</code> file, then open <strong>GM Screen</strong> and import all of them at once before session one.</p>
+    </div>
+  </div>
+
+  <!-- DOCUMENTS -->
+  <span class="section-eyebrow">Arc One Documents</span>
+  <div class="doc-grid">
+
+    <a class="doc-card player" href="aow_srd.html">
+      <span class="doc-card-num">Document I</span>
+      <span class="doc-card-title">System Reference Document</span>
+      <span class="doc-card-role">Player-facing · Rules & Setting</span>
+      <div class="doc-card-divider"></div>
+      <span class="doc-card-desc">The complete rules for arc one. Magic schools, combat techniques, political leverage, caravan logistics, and exploration depth. Six chapters and five appendices. Read before session zero.</span>
+      <span class="doc-card-action">Open SRD →</span>
+    </a>
+
+    <a class="doc-card player" href="aow_heir_record.html">
+      <span class="doc-card-num">Document II</span>
+      <span class="doc-card-title">Heir Record</span>
+      <span class="doc-card-role">Player-facing · Session Zero Intake</span>
+      <div class="doc-card-divider"></div>
+      <span class="doc-card-desc">Seven sections. Your identity, house, five years of study, the awakening ceremony, character profile, key NPCs, and your completed record. Exports a JSON file your GM imports into the world state engine.</span>
+      <span class="doc-card-action">Open Heir Record →</span>
+    </a>
+
+    <a class="doc-card player" href="aow_play_sheet.html">
+      <span class="doc-card-num">Document III</span>
+      <span class="doc-card-title">Play Sheet</span>
+      <span class="doc-card-role">Player-facing · In-Session Tool</span>
+      <div class="doc-card-divider"></div>
+      <span class="doc-card-desc">Import your heir record JSON and play. Tracks willstrain, stamina, wounds, leverage scores, spells, techniques, loot, contacts, and debts. The legitimacy threshold updates live as your scores move.</span>
+      <span class="doc-card-action">Open Play Sheet →</span>
+    </a>
+
+    <a class="doc-card gm" href="aow_gm_screen.html">
+      <span class="doc-card-num">Document IV</span>
+      <span class="doc-card-title">Wonderland · GM Screen</span>
+      <span class="doc-card-role">GM-facing · World State Engine</span>
+      <div class="doc-card-divider"></div>
+      <span class="doc-card-desc">Import all heir records. The leverage web populates. Log events — action, presence, exchange, revelation. The engine reads the web and surfaces what each event means in narrative language. Hooks. Ripples. Triggers. Switch to Tools mode to generate exploration chambers and rewards by depth and civilization, then hand any result straight to a player's Play Sheet.</span>
+      <span class="doc-card-action">Open GM Screen →</span>
+    </a>
+
+  </div>
+
+  <!-- THE RULE -->
+  <div class="setting-block" style="text-align:center;border-color:rgba(139,105,20,0.12);">
+    <div class="setting-title" style="margin-bottom:.6rem;">The Only Hard Rule</div>
+    <div class="setting-body" style="font-style:italic;font-size:1.05rem;color:var(--vellum-dark);">
+      Any action that requires the roll of a dice is considered automatic success.<br>
+      <span style="font-size:.88rem;color:var(--ink-light);font-style:normal;display:block;margin-top:.6rem;">Resolution is determined by weight, position, and what the world produces — not by chance.</span>
+    </div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <span class="footer-left">Age of Wonder · Arc One · Shemsara</span>
+  <span class="footer-right">Wonderland State Engine</span>
+</footer>
+
+</body>
+</html>

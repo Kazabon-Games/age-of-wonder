@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Age of Wonder — Play Sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0e0c08;
+  --night-2:#1a1510;
+  --night-3:#241e17;
+  --vellum:#f2e8d0;
+  --vellum-dim:rgba(242,232,208,0.6);
+  --vellum-faint:rgba(242,232,208,0.25);
+  --gold:#c9a96e;
+  --gold-dim:#9e7a48;
+  --gold-faint:rgba(201,169,110,0.15);
+  --forest:#2c4a3a;
+  --forest-bright:#3a6b50;
+  --amber:#8c5a1a;
+  --amber-bright:#b87820;
+  --crimson:#8c3a1a;
+  --crimson-bright:#b84820;
+  --leather:#3a2d1e;
+  --safe:#2c4a3a;
+  --caution:#8c5a1a;
+  --danger:#8c3a1a;
+  --border-soft:rgba(201,169,110,0.15);
+  --border-mid:rgba(201,169,110,0.2);
+}
+html[data-theme="light"]{
+  --night:#f2e8d0;
+  --night-2:#e8dcc4;
+  --night-3:#ddd0b4;
+  --vellum:#241e17;
+  --vellum-dim:rgba(36,30,23,0.7);
+  --vellum-faint:rgba(36,30,23,0.4);
+  --border-soft:rgba(58,45,30,0.18);
+  --border-mid:rgba(58,45,30,0.25);
+}
+html{font-size:15px;height:100%;}
+body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
+
+.theme-toggle{position:fixed;top:.8rem;right:.8rem;z-index:200;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;padding:.4rem .7rem;border:1px solid var(--gold-dim);background:var(--night);color:var(--gold);cursor:pointer;transition:all .2s;opacity:.92;}
+.theme-toggle:hover{background:var(--gold-dim);color:var(--night);}
+@media(max-width:720px){
+  .theme-toggle{top:auto;bottom:.6rem;right:.6rem;font-size:.44rem;padding:.3rem .5rem;z-index:160;}
+}
+
+/* ══════════════════════════════════
+   SETUP SCREEN
+══════════════════════════════════ */
+.setup{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem;text-align:center;}
+.setup-sigil{font-size:2rem;opacity:.4;color:var(--gold);margin-bottom:1.2rem;}
+.setup-eyebrow{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;}
+.setup-title{font-family:'Cinzel',serif;font-size:1.5rem;color:var(--vellum);margin-bottom:.4rem;font-weight:600;}
+.setup-sub{font-size:.9rem;color:var(--vellum-dim);margin-bottom:1.8rem;line-height:1.7;max-width:400px;}
+.setup-form{width:100%;max-width:400px;display:flex;flex-direction:column;gap:.8rem;}
+.setup-import-btn{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;padding:.65rem;border:1px solid rgba(201,169,110,0.4);background:rgba(201,169,110,0.08);color:var(--gold);cursor:pointer;transition:all .2s;width:100%;}
+.setup-import-btn:hover{background:rgba(201,169,110,0.15);border-color:var(--gold);}
+.import-success{font-size:.82rem;color:var(--forest-bright);font-style:italic;text-align:center;padding:.5rem;background:rgba(44,74,58,0.1);border:1px solid rgba(44,74,58,0.3);display:none;}
+.import-success.show{display:block;}
+
+/* ══════════════════════════════════
+   PERSISTENT HEADER
+══════════════════════════════════ */
+.header{background:var(--leather);border-bottom:1px solid rgba(201,169,110,0.2);padding:.6rem 1rem;display:none;flex-direction:column;gap:.4rem;position:sticky;top:0;z-index:100;}
+.header.show{display:flex;}
+.header-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.header-identity{display:flex;align-items:baseline;gap:.6rem;flex:1;min-width:0;}
+.header-name{font-family:'Cinzel',serif;font-size:.9rem;font-weight:600;color:var(--vellum);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.header-house{font-family:'EB Garamond',serif;font-size:.82rem;font-style:italic;color:var(--vellum-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.header-school{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.08em;padding:.15rem .5rem;border:1px solid currentColor;white-space:nowrap;}
+.header-status{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.status-pill{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;padding:.18rem .5rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);}
+.status-pill.strain-0{border-color:rgba(44,74,58,0.6);color:#3a6b50;}
+.status-pill.strain-1{border-color:rgba(44,74,58,0.6);color:#3a6b50;}
+.status-pill.strain-2{border-color:rgba(140,90,26,0.6);color:#b87820;}
+.status-pill.strain-3{border-color:rgba(140,58,26,0.6);color:#b84820;}
+.status-pill.strain-4{border-color:rgba(140,58,26,0.8);color:#d05020;}
+.status-pill.stamina-0{border-color:rgba(44,74,58,0.6);color:#3a6b50;}
+.status-pill.stamina-1{border-color:rgba(140,90,26,0.5);color:#b87820;}
+.status-pill.stamina-2{border-color:rgba(140,58,26,0.5);color:#b84820;}
+.status-pill.stamina-3{border-color:rgba(140,58,26,0.8);color:#d05020;}
+.reset-session-btn{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .5rem;border:1px solid rgba(201,169,110,0.3);background:transparent;color:var(--gold-dim);cursor:pointer;white-space:nowrap;}
+.reset-session-btn:hover{background:rgba(201,169,110,0.1);}
+
+/* ══════════════════════════════════
+   TAB BAR
+══════════════════════════════════ */
+.tab-bar{background:var(--night-2);border-bottom:1px solid rgba(201,169,110,0.12);display:none;overflow-x:auto;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-bar.show{display:flex;}
+.tab-btn{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem .9rem;color:var(--vellum-faint);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;}
+.tab-btn:hover{color:var(--vellum-dim);}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* ══════════════════════════════════
+   TAB CONTENT
+══════════════════════════════════ */
+.tab-content{display:none;flex:1;overflow-y:auto;}
+.tab-content.active{display:block;}
+.tab-inner{max-width:680px;margin:0 auto;padding:1.2rem 1rem 3rem;}
+
+/* ══════════════════════════════════
+   SHARED COMPONENTS
+══════════════════════════════════ */
+.section{margin-bottom:1.4rem;}
+.section-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);border-bottom:1px solid rgba(201,169,110,0.15);padding-bottom:.3rem;margin-bottom:.8rem;}
+.field-label{font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.15em;text-transform:uppercase;color:var(--vellum-faint);margin-bottom:.25rem;display:block;}
+.editable{font-family:'EB Garamond',serif;font-size:.95rem;background:transparent;border:none;border-bottom:1px solid rgba(201,169,110,0.2);color:var(--vellum);outline:none;width:100%;padding:.2rem .3rem;transition:border-color .2s;}
+.editable:focus{border-bottom-color:var(--gold-dim);}
+.editable::placeholder{color:var(--vellum-faint);font-style:italic;}
+.editable-area{font-family:'EB Garamond',serif;font-size:.92rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.15);color:var(--vellum);outline:none;width:100%;padding:.5rem .6rem;resize:vertical;min-height:72px;line-height:1.7;transition:border-color .2s;}
+.editable-area:focus{border-color:var(--gold-dim);}
+.editable-area::placeholder{color:var(--vellum-faint);font-style:italic;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+.card{background:var(--night-2);border:1px solid rgba(201,169,110,0.12);padding:.8rem .9rem;margin-bottom:.5rem;}
+.card-title{font-family:'Cinzel',serif;font-size:.65rem;font-weight:600;color:var(--vellum);margin-bottom:.3rem;}
+.card-sub{font-size:.78rem;color:var(--vellum-dim);line-height:1.55;}
+.card-meta{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;color:var(--gold-dim);margin-top:.3rem;text-transform:uppercase;}
+.add-btn{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;padding:.38rem .8rem;border:1px dashed rgba(201,169,110,0.25);background:transparent;color:var(--gold-dim);cursor:pointer;width:100%;transition:all .2s;margin-top:.3rem;}
+.add-btn:hover{border-color:var(--gold-dim);color:var(--gold);}
+.remove-btn{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;padding:.15rem .4rem;border:1px solid rgba(140,58,26,0.3);background:transparent;color:rgba(140,58,26,0.6);cursor:pointer;float:right;margin-left:.5rem;transition:all .2s;}
+.remove-btn:hover{border-color:var(--crimson);color:var(--crimson);}
+
+/* ══════════════════════════════════
+   AVAILABILITY DOTS
+══════════════════════════════════ */
+.avail-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s,border-color .3s;}
+.avail-dot.safe{background:var(--forest);box-shadow:0 0 4px rgba(44,74,58,0.5);}
+.avail-dot.caution{background:var(--amber);box-shadow:0 0 4px rgba(140,90,26,0.5);}
+.avail-dot.danger{background:var(--crimson);box-shadow:0 0 4px rgba(140,58,26,0.5);}
+.avail-dot.unavail{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);}
+
+/* ══════════════════════════════════
+   CAPABILITY CARDS (spells + techniques)
+══════════════════════════════════ */
+.cap-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.1);padding:.7rem .85rem;margin-bottom:.45rem;display:flex;gap:.7rem;align-items:flex-start;transition:border-color .2s;}
+.cap-card:hover{border-color:rgba(201,169,110,0.22);}
+.cap-dot-col{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding-top:.2rem;flex-shrink:0;}
+.cap-body{flex:1;min-width:0;}
+.cap-header{display:flex;align-items:baseline;gap:.5rem;margin-bottom:.2rem;flex-wrap:wrap;}
+.cap-name{font-family:'Cinzel',serif;font-size:.78rem;font-weight:600;color:var(--vellum);}
+.cap-tier{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;padding:.1rem .35rem;border:1px solid rgba(201,169,110,0.3);color:var(--gold-dim);}
+.cap-school-tag{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.08em;padding:.1rem .3rem;background:rgba(255,255,255,0.05);color:var(--vellum-faint);}
+.cap-cost{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.08em;color:var(--amber);padding:.1rem .3rem;border:1px solid rgba(140,90,26,0.3);}
+.cap-trigger{font-size:.78rem;color:var(--gold-dim);font-style:italic;margin-bottom:.2rem;line-height:1.4;}
+.cap-effect{font-size:.82rem;color:var(--vellum-dim);line-height:1.5;}
+.cap-syntax{font-family:'Courier New',monospace;font-size:.65rem;color:var(--forest-bright);background:rgba(44,74,58,0.1);padding:.3rem .5rem;margin-top:.4rem;line-height:1.5;word-break:break-all;border-left:2px solid rgba(44,74,58,0.4);}
+.cap-card.unavailable .cap-name{color:var(--vellum-faint);}
+.cap-card.unavailable .cap-effect{color:var(--vellum-faint);}
+.cap-card.unavailable .cap-syntax{opacity:.3;}
+.cap-unavail-reason{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--crimson);margin-top:.3rem;}
+.cap-add-area{background:var(--night-2);border:1px dashed rgba(201,169,110,0.2);padding:.9rem;margin-top:.4rem;}
+.cap-add-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;}
+.cap-form{display:flex;flex-direction:column;gap:.5rem;}
+.cap-form input,.cap-form textarea,.cap-form select{font-family:'EB Garamond',serif;font-size:.9rem;background:var(--night-3);border:1px solid rgba(201,169,110,0.18);color:var(--vellum);padding:.35rem .5rem;outline:none;width:100%;}
+.cap-form input:focus,.cap-form textarea:focus,.cap-form select:focus{border-color:var(--gold-dim);}
+.cap-form select option{background:var(--night-3);}
+.cap-form textarea{resize:vertical;min-height:52px;line-height:1.6;}
+.cap-form-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.cap-form-btn{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;padding:.38rem;border:1px solid var(--gold-dim);background:transparent;color:var(--gold);cursor:pointer;transition:all .2s;}
+.cap-form-btn:hover{background:var(--gold-dim);color:var(--night);}
+.cap-form-cancel{border-color:rgba(255,255,255,0.1);color:var(--vellum-faint);}
+.cap-form-cancel:hover{background:rgba(255,255,255,0.05);color:var(--vellum);}
+
+/* ══════════════════════════════════
+   COMBAT TAB
+══════════════════════════════════ */
+.wound-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.wound-btn{padding:.6rem .5rem;border:1px solid rgba(201,169,110,0.15);background:var(--night-2);cursor:pointer;text-align:left;transition:all .2s;display:flex;flex-direction:column;gap:.2rem;}
+.wound-btn:hover{border-color:rgba(201,169,110,0.3);}
+.wound-btn.active{border-color:var(--crimson);background:rgba(140,58,26,0.12);}
+.wound-name{font-family:'Cinzel',serif;font-size:.68rem;font-weight:600;color:var(--vellum);}
+.wound-btn.active .wound-name{color:var(--crimson);}
+.wound-effect{font-size:.72rem;color:var(--vellum-dim);line-height:1.4;}
+.wound-btn.active .wound-effect{color:rgba(184,72,32,0.7);}
+.stamina-selector{display:flex;gap:.4rem;}
+.stamina-btn{flex:1;padding:.5rem .3rem;border:1px solid rgba(201,169,110,0.15);background:var(--night-2);cursor:pointer;text-align:center;transition:all .2s;font-family:'Cinzel',serif;font-size:.6rem;color:var(--vellum-faint);}
+.stamina-btn:hover{border-color:rgba(201,169,110,0.3);}
+.stamina-btn.active-0{border-color:var(--forest);color:var(--forest-bright);background:rgba(44,74,58,0.12);}
+.stamina-btn.active-1{border-color:var(--amber);color:var(--amber-bright);background:rgba(140,90,26,0.1);}
+.stamina-btn.active-2{border-color:var(--crimson);color:var(--amber-bright);background:rgba(140,58,26,0.1);}
+.stamina-btn.active-3{border-color:var(--crimson);color:var(--crimson-bright);background:rgba(140,58,26,0.15);}
+.presence-display{font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.08em;color:var(--vellum);padding:.5rem .7rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.12);display:flex;justify-content:space-between;align-items:center;}
+
+/* ══════════════════════════════════
+   MAGIC TAB
+══════════════════════════════════ */
+.school-banner{background:var(--night-2);border:1px solid rgba(201,169,110,0.15);padding:.8rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:.8rem;}
+.school-banner-left{}
+.school-banner-name{font-family:'Cinzel',serif;font-size:1rem;font-weight:600;margin-bottom:.15rem;}
+.school-banner-axiom{font-size:.8rem;font-style:italic;color:var(--vellum-dim);}
+.school-banner-right{text-align:right;flex-shrink:0;}
+.tier-display{font-family:'Cinzel',serif;font-size:1.4rem;color:var(--gold);line-height:1;}
+.tier-phase{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);}
+.tier-selector{display:flex;gap:.3rem;margin-top:.4rem;}
+.tier-btn{flex:1;padding:.3rem;border:1px solid rgba(201,169,110,0.15);background:var(--night-2);cursor:pointer;text-align:center;font-family:'Cinzel',serif;font-size:.65rem;color:var(--vellum-faint);transition:all .15s;}
+.tier-btn.active{background:var(--leather);color:var(--gold);border-color:var(--gold-dim);}
+.tier-btn:hover:not(.active){border-color:rgba(201,169,110,0.3);color:var(--vellum-dim);}
+.phase-selector{display:flex;gap:.3rem;margin-top:.3rem;}
+.phase-btn{flex:1;padding:.3rem;border:1px solid rgba(201,169,110,0.1);background:var(--night-2);cursor:pointer;text-align:center;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.06em;color:var(--vellum-faint);transition:all .15s;}
+.phase-btn.active{background:rgba(201,169,110,0.12);color:var(--gold);border-color:var(--gold-dim);}
+.strain-selector{display:flex;gap:.3rem;margin-top:.4rem;}
+.strain-btn{flex:1;padding:.45rem .2rem;border:1px solid rgba(201,169,110,0.12);background:var(--night-2);cursor:pointer;text-align:center;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.06em;color:var(--vellum-faint);transition:all .15s;}
+.strain-btn:hover{border-color:rgba(201,169,110,0.28);}
+.strain-btn.active-1{border-color:var(--forest);color:var(--forest-bright);background:rgba(44,74,58,0.1);}
+.strain-btn.active-2{border-color:var(--amber);color:var(--amber-bright);background:rgba(140,90,26,0.1);}
+.strain-btn.active-3{border-color:var(--crimson);color:var(--amber-bright);background:rgba(140,58,26,0.08);}
+.strain-btn.active-4{border-color:var(--crimson);color:var(--crimson-bright);background:rgba(140,58,26,0.15);}
+.strain-note{font-size:.78rem;font-style:italic;color:var(--vellum-dim);padding:.5rem .7rem;background:rgba(255,255,255,0.03);border-left:2px solid rgba(201,169,110,0.2);margin-top:.4rem;line-height:1.6;}
+.strain-note.s2{border-left-color:var(--amber);}
+.strain-note.s3{border-left-color:var(--crimson);}
+.strain-note.s4{border-left-color:var(--crimson);color:rgba(184,72,32,0.8);}
+.dissolution-select{font-family:'EB Garamond',serif;font-size:.9rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.15);color:var(--vellum);padding:.35rem .5rem;outline:none;width:100%;appearance:none;}
+.dissolution-select option{background:var(--night-2);}
+
+/* ══════════════════════════════════
+   LEVERAGE TAB
+══════════════════════════════════ */
+.lev-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.1);padding:.6rem .8rem;display:flex;align-items:center;gap:.7rem;margin-bottom:.4rem;}
+.lev-card.pos{border-left:3px solid var(--forest);}
+.lev-card.neg{border-left:3px solid var(--crimson);}
+.lev-card.zero{border-left:3px solid rgba(201,169,110,0.2);}
+.lev-npc-info{flex:1;min-width:0;}
+.lev-npc-name{font-family:'Cinzel',serif;font-size:.68rem;font-weight:600;color:var(--vellum);display:block;}
+.lev-npc-role{font-size:.72rem;color:var(--vellum-dim);font-style:italic;}
+.lev-score-wrap{display:flex;align-items:center;gap:.4rem;flex-shrink:0;}
+.lev-score{font-family:'Courier New',monospace;font-size:1.1rem;font-weight:700;min-width:2.2rem;text-align:center;}
+.lev-score.pos{color:var(--forest-bright);}
+.lev-score.neg{color:var(--crimson-bright);}
+.lev-score.zero{color:var(--vellum-faint);}
+.lev-adj-btn{width:24px;height:24px;border:1px solid rgba(201,169,110,0.2);background:transparent;color:var(--vellum-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.9rem;transition:all .15s;flex-shrink:0;}
+.lev-adj-btn:hover{border-color:var(--gold-dim);color:var(--gold);}
+.threshold-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.15);padding:.8rem .9rem;margin-bottom:1rem;}
+.threshold-title{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;}
+.threshold-req{display:flex;align-items:center;gap:.5rem;font-size:.82rem;margin-bottom:.35rem;}
+.req-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.req-dot.met{background:var(--forest);}
+.req-dot.unmet{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);}
+.req-text{color:var(--vellum-dim);}
+.req-text.met{color:var(--forest-bright);}
+.debt-item{background:var(--night-2);border:1px solid rgba(140,58,26,0.2);border-left:3px solid var(--crimson);padding:.6rem .8rem;margin-bottom:.4rem;display:flex;gap:.6rem;align-items:flex-start;}
+.debt-npc{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.05em;color:var(--crimson);display:block;margin-bottom:.15rem;}
+.debt-desc{font-size:.82rem;color:var(--vellum-dim);flex:1;}
+
+/* ══════════════════════════════════
+   ASSETS TAB
+══════════════════════════════════ */
+.asset-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.1);padding:.7rem .85rem;margin-bottom:.45rem;}
+.asset-header{display:flex;align-items:baseline;gap:.5rem;margin-bottom:.2rem;}
+.asset-name{font-family:'Cinzel',serif;font-size:.75rem;font-weight:600;color:var(--vellum);}
+.asset-type{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.08em;padding:.1rem .3rem;background:rgba(255,255,255,0.05);color:var(--gold-dim);}
+.asset-effect{font-size:.82rem;color:var(--vellum-dim);line-height:1.5;}
+.contact-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.1);padding:.7rem .85rem;margin-bottom:.45rem;}
+.contact-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;}
+.contact-name{font-family:'Cinzel',serif;font-size:.75rem;font-weight:600;color:var(--vellum);}
+.contact-faction{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.08em;color:var(--gold-dim);}
+.contact-row{display:flex;gap:.4rem;font-size:.78rem;margin-bottom:.15rem;}
+.contact-row-label{color:var(--vellum-faint);min-width:3.5rem;font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.05em;text-transform:uppercase;}
+.contact-row-val{color:var(--vellum-dim);}
+.contact-activated{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.15rem .4rem;border:1px solid;cursor:pointer;margin-top:.3rem;transition:all .15s;}
+.contact-activated.no{border-color:rgba(201,169,110,0.2);color:var(--gold-dim);}
+.contact-activated.yes{border-color:var(--forest);color:var(--forest-bright);background:rgba(44,74,58,0.1);}
+
+/* ══════════════════════════════════
+   OVERVIEW TAB
+══════════════════════════════════ */
+.overview-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem;}
+.ov-card{background:var(--night-2);border:1px solid rgba(201,169,110,0.1);padding:.7rem .8rem;}
+.ov-card-title{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;border-bottom:1px solid rgba(201,169,110,0.1);padding-bottom:.25rem;}
+.ov-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.2rem;font-size:.82rem;}
+.ov-label{color:var(--vellum-faint);font-size:.75rem;}
+.ov-val{font-family:'Cinzel',serif;font-size:.72rem;color:var(--vellum);text-align:right;}
+.ov-val.highlight{color:var(--gold);}
+.ov-val.safe{color:var(--forest-bright);}
+.ov-val.danger{color:var(--crimson-bright);}
+
+/* ══════════════════════════════════
+   NOTES TAB
+══════════════════════════════════ */
+.notes-prev-session{background:rgba(201,169,110,0.05);border:1px solid rgba(201,169,110,0.12);border-left:2px solid var(--gold-dim);padding:.7rem .9rem;margin-bottom:1rem;}
+.notes-prev-label{font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;display:block;}
+
+/* ══════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════ */
+@media(min-width:600px){
+  .tab-inner{padding:1.5rem 1.5rem 3rem;}
+  .wound-grid{grid-template-columns:repeat(3,1fr);}
+}
+@media(min-width:900px){
+  .tab-inner{padding:2rem 2rem 3rem;}
+  .header{padding:.7rem 2rem;}
+  .tab-bar{justify-content:center;}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀ Light Mode</button>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" class="setup">
+  <div class="setup-sigil">◈</div>
+  <div class="setup-eyebrow">Age of Wonder · Play Sheet</div>
+  <div class="setup-title">Import Your Record</div>
+  <div class="setup-sub">This sheet is for heirs who have completed session zero. Import the record you saved from your Heir's Record to begin. Your data then saves automatically to this device — pick up where you left off every session.</div>
+  <div class="setup-form">
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importFromS0(this)"/>
+    <button class="setup-import-btn" onclick="document.getElementById('import-file').click()">⬆ Import Session Zero Record</button>
+    <div class="import-success" id="import-success">✦ Record imported. Opening your sheet…</div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header" id="header">
+  <div class="header-top">
+    <div class="header-identity">
+      <span class="header-name" id="h-name">—</span>
+      <span class="header-house" id="h-house">—</span>
+    </div>
+    <span class="header-school" id="h-school">—</span>
+    <button class="reset-session-btn" onclick="resetSession()">Reset for New Session</button>
+  </div>
+  <div class="header-status">
+    <span class="status-pill" id="h-tier">T1</span>
+    <span class="status-pill" id="h-strain">Fresh</span>
+    <span class="status-pill" id="h-stamina">Fresh</span>
+    <span class="status-pill" id="h-wounds" style="display:none;"></span>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar" id="tab-bar">
+  <div class="tab-btn active" onclick="showTab('overview')">Overview</div>
+  <div class="tab-btn" onclick="showTab('combat')">Combat</div>
+  <div class="tab-btn" onclick="showTab('magic')">Magic</div>
+  <div class="tab-btn" onclick="showTab('leverage')">Leverage</div>
+  <div class="tab-btn" onclick="showTab('assets')">Assets</div>
+  <div class="tab-btn" onclick="showTab('notes')">Notes</div>
+</div>
+
+
+<!-- TAB: OVERVIEW -->
+<div class="tab-content active" id="tab-overview">
+<div class="tab-inner">
+  <div id="capstone-card" style="display:none;background:rgba(201,169,110,0.08);border:1px solid var(--gold-dim);padding:.8rem .9rem;margin-bottom:1rem;">
+    <div class="threshold-title" style="color:var(--gold);">Capstone Specialization</div>
+    <div id="capstone-title" style="font-family:'Cinzel',serif;font-size:.92rem;color:var(--vellum);margin-bottom:.3rem;"></div>
+    <div id="capstone-desc" style="font-size:.85rem;color:var(--vellum-dim);line-height:1.6;margin-bottom:.5rem;"></div>
+    <div id="capstone-usage-row" style="display:flex;align-items:center;gap:.6rem;"></div>
+  </div>
+  <div class="overview-grid" id="overview-grid">
+    <div class="ov-card">
+      <div class="ov-card-title">Magic State</div>
+      <div class="ov-row"><span class="ov-label">School</span><span class="ov-val highlight" id="ov-school">—</span></div>
+      <div class="ov-row"><span class="ov-label">Tier</span><span class="ov-val" id="ov-tier">—</span></div>
+      <div class="ov-row"><span class="ov-label">Willstrain</span><span class="ov-val" id="ov-strain">—</span></div>
+      <div class="ov-row"><span class="ov-label">Casting</span><span class="ov-val" id="ov-cast-avail">—</span></div>
+    </div>
+    <div class="ov-card">
+      <div class="ov-card-title">Combat State</div>
+      <div class="ov-row"><span class="ov-label">Stamina</span><span class="ov-val" id="ov-stamina">—</span></div>
+      <div class="ov-row"><span class="ov-label">Presence</span><span class="ov-val" id="ov-presence">—</span></div>
+      <div class="ov-row"><span class="ov-label">Technique</span><span class="ov-val" id="ov-technique-avail">—</span></div>
+      <div class="ov-row"><span class="ov-label">Wounds</span><span class="ov-val" id="ov-wounds">None</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Spells — All Known</div>
+    <div id="ov-available-spells" style="margin-bottom:.6rem;"></div>
+    <div class="section-title" style="margin-top:.8rem;">Techniques — All Known</div>
+    <div id="ov-available-techniques"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Leverage Snapshot</div>
+    <div id="ov-leverage-snap"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Active Contacts</div>
+    <div id="ov-contacts-snap"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Recent Loot</div>
+    <div id="ov-loot-snap"></div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: COMBAT -->
+<div class="tab-content" id="tab-combat">
+<div class="tab-inner">
+  <div class="section">
+    <div class="section-title">Stamina</div>
+    <div class="stamina-selector">
+      <div class="stamina-btn active-0" onclick="setStamina(0,this)">Fresh</div>
+      <div class="stamina-btn" onclick="setStamina(1,this)">Winded</div>
+      <div class="stamina-btn" onclick="setStamina(2,this)">Strained</div>
+      <div class="stamina-btn" onclick="setStamina(3,this)">Spent</div>
+    </div>
+    <div id="stamina-note" class="strain-note" style="margin-top:.5rem;display:none;"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Wound States</div>
+    <div class="wound-grid" id="wound-grid">
+      <div class="wound-btn" onclick="toggleWound(this,'weapon-arm')" data-wound="weapon-arm"><span class="wound-name">Weapon Arm</span><span class="wound-effect">Basic weapon actions +1 slot. Offensive techniques unavailable.</span></div>
+      <div class="wound-btn" onclick="toggleWound(this,'shield-arm')" data-wound="shield-arm"><span class="wound-name">Shield Arm</span><span class="wound-effect">Two-handed defensive techniques unavailable.</span></div>
+      <div class="wound-btn" onclick="toggleWound(this,'legs')" data-wound="legs"><span class="wound-name">Legs</span><span class="wound-effect">Move slot +1 cost. Repositioning techniques unavailable.</span></div>
+      <div class="wound-btn" onclick="toggleWound(this,'torso')" data-wound="torso"><span class="wound-name">Torso</span><span class="wound-effect">Stamina degrades faster. Recovery within a fight takes longer.</span></div>
+      <div class="wound-btn" onclick="toggleWound(this,'head')" data-wound="head"><span class="wound-name">Head</span><span class="wound-effect">Read degrades regardless of stamina. Perception techniques and spells affected.</span></div>
+      <div class="wound-btn" onclick="toggleWound(this,'presence')" data-wound="presence"><span class="wound-name">Presence</span><span class="wound-effect">All three presence components degrade one stage immediately.</span></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Presence & Combat Identity</div>
+    <div class="presence-display">
+      <span id="presence-label" style="font-size:.78rem;"></span>
+      <span id="weapon-label" style="font-family:'Cinzel',serif;font-size:.68rem;color:var(--gold-dim);"></span>
+    </div>
+    <div id="weapon-specialty-note" style="font-size:.78rem;color:var(--vellum-dim);font-style:italic;padding:.5rem .7rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.1);margin-top:.4rem;line-height:1.55;display:none;"></div>
+    <div id="combat-identity-row" style="display:none;margin-top:.6rem;gap:.5rem;flex-direction:column;">
+      <div id="combat-style-display" style="font-size:.82rem;display:none;"><span style="color:var(--vellum-faint);">Fighting Style —</span> <span style="color:var(--vellum-dim);" id="combat-style-val"></span></div>
+      <div id="combat-technique-display" style="font-size:.82rem;display:none;"><span style="color:var(--vellum-faint);">Signature Technique —</span> <span style="font-family:'Cinzel',serif;color:var(--gold);" id="combat-technique-val"></span></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Techniques</div>
+    <div id="techniques-list"></div>
+    <button class="add-btn" onclick="showAddTechnique()">+ Add Technique</button>
+    <div id="add-technique-area" style="display:none;" class="cap-add-area">
+      <div class="cap-add-title">Record Technique</div>
+      <div class="cap-form">
+        <input type="text" id="new-tech-name" placeholder="Technique name"/>
+        <div class="cap-form-row">
+          <select id="new-tech-slots">
+            <option value="act">Act slot only</option>
+            <option value="react">React slot only</option>
+            <option value="move">Move slot only</option>
+            <option value="act+move">Act + Move slots</option>
+            <option value="act+react">Act + React slots</option>
+            <option value="all-three">All three slots — total commitment</option>
+          </select>
+          <select id="new-tech-dependency">
+            <option value="none">No stamina dependency</option>
+            <option value="hold">Hold-dependent</option>
+            <option value="read">Read-dependent</option>
+          </select>
+        </div>
+        <div class="helper" style="font-size:.74rem;color:var(--vellum-faint);font-style:italic;margin:-.2rem 0 .3rem;">Hold-dependent techniques show caution when Winded. Read-dependent techniques become unreliable when Strained. All techniques are unavailable when Spent.</div>
+        <input type="text" id="new-tech-trigger" placeholder="Trigger condition — when can this fire?"/>
+        <textarea id="new-tech-effect" placeholder="What the technique produces in resolution"></textarea>
+        <div class="cap-form-row">
+          <button class="cap-form-btn" onclick="addTechnique()">Add</button>
+          <button class="cap-form-btn cap-form-cancel" onclick="document.getElementById('add-technique-area').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: MAGIC -->
+<div class="tab-content" id="tab-magic">
+<div class="tab-inner">
+  <div class="school-banner" id="school-banner">
+    <div class="school-banner-left">
+      <div class="school-banner-name" id="magic-school-name">—</div>
+      <div class="school-banner-axiom" id="magic-school-axiom">—</div>
+    </div>
+    <div class="school-banner-right">
+      <div class="tier-display" id="magic-tier-display">T1</div>
+      <div class="tier-phase" id="magic-phase-display">Effort</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Current Tier</div>
+    <div class="tier-selector" id="tier-selector">
+      <div class="tier-btn active" onclick="setTier(1,this)">T1</div>
+      <div class="tier-btn" onclick="setTier(2,this)">T2</div>
+      <div class="tier-btn" onclick="setTier(3,this)">T3</div>
+      <div class="tier-btn" onclick="setTier(4,this)">T4</div>
+      <div class="tier-btn" onclick="setTier(5,this)">T5</div>
+      <div class="tier-btn" onclick="setTier(6,this)">T6</div>
+    </div>
+    <div class="phase-selector" id="phase-selector" style="margin-top:.4rem;">
+      <div class="phase-btn active" onclick="setPhase('Effort',this)">Effort</div>
+      <div class="phase-btn" onclick="setPhase('Fluency',this)">Fluency</div>
+      <div class="phase-btn" onclick="setPhase('Pressure',this)">Pressure</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Willstrain</div>
+    <div class="strain-selector">
+      <div class="strain-btn active-0" onclick="setStrain(0,this)" style="color:var(--forest-bright);border-color:rgba(44,74,58,0.4);">Fresh</div>
+      <div class="strain-btn" onclick="setStrain(1,this)">Thinning</div>
+      <div class="strain-btn" onclick="setStrain(2,this)">Fraying</div>
+      <div class="strain-btn" onclick="setStrain(3,this)">Slippage</div>
+      <div class="strain-btn" onclick="setStrain(4,this)">Severance</div>
+    </div>
+    <div id="strain-note" class="strain-note" style="margin-top:.5rem;display:none;"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Second School</div>
+    <div class="two-col" style="gap:.5rem;align-items:end;">
+      <div>
+        <span class="field-label">School</span>
+        <select class="dissolution-select" id="second-school-select" onchange="save()">
+          <option value="">Not yet unlocked</option>
+          <option value="ALT">Alteration</option>
+          <option value="CON">Conjuration</option>
+          <option value="NEG">Negation</option>
+          <option value="DIV">Divination</option>
+          <option value="TRN">Transposition</option>
+          <option value="DOM">Dominion</option>
+        </select>
+      </div>
+      <div>
+        <span class="field-label">Dissolution History</span>
+        <select class="dissolution-select" id="dissolution-select" onchange="save()">
+          <option value="">None</option>
+          <option>Clarity Dissolution — partial</option>
+          <option>Commitment Dissolution — partial</option>
+          <option>Continuity Dissolution — partial</option>
+          <option>Full Dissolution</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">Spells Known</div>
+    <div id="spells-list"></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button class="add-btn" style="flex:1;min-width:140px;" onclick="showSpellLibrary()">⬡ Choose from Library</button>
+      <button class="add-btn" style="flex:1;min-width:140px;" onclick="showAddSpell()">+ Build Custom Spell</button>
+    </div>
+    <div id="spell-library-area" style="display:none;" class="cap-add-area">
+      <div class="cap-add-title">Tier One Through Three Library</div>
+      <div class="helper" style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;margin-bottom:.5rem;line-height:1.55;">Canonical spells from the SRD. Select your school and tier to see what's actually defined — no need to invent an effect.</div>
+      <div class="cap-form-row">
+        <select id="lib-school-filter" onchange="renderSpellLibrary()">
+          <option value="">All schools</option>
+          <option value="ALT">Alteration</option>
+          <option value="CON">Conjuration</option>
+          <option value="NEG">Negation</option>
+          <option value="DIV">Divination</option>
+          <option value="TRN">Transposition</option>
+          <option value="DOM">Dominion</option>
+        </select>
+        <select id="lib-tier-filter" onchange="renderSpellLibrary()">
+          <option value="">All tiers</option>
+          <option value="T1">Tier 1</option>
+          <option value="T2">Tier 2</option>
+          <option value="T3">Tier 3</option>
+        </select>
+      </div>
+      <div id="spell-library-list" style="display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem;max-height:340px;overflow-y:auto;"></div>
+      <button class="cap-form-btn cap-form-cancel" style="margin-top:.6rem;" onclick="document.getElementById('spell-library-area').style.display='none'">Close</button>
+    </div>
+    <div id="add-spell-area" style="display:none;" class="cap-add-area">
+      <div class="cap-add-title">Spell Builder — Select Components</div>
+      <div class="cap-form">
+        <input type="text" id="new-spell-name" placeholder="Spell name — e.g. Kindle, Still Point, Ghost Walk" oninput="buildSpellSyntax()"/>
+        <div class="cap-form-row">
+          <div style="display:flex;flex-direction:column;gap:.2rem;">
+            <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">School</span>
+            <select id="new-spell-school" onchange="buildSpellSyntax()">
+              <option value="ALT">ALT — Alteration</option><option value="CON">CON — Conjuration</option>
+              <option value="NEG">NEG — Negation</option><option value="DIV">DIV — Divination</option>
+              <option value="TRN">TRN — Transposition</option><option value="DOM">DOM — Dominion</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.2rem;">
+            <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Second School</span>
+            <select id="new-spell-school2" onchange="buildSpellSyntax()">
+              <option value="">None</option>
+              <option value="ALT">ALT</option><option value="CON">CON</option>
+              <option value="NEG">NEG</option><option value="DIV">DIV</option>
+              <option value="TRN">TRN</option><option value="DOM">DOM</option>
+            </select>
+          </div>
+        </div>
+        <div class="cap-form-row">
+          <div style="display:flex;flex-direction:column;gap:.2rem;">
+            <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Tier</span>
+            <select id="new-spell-tier" onchange="buildSpellSyntax()">
+              <option value="1">T1 — Reflexive</option><option value="2">T2 — Practiced</option>
+              <option value="3">T3 — Disciplined</option><option value="4">T4 — Expert</option>
+              <option value="5">T5 — Master</option><option value="6">T6 — Sovereign</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.2rem;">
+            <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Duration</span>
+            <select id="new-spell-duration" onchange="buildSpellSyntax()">
+              <option value="instant">Instant</option>
+              <option value="brief">Brief</option>
+              <option value="sustained">Sustained</option>
+              <option value="permanent">Permanent</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;">
+          <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Target</span>
+          <input type="text" id="new-spell-target" placeholder="e.g. material, target_will, defined_area" oninput="buildSpellSyntax()"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;">
+          <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Modifiers</span>
+          <input type="text" id="new-spell-modifiers" placeholder="e.g. small|contact_range|reversible" oninput="buildSpellSyntax()"/>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.2rem;">
+          <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Generated Syntax</span>
+          <div id="spell-syntax-output" style="font-family:'Courier New',monospace;font-size:.68rem;color:#3a6b50;background:rgba(44,74,58,0.1);border:1px solid rgba(44,74,58,0.25);padding:.5rem .6rem;min-height:2rem;line-height:1.6;word-break:break-all;border-left:2px solid rgba(44,74,58,0.5);">Fill in components above to generate syntax.</div>
+        </div>
+        <textarea id="new-spell-effect" placeholder="What the spell produces — describe the effect in narrative terms"></textarea>
+        <div class="cap-form-row">
+          <button class="cap-form-btn" onclick="addSpell()">Add Spell</button>
+          <button class="cap-form-btn cap-form-cancel" onclick="document.getElementById('add-spell-area').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: LEVERAGE -->
+<div class="tab-content" id="tab-leverage">
+<div class="tab-inner">
+  <div class="threshold-card" id="threshold-card">
+    <div class="threshold-title">Legitimacy Threshold — Arc One</div>
+    <div id="threshold-reqs"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">NPC Leverage Scores</div>
+    <div id="leverage-list"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Active Debts</div>
+    <div id="debts-list"></div>
+    <button class="add-btn" onclick="showAddDebt()">+ Record Debt</button>
+    <div id="add-debt-area" style="display:none;" class="cap-add-area">
+      <div class="cap-add-title">Record Debt</div>
+      <div class="cap-form">
+        <input type="text" id="new-debt-npc" placeholder="Who is owed"/>
+        <input type="text" id="new-debt-desc" placeholder="What was promised"/>
+        <div class="cap-form-row">
+          <button class="cap-form-btn" onclick="addDebt()">Add</button>
+          <button class="cap-form-btn cap-form-cancel" onclick="document.getElementById('add-debt-area').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: ASSETS -->
+<div class="tab-content" id="tab-assets">
+<div class="tab-inner">
+  <div class="section">
+    <div class="section-title">Loot</div>
+    <div id="loot-list"></div>
+    <input type="file" id="reward-import-file" accept=".json" style="display:none" onchange="importReward(this)"/>
+    <button class="add-btn" onclick="document.getElementById('reward-import-file').click()">⬇ Import Reward from GM</button>
+    <div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;padding:.5rem .1rem 0;line-height:1.6;">Items are issued by your GM during play, not self-recorded. If an item resolves into a spell fragment or technique scroll, record the resulting spell or technique in its own tab once you've used it.</div>
+  </div>
+  <div class="section">
+    <div class="section-title">Documents & Records</div>
+    <div id="documents-list"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Contacts</div>
+    <div id="contacts-list"></div>
+    <button class="add-btn" onclick="showAddContact()">+ Add Contact</button>
+    <div id="add-contact-area" style="display:none;" class="cap-add-area">
+      <div class="cap-add-title">Record Contact</div>
+      <div class="cap-form">
+        <div class="cap-form-row">
+          <input type="text" id="new-contact-name" placeholder="Contact name"/>
+          <input type="text" id="new-contact-faction" placeholder="Faction"/>
+        </div>
+        <input type="text" id="new-contact-want" placeholder="What they want from you"/>
+        <input type="text" id="new-contact-know" placeholder="What they know — their information value"/>
+        <input type="text" id="new-contact-available" placeholder="Available for — what encounter type or situation activates them"/>
+        <div class="cap-form-row">
+          <button class="cap-form-btn" onclick="addContact()">Add</button>
+          <button class="cap-form-btn cap-form-cancel" onclick="document.getElementById('add-contact-area').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: NOTES -->
+<div class="tab-content" id="tab-notes">
+<div class="tab-inner">
+  <div class="section">
+    <div class="section-title">Previous Session</div>
+    <div class="notes-prev-session">
+      <span class="notes-prev-label">Last session — archived automatically when you reset</span>
+      <textarea class="editable-area" id="notes-prev" placeholder="Nothing archived yet. Notes from your current session will appear here after reset." readonly style="opacity:.7;cursor:default;"></textarea>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title">This Session</div>
+    <textarea class="editable-area" id="notes-current" style="min-height:180px;" placeholder="Current session notes. Anything the GM said that matters. Decisions made. Leverage moves. Loot acquired." oninput="state.notes.current=this.value;save()"></textarea>
+  </div>
+  <div class="section">
+    <div class="section-title">Open Questions</div>
+    <textarea class="editable-area" id="notes-questions" style="min-height:90px;" placeholder="Things your character does not know. Things you want to find out. Threads to pull." onchange="save()"></textarea>
+  </div>
+  <div class="section">
+    <div class="section-title">Settings</div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+      <button class="add-btn" style="flex:1;min-width:140px;" onclick="editSetup()">Re-import Record</button>
+      <button class="add-btn" style="flex:1;min-width:140px;border-color:rgba(140,58,26,0.3);color:rgba(140,58,26,0.7);" onclick="if(confirm('Clear all data? This cannot be undone.')){clearAll();}">Clear All Data</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════ THEME ═══════════════════
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme',theme);
+  const btn=document.getElementById('theme-toggle');
+  if(btn) btn.innerHTML = theme==='dark' ? '☀ Light Mode' : '☾ Dark Mode';
+  try{localStorage.setItem('aow-playsheet-theme',theme);}catch(e){}
+}
+function toggleTheme(){
+  const current=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  applyTheme(current==='dark'?'light':'dark');
+}
+(function initTheme(){
+  let saved='dark';
+  try{saved=localStorage.getItem('aow-playsheet-theme')||'dark';}catch(e){}
+  applyTheme(saved);
+})();
+
+// ═══════════════════ DATA ═══════════════════
+const SCHOOLS={
+  ALT:{name:'Alteration',axiom:'Changes the nature of what exists from within.',color:'#c9703a'},
+  CON:{name:'Conjuration',axiom:'Changes absence into presence.',color:'#3a7ac9'},
+  NEG:{name:'Negation',axiom:'Changes existence into absence.',color:'#6a6ac9'},
+  DIV:{name:'Divination',axiom:'Changes ignorance into knowledge.',color:'#c9a93a'},
+  TRN:{name:'Transposition',axiom:'Changes the position of a thing.',color:'#3ac970'},
+  DOM:{name:'Dominion',axiom:'Changes the will of another.',color:'#c93a8a'},
+};
+
+const STRAIN_NOTES=[
+  '',
+  'Stage One — Thinning. Casting is reliable but costs more effort. Monitor your choices.',
+  'Stage Two — Fraying. Tier 3 and above are risky. Will components decohere under pressure. Consider resting.',
+  'Stage Three — Slippage. Tier 2 and above risk unconformed change. Stop casting if possible.',
+  'Stage Four — Severance. No spells available. Medical emergency. Dissolution risk if you cast.',
+];
+
+const STAMINA_NOTES=[
+  '',
+  'Winded — Hold thins. Techniques still available but sustained pressure costs more. Offensive techniques show caution.',
+  'Strained — Read degrades. Perception-dependent techniques unavailable. Committing to techniques risks mistiming.',
+  'Spent — All presence components compromised. No techniques available. You are surviving, not fighting.',
+];
+
+const WEAPON_SPECIALTIES={
+  Sword:'Range of Response — can split Act slot between strike and defense once per exchange without technique cost.',
+  Spear:'Reach Dominance — opponent must spend Move and React slots to close distance while you hold Move.',
+  Wand:'Cast Acceleration — spells treated one tier lower for slot cost only. No physical defense.',
+  Staff:'Barrier Generation — once per encounter spend React slot to absorb one wound state completely.',
+  Dagger:'Initiative Advantage — in simultaneous Act declarations your action resolves first.',
+  Projectile:'Engagement Denial — can target any participant regardless of position. Reloading costs Move slot.',
+};
+
+// Canonical Tier One through Three spell library, ported from the SRD. Used by the
+// library picker so players select known, defined spells instead of inventing effects.
+const SPELL_LIBRARY=[
+  {school:'ALT',tier:'T1',name:'Kindle',flags:0,brief:'Ignite or extinguish a small flame by changing the combustion state of material directly contacted by will.',syntax:'OPEN/ALT.T1:[KINDLE]@material|(small|contact_range|reversible)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'ALT',tier:'T1',name:'Whisperform',flags:0,brief:'Alter the surface texture of an object to be completely silent when moved.',syntax:'OPEN/ALT.T1:[WHISPERFORM]@object_surface|(silence_texture|contact_range|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'ALT',tier:'T1',name:'Mend',flags:0,brief:'Restore a small broken object to its prior structural state by altering the material back to coherence.',syntax:'OPEN/ALT.T1:[MEND]@broken_object|(small|contact_range|structural_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'ALT',tier:'T2',name:'Sealflesh',flags:0,brief:'Alter biological tissue to close a wound — stops bleeding, reduces wound state consequences. Field treatment application.',syntax:'OPEN/ALT.T2:[SEALFLESH]@biological_tissue|(wound_closure|contact_range|living_target)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'ALT',tier:'T2',name:'Dullsense',flags:1,brief:'Alter a willing or unguarded target\'s sensory perception of a specific stimulus — deaden pain, suppress a sound, remove a smell.',syntax:'OPEN/ALT.T2:[DULLSENSE]@target_sensory_apparatus|(specific_stimulus|one_sense|brief)|<WILLSTRAIN:S2>|~brief~|!'},
+  {school:'ALT',tier:'T2',name:'Shapeshift Surface',flags:0,brief:'Alter the visible and tactile surface properties of an object — make stone appear as wood, metal feel like cloth.',syntax:'OPEN/ALT.T2:[SHAPESHIFT_SURFACE]@object_surface|(appearance_and_texture|contact_range|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'ALT',tier:'T3',name:'Restructure',flags:0,brief:'Alter the fundamental material composition of an object — change stone to iron, wood to bone, metal to ceramic.',syntax:'OPEN/ALT.T3:[RESTRUCTURE]@material_object|(composition_change|contact_range|medium_volume)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'ALT',tier:'T3',name:'Rewire',flags:1,brief:'Alter a target\'s habitual physical response pattern — change a reflex, suppress a trained reaction, alter an instinctive behavior.',syntax:'OPEN/ALT.T3:[REWIRE]@target_habitual_response|(single_pattern|sustained_duration|resisted)|<WILLSTRAIN:S3>|~sustained~|!'},
+  {school:'CON',tier:'T1',name:'Fetch',flags:0,brief:'Relocate a small known object from within line of sight into the caster\'s hand.',syntax:'OPEN/CON.T1:[FETCH]@known_object|(line_of_sight|hand_range|small)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'CON',tier:'T1',name:'Calllight',flags:0,brief:'Conjure a sustained palm-sized source of light from ambient luminance beyond the immediate frame.',syntax:'OPEN/CON.T1:[CALLLIGHT]@ambient_luminance|(palm_sized|sustained|non-directed)|<WILLSTRAIN:S1>|~sustained~'},
+  {school:'CON',tier:'T1',name:'Summon Draught',flags:0,brief:'Conjure water from beyond the immediate frame into a contained vessel — a cup, a flask, a cupped hand.',syntax:'OPEN/CON.T1:[SUMMON_DRAUGHT]@water_source_beyond_frame|(contained_vessel|potable|small_volume)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'CON',tier:'T2',name:'Aperture',flags:0,brief:'Open a physical passage between two points within line of sight — not teleportation, a gap through which objects and people can move.',syntax:'OPEN/CON.T2:[APERTURE]@two_spatial_points|(line_of_sight|passage_sized|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'CON',tier:'T2',name:'Callshield',flags:0,brief:'Conjure a sustained physical barrier from material beyond the frame — opaque, solid, roughly door-sized.',syntax:'OPEN/CON.T2:[CALLSHIELD]@material_beyond_frame|(barrier_sized|sustained|stationary)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'CON',tier:'T2',name:'Presence Echo',flags:0,brief:'Conjure a sensory impression of the caster\'s presence at another location — visual only, no sound, no substance.',syntax:'OPEN/CON.T2:[PRESENCE_ECHO]@defined_location|(visual_only|caster_appearance|brief)|<WILLSTRAIN:S2>|~brief~'},
+  {school:'CON',tier:'T3',name:'Gate',flags:0,brief:'Sustain an aperture large enough for a person to pass through, maintained by continuous will for its duration.',syntax:'HOLD/CON.T3:[GATE]@two_spatial_points|(person_sized|sustained_will|line_of_sight_at_open)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'CON',tier:'T3',name:'Deep Summon',flags:0,brief:'Conjure a specific known object from beyond line of sight — requires clear knowledge of the object\'s current location.',syntax:'OPEN/CON.T3:[DEEP_SUMMON]@known_object_beyond_sight|(precise_location_knowledge|medium_size|resisted_if_held)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'NEG',tier:'T1',name:'Snuff',flags:0,brief:'Negate a small active process — a flame, a sound, a minor spell in progress.',syntax:'OPEN/NEG.T1:[SNUFF]@active_process|(small|flame_sound_or_cantrip)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'NEG',tier:'T1',name:'Hush',flags:0,brief:'Negate your own footsteps and breathing sounds for a brief duration.',syntax:'OPEN/NEG.T1:[HUSH]@caster_sound_signature|(self_only|movement_and_breath|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'NEG',tier:'T1',name:'Still',flags:0,brief:'Negate the kinetic energy of a small moving object — arrest an arrow mid-flight, stop a falling item.',syntax:'OPEN/NEG.T1:[STILL]@small_moving_object|(kinetic_negation|brief_duration|line_of_sight)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'NEG',tier:'T2',name:'Silence Zone',flags:0,brief:'Negate all sound production within a defined area for a brief duration — nothing within the zone can be heard from outside or inside it.',syntax:'OPEN/NEG.T2:[SILENCE_ZONE]@defined_area|(complete_sound_negation|room_sized|brief)|<WILLSTRAIN:S2>|~brief~'},
+  {school:'NEG',tier:'T2',name:'Counter',flags:0,brief:'Negate an active spell in progress before it completes — requires accurate Read on the casting to time correctly.',syntax:'OPEN/NEG.T2:[COUNTER]@active_casting|(pre-completion|requires_read|single_spell)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'NEG',tier:'T2',name:'Suppress',flags:0,brief:'Negate a sustained physical process — fire, water flow, a mechanism\'s operation — for a defined duration.',syntax:'OPEN/NEG.T2:[SUPPRESS]@sustained_physical_process|(defined_scope|process_negation|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'NEG',tier:'T3',name:'Void Pocket',flags:0,brief:'Negate the sensory detectability of a defined space — everything within becomes undetectable to standard perception for the duration.',syntax:'OPEN/NEG.T3:[VOID_POCKET]@defined_space|(complete_sensory_negation|room_sized|sustained)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'NEG',tier:'T3',name:'Unmake',flags:0,brief:'Negate a constructed object\'s structural integrity — sustained negation causes physical collapse of the target construction.',syntax:'HOLD/NEG.T3:[UNMAKE]@constructed_object|(structural_integrity|sustained_negation|progressive_collapse)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'DIV',tier:'T1',name:'Read',flags:0,brief:'Extract the truth of a simple present condition — is this water safe, is this door locked, is this person lying.',syntax:'OPEN/DIV.T1:[READ]@present_condition|(simple|binary_truth|single_query)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T1',name:'Warmth',flags:0,brief:'Sense the resonance signature of living creatures within a short radius without identifying them.',syntax:'OPEN/DIV.T1:[WARMTH]@living_resonance|(short_radius|presence_only|no_identity)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T1',name:'Trace',flags:0,brief:'Follow the resonance trail left by a known person or object — read where they have been within the past hour.',syntax:'OPEN/DIV.T1:[TRACE]@known_resonance_signature|(recent_trail|one_hour|contact_surfaces_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T2',name:'History',flags:0,brief:'Read a significant past event that occurred at the caster\'s current location — what happened here, who was present, what changed.',syntax:'OPEN/DIV.T2:[HISTORY]@current_location_past_event|(significant_event|approximate_time|caster_location)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'DIV',tier:'T2',name:'Probability Read',flags:0,brief:'Assess the weighted likelihood of a defined outcome given current conditions — not certainty, a structured assessment of what is likely.',syntax:'OPEN/DIV.T2:[PROBABILITY_READ]@defined_outcome|(current_conditions|weighted_assessment|single_outcome)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'DIV',tier:'T2',name:'Deep Read',flags:1,brief:'Read the emotional and intentional state of a present person — their dominant feeling and current purpose.',syntax:'OPEN/DIV.T2:[DEEP_READ]@present_person|(emotional_and_intent|dominant_state|single_target)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'DIV',tier:'T3',name:'Witness',flags:0,brief:'Observe a specific past event at any location — requires precise temporal and spatial definition of what you are seeking.',syntax:'OPEN/DIV.T3:[WITNESS]@defined_past_event|(any_location|precise_temporal_definition|observer_only)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'DIV',tier:'T3',name:'Thread',flags:0,brief:'Read the complete causal chain between a current condition and its origin — how did this come to be, what choices produced it.',syntax:'OPEN/DIV.T3:[THREAD]@current_condition|(complete_causal_chain|origin_to_present|no_future)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Step',flags:0,brief:'Transpose the caster a short distance instantaneously within line of sight.',syntax:'OPEN/TRN.T1:[STEP]@caster|(short_distance|line_of_sight|self_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Toss',flags:0,brief:'Transpose a small object a short distance without touching it.',syntax:'OPEN/TRN.T1:[TOSS]@small_object|(short_distance|no_contact|line_of_sight)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Swap',flags:0,brief:'Transpose two small known objects within line of sight simultaneously — each ends up where the other was.',syntax:'OPEN/TRN.T1:[SWAP]@two_known_objects|(simultaneous|line_of_sight|small|positions_exchange)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T2',name:'Displace',flags:1,brief:'Transpose a target against their will a short distance — across a room, off a ledge, out of a doorway.',syntax:'OPEN/TRN.T2:[DISPLACE]@target|(short_distance|against_will|resisted)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'TRN',tier:'T2',name:'Anchor',flags:0,brief:'Fix an object\'s position in space — it cannot be moved by physical force for the duration of the casting.',syntax:'OPEN/TRN.T2:[ANCHOR]@object|(position_fixed|physical_force_resisted|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'TRN',tier:'T2',name:'Phase Step',flags:0,brief:'Transpose the caster through a thin solid barrier — a wall, a locked door, a sealed partition.',syntax:'OPEN/TRN.T2:[PHASE_STEP]@caster|(through_solid_barrier|thin_only|self)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'TRN',tier:'T3',name:'Long Step',flags:0,brief:'Transpose the caster to a known location outside line of sight — requires precise knowledge of the destination.',syntax:'OPEN/TRN.T3:[LONG_STEP]@caster|(known_destination|beyond_sight|precise_knowledge_required|self)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'TRN',tier:'T3',name:'Extract',flags:1,brief:'Transpose a target from their current location to the caster\'s location — the target resists in proportion to their will and readiness.',syntax:'OPEN/TRN.T3:[EXTRACT]@target|(to_caster_location|against_will|resisted|single_target)|<WILLSTRAIN:S3>|~instant~|!'},
+  {school:'DOM',tier:'T1',name:'Nudge',flags:1,brief:'Impose a minor suggestion on a weak or distracted will. Effective only on the unguarded.',syntax:'OPEN/DOM.T1:[NUDGE]@weak_or_distracted_will|(minor_suggestion|unguarded_only|single_impulse)|<WILLSTRAIN:S1>|~instant~|!'},
+  {school:'DOM',tier:'T1',name:'Quell',flags:0,brief:'Suppress a surge of strong emotion in a willing target — fear, rage, grief. Requires consent.',syntax:'OPEN/DOM.T1:[QUELL]@willing_target_emotion|(suppress_surge|consent_required|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'DOM',tier:'T1',name:'Read Intent',flags:1,brief:'Perceive the dominant current intention of an unguarded will — what this person is planning to do in the immediate moment.',syntax:'OPEN/DOM.T1:[READ_INTENT]@unguarded_will|(dominant_intention|immediate_moment|single_query)|<WILLSTRAIN:S1>|~instant~|!'},
+  {school:'DOM',tier:'T2',name:'Command',flags:1,brief:'Impose a single specific instruction on a will — the target executes it once and the overlay releases.',syntax:'OPEN/DOM.T2:[COMMAND]@target_will|(single_instruction|executes_once|resisted)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'DOM',tier:'T2',name:'Reinforce',flags:0,brief:'Strengthen a willing target\'s resolve against external influence — their will becomes harder to affect for the duration.',syntax:'OPEN/DOM.T2:[REINFORCE]@willing_target_will|(external_resistance|consent_required|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'DOM',tier:'T2',name:'Hold',flags:1,brief:'Suppress a specific emotion or impulse in a target for a sustained duration — they experience the suppression but cannot act on what is being held.',syntax:'OPEN/DOM.T2:[HOLD]@target_emotion_or_impulse|(specific_suppression|sustained|resisted)|<WILLSTRAIN:S2>|~sustained~|!'},
+  {school:'DOM',tier:'T3',name:'Rewrite',flags:2,brief:'Alter a specific memory in a target — the memory changes, the target does not know it changed.',syntax:'OPEN/DOM.T3:[REWRITE]@target_specific_memory|(alteration|memory_only|target_unaware|resisted)|<WILLSTRAIN:S3>|~instant~|!!'},
+  {school:'DOM',tier:'T3',name:'Compel',flags:2,brief:'Impose sustained behavioral direction on a target — they act as the caster directs while retaining their internal experience of doing so.',syntax:'HOLD/DOM.T3:[COMPEL]@target_will|(sustained_behavioral_direction|internal_experience_preserved|resisted)|<WILLSTRAIN:S3>|~sustained~|!!'},
+];
+
+const NPC_LIST=[
+  {key:'kingHector',name:'King Hector',role:'The Monarch'},
+  {key:'royalChamberlain',name:'Chamberlain',role:'Keeper of Royal Access'},
+  {key:'merchantConsortium',name:'Merchants',role:'Controls Trade'},
+  {key:'cityWatch',name:'City Watch',role:'Controls Movement'},
+  {key:'dockworkersUnion',name:'Dockworkers',role:'Controls Harbor'},
+  {key:'courierNetwork',name:'Couriers',role:'Controls Information'},
+  {key:'churchOfAxiom',name:'Church',role:'Controls Legitimacy'},
+  {key:'scholarsGuild',name:'Scholars',role:'Controls Records'},
+  {key:'outskirtsBroker',name:'Broker',role:'Controls Black Market'},
+];
+
+// ═══════════════════ STATE ═══════════════════
+let state={
+  setup:{name:'',house:'',succession:'',school:'',tier:1,weapon:'',presence:'Baseline',style:'',technique:''},
+  strain:0,       // 0-4
+  stamina:0,      // 0-3
+  wounds:[],      // array of wound keys
+  phase:'Effort',
+  dissolution:'',
+  secondSchool:'',
+  leverage:{kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0},
+  spells:[],
+  techniques:[],
+  loot:[],
+  documents:[],
+  contacts:[],
+  debts:[],
+  capstone:null, // {aspect, aspectName, title, description, usage, leverageBonus, leveragePenalty, usedThisSession}
+  notes:{prev:'',current:'',questions:''},
+};
+
+// ═══════════════════ STORAGE ═══════════════════
+function save(){
+  // Collect notes
+  state.notes.prev=document.getElementById('notes-prev')?.value||state.notes.prev;
+  state.notes.current=document.getElementById('notes-current')?.value||state.notes.current;
+  state.notes.questions=document.getElementById('notes-questions')?.value||state.notes.questions;
+  state.secondSchool=document.getElementById('second-school-select')?.value||'';
+  state.dissolution=document.getElementById('dissolution-select')?.value||'';
+  try{localStorage.setItem('aow-play-sheet',JSON.stringify(state));}catch(e){}
+}
+
+function load(){
+  try{
+    const raw=localStorage.getItem('aow-play-sheet');
+    if(raw){state=JSON.parse(raw);}
+  }catch(e){}
+}
+
+// ═══════════════════ IMPORT FROM SESSION ZERO ═══════════════════
+function importFromS0(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+
+      // Identity — required. Without a name and a revealed school, this isn't a usable record.
+      const i=data.identity||{};
+      const heirName=(i.givenName||i.name||'').trim();
+      const revealedSchool=data.awakening?.revealedSchool||'';
+      if(!heirName||!revealedSchool){
+        alert('This record is missing a name or a revealed school. Make sure your Heir\'s Record is fully complete — including the Awakening — before exporting.');
+        return;
+      }
+
+      const cp=data.combatProfile||{};
+      state.setup={
+        name:heirName,
+        house:data.house?.name||'',
+        succession:i.succession||'',
+        school:revealedSchool,
+        tier:1,
+        weapon:cp.weaponSpecialty||'',
+        presence:cp.presenceLevel||'Baseline',
+        style:cp.fightingStyle||'',
+        technique:cp.signatureTechnique||'',
+      };
+
+      // Pre-load signature technique from session zero if provided
+      if(state.setup.technique&&!state.techniques.find(t=>t.name===state.setup.technique)){
+        state.techniques.push({
+          name:state.setup.technique,
+          slots:'act+move',
+          dependency:'none',
+          trigger:'Defined by fighting style — confirm with GM',
+          effect:'Your signature technique. Once trigger, slot cost, and stamina dependency are confirmed with your GM, remove this entry and re-add it with the full details.',
+        });
+      }
+
+      // Pre-populate starting leverage from session zero
+      if(data.startingLeverage){
+        Object.keys(data.startingLeverage).forEach(k=>{
+          if(state.leverage.hasOwnProperty(k))state.leverage[k]=data.startingLeverage[k]||0;
+        });
+      }
+
+      // Capstone Specialization — only present if the heir committed five years to one aspect
+      if(data.capstone){
+        state.capstone={...data.capstone,usedThisSession:false};
+      }
+
+      // Pre-populate starting spells if any
+      if(data.awakening?.startingSpells?.length){
+        const schoolKey=data.awakening.revealedSchool;
+        data.awakening.startingSpells.forEach(spellName=>{
+          const cleanName=spellName.replace(' (adjacent)','').replace('*','').trim();
+          if(!state.spells.find(s=>s.name===cleanName)){
+            state.spells.push({
+              name:cleanName,
+              tier:1,
+              school:schoolKey||'ALT',
+              effect:'Starting spell — add effect description during play.',
+              syntax:'',
+            });
+          }
+        });
+      }
+
+      // Pre-populate NPCs as contacts
+      if(data.npcs){
+        const npcs=data.npcs;
+        ['ally','rival','contact','wildCard'].forEach(key=>{
+          const npc=npcs[key];
+          if(npc?.name&&!state.contacts.find(c=>c.name===npc.name)){
+            const isRival=key==='rival';
+            state.contacts.push({
+              name:npc.name,
+              faction:npc.faction||npc.category||'—',
+              want:npc.want||npc.goal||'—',
+              know:isRival?(npc.leverage||'—'):(npc.knows||npc.significance||'—'),
+              available:isRival?'Active opposition — not a resource':'Check with GM',
+              type:isRival?'rival':'ally',
+              activated:false,
+            });
+          }
+        });
+      }
+
+      save();
+
+      // Show success and open the sheet — there is no manual fallback, import is the only path
+      const successEl=document.getElementById('import-success');
+      if(successEl)successEl.classList.add('show');
+      setTimeout(()=>showSheet(),800);
+
+    }catch(err){
+      alert('Could not read the file. Make sure you are importing an Age of Wonder Heir\'s Record JSON file.');
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════ SPELL SYNTAX BUILDER ═══════════════════
+function buildSpellSyntax(){
+  const name=(document.getElementById('new-spell-name')?.value||'').trim().toUpperCase().replace(/\s+/g,'_')||'SPELL_NAME';
+  const school1=document.getElementById('new-spell-school')?.value||'ALT';
+  const school2=document.getElementById('new-spell-school2')?.value||'';
+  const tier=document.getElementById('new-spell-tier')?.value||'1';
+  const target=(document.getElementById('new-spell-target')?.value||'').trim().toLowerCase().replace(/\s+/g,'_')||'target';
+  const rawMods=(document.getElementById('new-spell-modifiers')?.value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  const mods=rawMods||'';
+  const modsStr=mods?`(${mods})`:`()`;
+  const duration=document.getElementById('new-spell-duration')?.value||'instant';
+
+  // Willstrain stage from tier
+  const strainMap={1:'S1',2:'S1',3:'S2',4:'S2',5:'S3',6:'S4|DISSOLUTION_RISK'};
+  const strainStage=strainMap[tier]||'S1';
+
+  const schoolStr=school2?`${school1}+${school2}`:school1;
+  const crossStr=school2?'|*multiplicative_overhead*':'';
+  const syntax=`OPEN/${schoolStr}.T${tier}:[${name}]@${target}|${modsStr}|<WILLSTRAIN:${strainStage}>|~${duration}~${crossStr}`;
+
+  const out=document.getElementById('spell-syntax-output');
+  if(out)out.textContent=syntax;
+}
+
+
+function editSetup(){
+  document.getElementById('setup-screen').style.display='flex';
+  document.getElementById('header').classList.remove('show');
+  document.getElementById('tab-bar').classList.remove('show');
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  const successEl=document.getElementById('import-success');
+  if(successEl)successEl.classList.remove('show');
+}
+
+function showSheet(){
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('header').classList.add('show');
+  document.getElementById('tab-bar').classList.add('show');
+  showTab('overview');
+  renderAll();
+}
+
+// ═══════════════════ NAVIGATION ═══════════════════
+function showTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+  renderAll();
+}
+
+// ═══════════════════ STATE SETTERS ═══════════════════
+function setStrain(level,btn){
+  state.strain=level;
+  document.querySelectorAll('.strain-btn').forEach((b,i)=>{
+    b.classList.remove('active-0','active-1','active-2','active-3','active-4');
+    if(i===level) b.classList.add(`active-${level}`);
+  });
+  const note=document.getElementById('strain-note');
+  if(note){
+    if(level===0){note.style.display='none';}
+    else{note.textContent=STRAIN_NOTES[level];note.className=`strain-note s${level}`;note.style.display='block';}
+  }
+  save();renderAll();
+}
+
+function setStamina(level,btn){
+  state.stamina=level;
+  document.querySelectorAll('.stamina-btn').forEach((b,i)=>{
+    b.classList.remove('active-0','active-1','active-2','active-3');
+    if(i===level) b.classList.add(`active-${level}`);
+  });
+  const note=document.getElementById('stamina-note');
+  if(note){
+    if(level===0){note.style.display='none';}
+    else{note.textContent=STAMINA_NOTES[level];note.style.display='block';}
+  }
+  save();renderAll();
+}
+
+function setTier(tier,btn){
+  state.setup.tier=tier;
+  document.querySelectorAll('.tier-btn').forEach((b,i)=>b.classList.toggle('active',i===tier-1));
+  const td=document.getElementById('magic-tier-display');
+  if(td)td.textContent=`T${tier}`;
+  save();renderAll();
+}
+
+function setPhase(phase,btn){
+  state.phase=phase;
+  document.querySelectorAll('.phase-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const pd=document.getElementById('magic-phase-display');
+  if(pd)pd.textContent=phase;
+  save();
+}
+
+function toggleWound(btn,key){
+  if(state.wounds.includes(key)){state.wounds=state.wounds.filter(w=>w!==key);btn.classList.remove('active');}
+  else{state.wounds.push(key);btn.classList.add('active');}
+  save();renderAll();
+}
+
+function resetSession(){
+  if(!confirm('Reset for new session?\n\n• Wounds clear\n• Stamina resets to Fresh\n• Willstrain recovers one stage\n• Current session notes archive to Previous\n\nThis cannot be undone.'))return;
+  // Archive notes
+  const curr=document.getElementById('notes-current');
+  const prev=document.getElementById('notes-prev');
+  if(curr&&prev&&curr.value.trim()){
+    prev.value=curr.value;
+    state.notes.prev=curr.value;
+    curr.value='';
+    state.notes.current='';
+  }
+  state.wounds=[];
+  state.stamina=0;
+  state.strain=Math.max(0,state.strain-1);
+  if(state.capstone)state.capstone.usedThisSession=false;
+  document.querySelectorAll('.wound-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.stamina-btn').forEach((b,i)=>{
+    b.classList.remove('active-0','active-1','active-2','active-3');
+    if(i===0)b.classList.add('active-0');
+  });
+  const sNote=document.getElementById('stamina-note');if(sNote)sNote.style.display='none';
+  const strainBtns=document.querySelectorAll('.strain-btn');
+  strainBtns.forEach((b,i)=>{
+    b.classList.remove('active-0','active-1','active-2','active-3','active-4');
+    if(i===state.strain)b.classList.add(`active-${state.strain}`);
+  });
+  const stNote=document.getElementById('strain-note');
+  if(stNote){if(state.strain>0){stNote.textContent=STRAIN_NOTES[state.strain];stNote.className=`strain-note s${state.strain}`;stNote.style.display='block';}else{stNote.style.display='none';}}
+  save();renderAll();
+}
+
+// ═══════════════════ AVAILABILITY ═══════════════════
+function spellAvailability(spellTier){
+  const tier=parseInt(spellTier)||1;
+  if(state.strain===0)return'safe';
+  if(state.strain===1){if(tier<=4)return'safe';return'caution';}
+  if(state.strain===2){if(tier<=2)return'safe';if(tier===3)return'caution';return'danger';}
+  if(state.strain===3){if(tier<=1)return'caution';return'danger';}
+  return'danger';
+}
+
+function techniqueAvailability(dependency){
+  // SRD rule: Fresh — all available. Winded — Hold-dependent shows caution. Strained — Read-dependent becomes unreliable (still usable, riskier). Spent — none available.
+  if(state.stamina===3)return'danger'; // Spent — no techniques available, regardless of dependency
+  if(state.stamina===2){ // Strained
+    if(dependency==='read')return'caution'; // unreliable, not unavailable
+    if(dependency==='hold')return'caution'; // still showing caution from the Winded stage onward
+    return'safe';
+  }
+  if(state.stamina===1){ // Winded
+    if(dependency==='hold')return'caution';
+    return'safe';
+  }
+  return'safe'; // Fresh
+}
+
+function availLabel(avail){
+  if(avail==='safe')return'Available';
+  if(avail==='caution')return'Caution';
+  return'Unavailable';
+}
+
+// ═══════════════════ HEADER ═══════════════════
+function renderHeader(){
+  const s=state.setup;
+  const school=s.school?SCHOOLS[s.school]:null;
+  const el=id=>document.getElementById(id);
+
+  el('h-name').textContent=s.name||'—';
+  el('h-house').textContent=s.house?`House ${s.house}`:'—';
+
+  const schoolEl=el('h-school');
+  schoolEl.textContent=school?school.name:'—';
+  schoolEl.style.color=school?school.color:'var(--vellum-faint)';
+  schoolEl.style.borderColor=school?school.color+'66':'rgba(255,255,255,0.1)';
+
+  const strainLabels=['Fresh','Thinning','Fraying','Slippage','Severance'];
+  const strainEl=el('h-strain');
+  strainEl.textContent=`Willstrain: ${strainLabels[state.strain]}`;
+  strainEl.className=`status-pill strain-${state.strain}`;
+
+  const staminaLabels=['Fresh','Winded','Strained','Spent'];
+  const staminaEl=el('h-stamina');
+  staminaEl.textContent=`Stamina: ${staminaLabels[state.stamina]}`;
+  staminaEl.className=`status-pill stamina-${state.stamina}`;
+
+  const tierEl=el('h-tier');
+  tierEl.textContent=`T${s.tier} · ${state.phase}`;
+
+  const woundEl=el('h-wounds');
+  if(state.wounds.length>0){
+    woundEl.textContent=`${state.wounds.length} Wound${state.wounds.length>1?'s':''}`;
+    woundEl.style.display='';
+    woundEl.style.color='var(--crimson-bright)';
+    woundEl.style.borderColor='rgba(140,58,26,0.5)';
+  } else {
+    woundEl.style.display='none';
+  }
+}
+
+// ═══════════════════ COMBAT TAB ═══════════════════
+function renderCombat(){
+  const s=state.setup;
+  const presEl=document.getElementById('presence-label');
+  const weapEl=document.getElementById('weapon-label');
+  const specNote=document.getElementById('weapon-specialty-note');
+  if(presEl)presEl.textContent=`Presence: ${s.presence}`;
+  if(weapEl)weapEl.textContent=s.weapon?`${s.weapon} — ${WEAPON_SPECIALTIES[s.weapon]?.split('—')[0].trim()||s.weapon}`:'No weapon training';
+  if(specNote&&s.weapon&&WEAPON_SPECIALTIES[s.weapon]){
+    specNote.textContent=WEAPON_SPECIALTIES[s.weapon];
+    specNote.style.display='block';
+  } else if(specNote){specNote.style.display='none';}
+
+  // Fighting style and signature technique — captured at session zero, shown here for reference every session
+  const identityRow=document.getElementById('combat-identity-row');
+  const styleDisp=document.getElementById('combat-style-display');
+  const techDisp=document.getElementById('combat-technique-display');
+  const hasStyle=s.style&&s.style.trim();
+  const hasTech=s.technique&&s.technique.trim();
+  if(identityRow)identityRow.style.display=(hasStyle||hasTech)?'flex':'none';
+  if(styleDisp){styleDisp.style.display=hasStyle?'block':'none';if(hasStyle)document.getElementById('combat-style-val').textContent=s.style;}
+  if(techDisp){techDisp.style.display=hasTech?'block':'none';if(hasTech)document.getElementById('combat-technique-val').textContent=s.technique;}
+
+  // Restore wound state UI
+  document.querySelectorAll('.wound-btn').forEach(btn=>{
+    const key=btn.getAttribute('data-wound');
+    btn.classList.toggle('active',state.wounds.includes(key));
+  });
+
+  // Render techniques
+  const list=document.getElementById('techniques-list');
+  if(!list)return;
+  if(!state.techniques.length){list.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.5rem 0;">No techniques recorded. Add your signature technique below.</div>`;return;}
+  list.innerHTML=state.techniques.map((t,i)=>{
+    const avail=techniqueAvailability(t.dependency);
+    const depLabel=t.dependency==='hold'?'Hold-dependent':t.dependency==='read'?'Read-dependent':'';
+    return `<div class="cap-card ${avail==='danger'?'unavailable':''}">
+      <div class="cap-dot-col"><div class="avail-dot ${avail==='safe'?'safe':avail==='caution'?'caution':'unavail'}"></div></div>
+      <div class="cap-body">
+        <div class="cap-header">
+          <span class="cap-name">${t.name}</span>
+          <span class="cap-cost">${t.slots}</span>
+          ${depLabel?`<span class="cap-school-tag">${depLabel}</span>`:''}
+        </div>
+        <div class="cap-trigger">Trigger: ${t.trigger}</div>
+        <div class="cap-effect">${t.effect}</div>
+        ${avail==='danger'?`<div class="cap-unavail-reason">Unavailable — Spent</div>`:''}
+        ${avail==='caution'?`<div class="cap-unavail-reason" style="color:var(--amber);">${t.dependency==='hold'?'Caution — Winded: window narrows, mistiming costs more':'Caution — Strained: Read unreliable, timing may be off'}</div>`:''}
+        <button class="remove-btn" onclick="removeTechnique(${i})">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════ MAGIC TAB ═══════════════════
+function renderMagic(){
+  const school=state.setup.school?SCHOOLS[state.setup.school]:null;
+  const nameEl=document.getElementById('magic-school-name');
+  const axiomEl=document.getElementById('magic-school-axiom');
+  const tierDisp=document.getElementById('magic-tier-display');
+  const phaseDisp=document.getElementById('magic-phase-display');
+  if(nameEl){nameEl.textContent=school?school.name:'No school revealed';if(school)nameEl.style.color=school.color;}
+  if(axiomEl)axiomEl.textContent=school?school.axiom:'Complete your Awakening to reveal your school.';
+  if(tierDisp)tierDisp.textContent=`T${state.setup.tier}`;
+  if(phaseDisp)phaseDisp.textContent=state.phase;
+
+  // Sync tier selector
+  document.querySelectorAll('.tier-btn').forEach((b,i)=>b.classList.toggle('active',i===state.setup.tier-1));
+  // Sync phase
+  document.querySelectorAll('.phase-btn').forEach(b=>b.classList.toggle('active',b.textContent===state.phase));
+  // Sync strain
+  document.querySelectorAll('.strain-btn').forEach((b,i)=>{
+    b.classList.remove('active-0','active-1','active-2','active-3','active-4');
+    if(i===state.strain)b.classList.add(`active-${state.strain}`);
+  });
+  // Strain note
+  const sNote=document.getElementById('strain-note');
+  if(sNote){if(state.strain>0){sNote.textContent=STRAIN_NOTES[state.strain];sNote.className=`strain-note s${state.strain}`;sNote.style.display='block';}else{sNote.style.display='none';}}
+
+  // Render spells
+  const list=document.getElementById('spells-list');
+  if(!list)return;
+  if(!state.spells.length){list.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.5rem 0;">No spells recorded. Add spells from your tier one library below.</div>`;return;}
+  list.innerHTML=state.spells.map((sp,i)=>{
+    const avail=spellAvailability(sp.tier);
+    return `<div class="cap-card ${avail==='danger'?'unavailable':''}">
+      <div class="cap-dot-col"><div class="avail-dot ${avail==='safe'?'safe':avail==='caution'?'caution':'unavail'}"></div></div>
+      <div class="cap-body">
+        <div class="cap-header">
+          <span class="cap-name">${sp.name}</span>
+          <span class="cap-tier">T${sp.tier}</span>
+          <span class="cap-school-tag">${sp.school}</span>
+        </div>
+        <div class="cap-effect">${sp.effect||'—'}</div>
+        ${sp.syntax?`<div class="cap-syntax">${sp.syntax}</div>`:''}
+        ${avail==='danger'?`<div class="cap-unavail-reason">Unavailable — ${state.strain===4?'Severance: no casting':'Willstrain too high for this tier'}</div>`:''}
+        ${avail==='caution'?`<div class="cap-unavail-reason" style="color:var(--amber);">Caution — casting at this tier risks unconformed change</div>`:''}
+        <button class="remove-btn" onclick="removeSpell(${i})">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════ LEVERAGE TAB ═══════════════════
+function renderLeverage(){
+  const list=document.getElementById('leverage-list');
+  if(list){
+    list.innerHTML=NPC_LIST.map(n=>{
+      const score=state.leverage[n.key]||0;
+      const cls=score>0?'pos':score<0?'neg':'zero';
+      return `<div class="lev-card ${cls}">
+        <div class="lev-npc-info"><span class="lev-npc-name">${n.name}</span><span class="lev-npc-role">${n.role}</span></div>
+        <div class="lev-score-wrap">
+          <button class="lev-adj-btn" onclick="adjustLev('${n.key}',-1)">−</button>
+          <span class="lev-score ${cls}">${score>0?'+':''}${score}</span>
+          <button class="lev-adj-btn" onclick="adjustLev('${n.key}',1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Threshold
+  const fScores=[state.leverage.merchantConsortium,state.leverage.cityWatch,state.leverage.dockworkersUnion,state.leverage.courierNetwork,state.leverage.churchOfAxiom,state.leverage.scholarsGuild];
+  const factionsAt2=fScores.filter(s=>s>=2).length;
+  const reqs=[
+    {text:`King Hector at +2 or above (currently ${state.leverage.kingHector>0?'+':''}${state.leverage.kingHector})`,met:(state.leverage.kingHector||0)>=2},
+    {text:`Three factions at +2 or above (${factionsAt2} of 3 met)`,met:factionsAt2>=3},
+    {text:`Royal Chamberlain at +1 or above`,met:(state.leverage.royalChamberlain||0)>=1},
+    {text:`High-weight endorsement at +3 — High Priest or Archivist General`,met:(state.leverage.churchOfAxiom||0)>=3||(state.leverage.scholarsGuild||0)>=3},
+  ];
+  const tReqs=document.getElementById('threshold-reqs');
+  if(tReqs)tReqs.innerHTML=reqs.map(r=>`<div class="threshold-req"><div class="req-dot ${r.met?'met':'unmet'}"></div><span class="req-text ${r.met?'met':''}">${r.text}${r.met?' ✦':''}</span></div>`).join('');
+
+  // Debts
+  const debts=document.getElementById('debts-list');
+  if(debts){
+    if(!state.debts.length){debts.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.3rem 0;">No active debts recorded.</div>`;}
+    else{debts.innerHTML=state.debts.map((d,i)=>`<div class="debt-item"><div class="debt-desc"><span class="debt-npc">${d.npc}</span>${d.desc}<button class="remove-btn" onclick="removeDebt(${i})">Paid</button></div></div>`).join('');}
+  }
+}
+
+function adjustLev(key,delta){
+  state.leverage[key]=Math.max(-5,Math.min(5,(state.leverage[key]||0)+delta));
+  save();renderLeverage();renderOverview();renderHeader();
+}
+
+// ═══════════════════ ASSETS TAB ═══════════════════
+function renderAssets(){
+  const loot=document.getElementById('loot-list');
+  if(loot){
+    if(!state.loot.length){loot.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.3rem 0;">No items acquired yet. Loot comes from exploration and caravan encounters.</div>`;}
+    else{loot.innerHTML=state.loot.map((item,i)=>`<div class="asset-card"><div class="asset-header"><span class="asset-name">${item.name}</span><span class="asset-type">${item.type}</span><span class="asset-type" style="margin-left:.2rem;">${item.encounter}</span></div><div class="asset-effect">${item.effect}</div>${item.danger?`<div class="asset-effect" style="color:var(--crimson-bright);margin-top:.2rem;">Danger: ${item.danger}</div>`:''}${item.source?`<div class="asset-effect" style="color:var(--vellum-faint);font-style:italic;">Found: ${item.source}</div>`:''}<button class="remove-btn" style="margin-top:.4rem;" onclick="removeLoot(${i})">Remove</button></div>`).join('');}
+  }
+  const documents=document.getElementById('documents-list');
+  if(documents){
+    if(!state.documents.length){documents.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.3rem 0;">No documents recorded. These come from political discoveries and certain exploration finds.</div>`;}
+    else{documents.innerHTML=state.documents.map((doc,i)=>`<div class="asset-card"><div class="asset-header"><span class="asset-name">${doc.name}</span></div><div class="asset-effect">${doc.desc}</div>${doc.implicates?`<div class="asset-effect" style="color:var(--vellum-dim);">Implicates: ${doc.implicates}</div>`:''}${doc.danger?`<div class="asset-effect" style="color:var(--crimson-bright);margin-top:.2rem;">Danger: ${doc.danger}</div>`:''}${doc.source?`<div class="asset-effect" style="color:var(--vellum-faint);font-style:italic;">Found: ${doc.source}</div>`:''}<button class="remove-btn" style="margin-top:.4rem;" onclick="removeDocument(${i})">Remove</button></div>`).join('');}
+  }
+  const contacts=document.getElementById('contacts-list');
+  if(contacts){
+    if(!state.contacts.length){contacts.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.3rem 0;">No contacts recorded. Import from your session zero record or add manually.</div>`;}
+    else{contacts.innerHTML=state.contacts.map((c,i)=>{
+      const isRival=c.type==='rival';
+      const cardStyle=isRival?'border-left:3px solid var(--crimson-bright);':'';
+      const rivalTag=isRival?`<span style="font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:var(--crimson-bright);border:1px solid var(--crimson-bright);padding:.1rem .35rem;margin-left:.4rem;">Rival</span>`:'';
+      const knowLabel=isRival?'Holds Against You':'Knows';
+      return `<div class="contact-card" style="${cardStyle}"><div class="contact-header"><span class="contact-name">${c.name}${rivalTag}</span><span class="contact-faction">${c.faction}</span></div><div class="contact-row"><span class="contact-row-label">Wants</span><span class="contact-row-val">${c.want||'—'}</span></div><div class="contact-row"><span class="contact-row-label">${knowLabel}</span><span class="contact-row-val">${c.know||'—'}</span></div>${c.available?`<div class="contact-row"><span class="contact-row-label">Available</span><span class="contact-row-val">${c.available}</span></div>`:''}<div style="display:flex;gap:.4rem;margin-top:.3rem;"><button class="contact-activated ${c.activated?'yes':'no'}" onclick="toggleContact(${i})">${c.activated?'Activated This Arc':'Mark Activated'}</button><button class="remove-btn" style="position:static;float:none;margin:0;" onclick="removeContact(${i})">Remove</button></div></div>`;
+    }).join('');}
+  }
+}
+
+// ═══════════════════ OVERVIEW TAB ═══════════════════
+function renderOverview(){
+  const school=state.setup.school?SCHOOLS[state.setup.school]:null;
+  const strainLabels=['Fresh','Thinning','Fraying','Slippage','Severance'];
+  const staminaLabels=['Fresh','Winded','Strained','Spent'];
+
+  const se=(id,v,cls)=>{const el=document.getElementById(id);if(el){el.textContent=v;if(cls)el.className=`ov-val ${cls}`;}};
+  se('ov-school',school?school.name:'—','highlight');
+  se('ov-tier',`T${state.setup.tier} · ${state.phase}`);
+  se('ov-strain',strainLabels[state.strain],state.strain<=1?'safe':state.strain<=2?'':'danger');
+  se('ov-stamina',staminaLabels[state.stamina],state.stamina===0?'safe':state.stamina>=2?'danger':'');
+  se('ov-presence',state.setup.presence||'—');
+  se('ov-wounds',state.wounds.length?state.wounds.join(', '):'None',state.wounds.length>0?'danger':'safe');
+
+  // Capstone Specialization
+  const capCard=document.getElementById('capstone-card');
+  if(capCard){
+    if(state.capstone){
+      capCard.style.display='block';
+      document.getElementById('capstone-title').textContent=`"${state.capstone.title}" — ${state.capstone.aspectName}`;
+      document.getElementById('capstone-desc').textContent=state.capstone.description;
+      const usageRow=document.getElementById('capstone-usage-row');
+      if(state.capstone.usage==='permanent unlock'){
+        usageRow.innerHTML=`<span style="font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--forest-bright);border:1px solid var(--forest-bright);padding:.15rem .5rem;">Permanent — always active</span>`;
+      } else {
+        const used=state.capstone.usedThisSession;
+        usageRow.innerHTML=`<button class="setup-import-btn" style="width:auto;padding:.4rem .8rem;font-size:.62rem;${used?'opacity:.5;':''}" onclick="toggleCapstoneUse()">${used?'✦ Used This Session':'Mark Used This Session'}</button><span style="font-size:.72rem;color:var(--vellum-faint);font-style:italic;margin-left:.5rem;">Resets at the start of each session</span>`;
+      }
+    } else {
+      capCard.style.display='none';
+    }
+  }
+
+  // Cast availability summary
+  const maxSafeTier=state.strain===0?6:state.strain===1?4:state.strain===2?2:state.strain===3?1:0;
+  const castEl=document.getElementById('ov-cast-avail');
+  if(castEl){
+    if(maxSafeTier===0)castEl.textContent='No casting available';
+    else if(maxSafeTier===6)castEl.textContent='All tiers available';
+    else castEl.textContent=`T1–T${maxSafeTier} safe · T${maxSafeTier+1}+ risk`;
+  }
+
+  // Technique availability
+  const techEl=document.getElementById('ov-technique-avail');
+  if(techEl){
+    if(state.stamina===3)techEl.textContent='No techniques available';
+    else if(state.stamina===0)techEl.textContent='All techniques available';
+    else techEl.textContent=`Caution — ${staminaLabels[state.stamina]}`;
+  }
+
+  // All spells sorted by availability — safe first, caution second, danger last
+  const sortedSpells=[...state.spells].sort((a,b)=>{
+    const order={safe:0,caution:1,danger:2};
+    return (order[spellAvailability(a.tier)]||0)-(order[spellAvailability(b.tier)]||0);
+  });
+  const spellSnap=document.getElementById('ov-available-spells');
+  if(spellSnap){
+    if(!state.spells.length){
+      spellSnap.innerHTML=`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">No spells recorded — add spells in the Magic tab.</div>`;
+    } else {
+      spellSnap.innerHTML=sortedSpells.map(s=>{
+        const avail=spellAvailability(s.tier);
+        const dotCls=avail==='safe'?'safe':avail==='caution'?'caution':'unavail';
+        const nameColor=avail==='danger'?'var(--vellum-faint)':'var(--vellum-dim)';
+        return `<div style="font-size:.82rem;padding:.22rem 0;display:flex;gap:.5rem;align-items:center;">
+          <div class="avail-dot ${dotCls}" style="width:7px;height:7px;flex-shrink:0;"></div>
+          <span style="color:${nameColor};">${s.name}</span>
+          <span style="font-family:'Cinzel',serif;font-size:.55rem;color:var(--gold-dim);margin-left:.2rem;">T${s.tier} · ${s.school}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // All techniques sorted by availability
+  const sortedTechs=[...state.techniques].sort((a,b)=>{
+    const order={safe:0,caution:1,danger:2};
+    return (order[techniqueAvailability(a.dependency)]||0)-(order[techniqueAvailability(b.dependency)]||0);
+  });
+  const techSnap=document.getElementById('ov-available-techniques');
+  if(techSnap){
+    if(!state.techniques.length){
+      techSnap.innerHTML=`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">No techniques recorded — add techniques in the Combat tab.</div>`;
+    } else {
+      techSnap.innerHTML=sortedTechs.map(t=>{
+        const avail=techniqueAvailability(t.dependency);
+        const dotCls=avail==='safe'?'safe':avail==='caution'?'caution':'unavail';
+        const nameColor=avail==='danger'?'var(--vellum-faint)':'var(--vellum-dim)';
+        return `<div style="font-size:.82rem;padding:.22rem 0;display:flex;gap:.5rem;align-items:center;">
+          <div class="avail-dot ${dotCls}" style="width:7px;height:7px;flex-shrink:0;"></div>
+          <span style="color:${nameColor};">${t.name}</span>
+          <span style="font-family:'Cinzel',serif;font-size:.55rem;color:var(--gold-dim);margin-left:.2rem;">${t.slots}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // Leverage snapshot (top 3 positive)
+  const levSnap=document.getElementById('ov-leverage-snap');
+  if(levSnap){
+    const top=NPC_LIST.map(n=>({...n,score:state.leverage[n.key]||0})).sort((a,b)=>b.score-a.score).slice(0,3);
+    levSnap.innerHTML=top.map(n=>{
+      const cls=n.score>0?'safe':n.score<0?'danger':'';
+      return `<div style="display:flex;justify-content:space-between;font-size:.8rem;padding:.15rem 0;"><span style="color:var(--vellum-dim);">${n.name}</span><span style="font-family:'Courier New',monospace;font-size:.75rem;" class="ov-val ${cls}">${n.score>0?'+':''}${n.score}</span></div>`;
+    }).join('');
+  }
+
+  // Contacts snap (not activated)
+  const cSnap=document.getElementById('ov-contacts-snap');
+  if(cSnap){
+    const active=state.contacts.filter(c=>!c.activated).slice(0,2);
+    if(!active.length)cSnap.innerHTML=`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">No available contacts.</div>`;
+    else cSnap.innerHTML=active.map(c=>`<div style="font-size:.8rem;color:var(--vellum-dim);padding:.15rem 0;">${c.name} <span style="font-family:'Cinzel',serif;font-size:.55rem;color:var(--gold-dim);">${c.faction}</span></div>`).join('');
+  }
+
+  // Loot snap
+  const lSnap=document.getElementById('ov-loot-snap');
+  if(lSnap){
+    const recent=state.loot.slice(-2);
+    if(!recent.length)lSnap.innerHTML=`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">No items acquired.</div>`;
+    else lSnap.innerHTML=recent.map(item=>`<div style="font-size:.8rem;color:var(--vellum-dim);padding:.15rem 0;">${item.name} <span style="font-family:'Cinzel',serif;font-size:.55rem;color:var(--gold-dim);">${item.type}</span></div>`).join('');
+  }
+}
+
+// ═══════════════════ ADD / REMOVE ═══════════════════
+function showSpellLibrary(){
+  const area=document.getElementById('spell-library-area');
+  area.style.display='block';
+  // Default the school filter to the player's own revealed school on first open
+  const schoolFilter=document.getElementById('lib-school-filter');
+  if(schoolFilter&&!schoolFilter.value&&state.setup.school)schoolFilter.value=state.setup.school;
+  renderSpellLibrary();
+}
+
+function renderSpellLibrary(){
+  const list=document.getElementById('spell-library-list');
+  if(!list)return;
+  const schoolF=document.getElementById('lib-school-filter')?.value||'';
+  const tierF=document.getElementById('lib-tier-filter')?.value||'';
+  let spells=SPELL_LIBRARY;
+  if(schoolF)spells=spells.filter(s=>s.school===schoolF);
+  if(tierF)spells=spells.filter(s=>s.tier===tierF);
+
+  if(!spells.length){
+    list.innerHTML=`<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.5rem 0;">No spells match this filter.</div>`;
+    return;
+  }
+
+  list.innerHTML=spells.map(s=>{
+    const known=state.spells.some(k=>k.name===s.name&&k.school===s.school);
+    const restricted=s.flags>0;
+    const restrictedTag=restricted?`<span style="font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson-bright);border:1px solid var(--crimson-bright);padding:.1rem .35rem;margin-left:.4rem;">${s.flags===2?'Restricted — Severe':'Restricted'}</span>`:'';
+    return `<div class="cap-card" style="${restricted?'border-left:3px solid var(--crimson-bright);':''}">
+      <div class="cap-dot-col"><div class="avail-dot" style="background:${SCHOOLS[s.school]?.color||'var(--gold-dim)'};"></div></div>
+      <div class="cap-body">
+        <div class="cap-header">
+          <span class="cap-name">${s.name}</span>
+          <span class="cap-tier">${s.tier}</span>
+          <span class="cap-school-tag">${s.school}</span>
+          ${restrictedTag}
+        </div>
+        <div class="cap-effect">${s.brief}</div>
+        ${restricted?`<div class="cap-unavail-reason" style="color:var(--crimson-bright);">This spell acts on a target's body, perception, or will without full consent. The caster carries that weight.</div>`:''}
+        <button class="cap-form-btn" style="margin-top:.4rem;${known?'opacity:.4;':''}" ${known?'disabled':''} onclick="addSpellFromLibrary('${s.school}','${s.name.replace(/'/g,"\\'")}')">${known?'Already Known':'Add to Known Spells'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addSpellFromLibrary(school,name){
+  const s=SPELL_LIBRARY.find(x=>x.school===school&&x.name===name);
+  if(!s)return;
+  if(s.flags>0&&!confirm(`"${s.name}" is a Restricted spell — it acts on someone's body, perception, identity, or will without their full consent. Have you accounted for what casting it takes from the target? Add it to your known spells?`)){
+    return;
+  }
+  state.spells.push({
+    name:s.name,
+    tier:parseInt(s.tier.replace('T',''))||1,
+    school:s.school,
+    effect:s.brief,
+    syntax:s.syntax,
+  });
+  save();renderMagic();renderOverview();renderSpellLibrary();
+}
+
+function showAddSpell(){document.getElementById('add-spell-area').style.display='block';buildSpellSyntax();}
+function addSpell(){
+  const name=document.getElementById('new-spell-name').value.trim();
+  if(!name)return;
+  const syntax=document.getElementById('spell-syntax-output')?.textContent||'';
+  state.spells.push({
+    name,
+    tier:parseInt(document.getElementById('new-spell-tier').value)||1,
+    school:document.getElementById('new-spell-school').value||state.setup.school,
+    effect:document.getElementById('new-spell-effect').value.trim(),
+    syntax:syntax==='Fill in components above to generate syntax.'?'':syntax,
+  });
+  ['new-spell-name','new-spell-target','new-spell-modifiers','new-spell-effect'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const school2=document.getElementById('new-spell-school2');if(school2)school2.value='';
+  const dur=document.getElementById('new-spell-duration');if(dur)dur.value='instant';
+  const out=document.getElementById('spell-syntax-output');if(out)out.textContent='Fill in components above to generate syntax.';
+  document.getElementById('add-spell-area').style.display='none';
+  save();renderMagic();renderOverview();
+}
+function removeSpell(i){state.spells.splice(i,1);save();renderMagic();}
+
+function showAddTechnique(){document.getElementById('add-technique-area').style.display='block';}
+function addTechnique(){
+  const name=document.getElementById('new-tech-name').value.trim();
+  if(!name)return;
+  state.techniques.push({
+    name,
+    slots:document.getElementById('new-tech-slots').value,
+    dependency:document.getElementById('new-tech-dependency').value,
+    trigger:document.getElementById('new-tech-trigger').value.trim(),
+    effect:document.getElementById('new-tech-effect').value.trim(),
+  });
+  ['new-tech-name','new-tech-trigger','new-tech-effect'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('add-technique-area').style.display='none';
+  save();renderCombat();
+}
+function removeTechnique(i){state.techniques.splice(i,1);save();renderCombat();}
+
+function removeLoot(i){state.loot.splice(i,1);save();renderAssets();renderOverview();}
+function removeDocument(i){state.documents.splice(i,1);save();renderAssets();}
+
+// ═══════════════════════════════════════════
+// IMPORT REWARD FROM GM
+// ═══════════════════════════════════════════
+function importReward(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(data.kind==='document'){
+        state.documents.push({
+          name:data.name||'Untitled Record',
+          desc:data.desc||'',
+          implicates:data.implicates||'',
+          danger:data.danger||'',
+          source:data.source||'',
+        });
+      } else {
+        // default to item shape — covers data.kind==='item' and any malformed/missing kind
+        state.loot.push({
+          name:data.name||'Unnamed Item',
+          type:data.type||'Artifact',
+          encounter:data.encounter||'Exploration',
+          effect:data.effect||'',
+          danger:data.danger||'',
+          source:data.source||'',
+        });
+      }
+      save();renderAssets();renderOverview();
+    }catch(err){
+      alert('Could not read that file. Make sure your GM exported it from the Wonderland Reward Generator.');
+    }
+    input.value='';
+  };
+  reader.readAsText(file);
+}
+
+function showAddContact(){document.getElementById('add-contact-area').style.display='block';}
+function addContact(){
+  const name=document.getElementById('new-contact-name').value.trim();
+  if(!name)return;
+  state.contacts.push({
+    name,
+    faction:document.getElementById('new-contact-faction').value.trim(),
+    want:document.getElementById('new-contact-want').value.trim(),
+    know:document.getElementById('new-contact-know').value.trim(),
+    available:document.getElementById('new-contact-available')?.value.trim()||'',
+    activated:false,
+  });
+  ['new-contact-name','new-contact-faction','new-contact-want','new-contact-know','new-contact-available'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('add-contact-area').style.display='none';
+  save();renderAssets();renderOverview();
+}
+function removeContact(i){state.contacts.splice(i,1);save();renderAssets();}
+function toggleContact(i){state.contacts[i].activated=!state.contacts[i].activated;save();renderAssets();renderOverview();}
+function toggleCapstoneUse(){if(!state.capstone)return;state.capstone.usedThisSession=!state.capstone.usedThisSession;save();renderOverview();}
+
+function showAddDebt(){document.getElementById('add-debt-area').style.display='block';}
+function addDebt(){
+  const npc=document.getElementById('new-debt-npc').value.trim();
+  if(!npc)return;
+  state.debts.push({npc,desc:document.getElementById('new-debt-desc').value.trim()});
+  ['new-debt-npc','new-debt-desc'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('add-debt-area').style.display='none';
+  save();renderLeverage();
+}
+function removeDebt(i){state.debts.splice(i,1);save();renderLeverage();}
+
+// ═══════════════════ RENDER ALL ═══════════════════
+function renderAll(){
+  renderHeader();
+  renderOverview();
+  renderCombat();
+  renderMagic();
+  renderLeverage();
+  renderAssets();
+  // Restore notes
+  const prev=document.getElementById('notes-prev');
+  const curr=document.getElementById('notes-current');
+  const quest=document.getElementById('notes-questions');
+  if(prev)prev.value=state.notes.prev||'';
+  if(curr&&!curr.value)curr.value=state.notes.current||'';
+  if(quest&&!quest.value)quest.value=state.notes.questions||'';
+}
+
+// ═══════════════════ CLEAR ═══════════════════
+function clearAll(){
+  localStorage.removeItem('aow-play-sheet');
+  location.reload();
+}
+
+// ═══════════════════ INIT ═══════════════════
+function init(){
+  load();
+  if(state.setup.name){
+    showSheet();
+    // Restore stamina UI
+    document.querySelectorAll('.stamina-btn').forEach((b,i)=>{
+      b.classList.remove('active-0','active-1','active-2','active-3');
+      if(i===state.stamina)b.classList.add(`active-${state.stamina}`);
+    });
+  }
+}
+init();
+</script>
+</body>
+</html>
