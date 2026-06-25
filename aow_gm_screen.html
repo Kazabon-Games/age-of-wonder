@@ -311,6 +311,7 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
   .mob-tab.active{color:var(--gold-bright);border-bottom-color:var(--gold);}
   .mob-badge{position:absolute;top:.2rem;right:calc(50% - 1.2rem);background:var(--crimson-bright);color:#fff;font-size:.34rem;padding:.04rem .22rem;border-radius:1px;display:none;}
   .mob-badge.show{display:inline-block;}
+  .tools-panel-inner{position:static!important;display:block!important;height:auto!important;overflow-y:auto!important;}
 }
 
 /* ══════ THEME TOGGLE ══════ */
@@ -743,6 +744,7 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
         <span class="composer-title">Caravan Event Generator</span>
       </div>
       <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Score the three Momentum components 0–4 to match the situation, same as the SRD's starting Momentum table. Generate the run — each event arrives with its situation, resolution paths, and Momentum effect already written.</div>
+      <div id="caravan-party-readiness" style="margin-bottom:.7rem;"></div>
       <div class="composer-row three">
         <div>
           <span class="composer-field-label">Route (0\u20134)</span>
@@ -1371,7 +1373,7 @@ function ingestHeirRecord(data) {
     key:heirKey, name,
     house:data.house?.name||'—',
     school:data.awakening?.revealedSchool||'—',
-    hectorRelation:data.hectorRelation||'neutral',
+    hectorRelation:data.identity?.hectorRelation||'neutral',
     district:data.house?.district||'—',
     npcs:data.npcs||{},
     startingLeverage:data.startingLeverage||{},
@@ -1399,7 +1401,7 @@ function ingestHeirRecord(data) {
   });
 
   // Hector relation
-  const hMap = {allied:2,friendly:1,neutral:0,strained:-1,hostile:-2};
+  const hMap = {allied:2,neutral:0,tension:-1};
   if (state.nodes.kingHector) state.nodes.kingHector.scores[heirKey] = hMap[heir.hectorRelation]??0;
 
   // Personal NPCs
@@ -2017,7 +2019,7 @@ function openDrawer(nodeKey) {
     <span class="drawer-role">${node.role}</span>
     ${node.responds?`<div class="drawer-section"><span class="drawer-section-label">Responds To</span><div class="drawer-text">${node.responds}</div></div>`:''}
     ${NPC_CODEX[nodeKey]?renderCodexSection(NPC_CODEX[nodeKey]):''}
-    ${node.npcData?`<div class="drawer-section"><span class="drawer-section-label">Session Zero Data</span><div class="drawer-text">${[node.npcData.want?`Wants: ${node.npcData.want}`:'',node.npcData.knows?`Knows: ${node.npcData.knows}`:'',node.npcData.leverage?`Holds: ${node.npcData.leverage}`:'',node.npcData.expects?`Expects: ${node.npcData.expects}`:'',node.npcData.goal?`Goal: ${node.npcData.goal}`:'',node.npcData.fear?`Fear: ${node.npcData.fear}`:''].filter(Boolean).join('<br>')}</div></div>`:''}
+    ${node.npcData?`<div class="drawer-section"><span class="drawer-section-label">Session Zero Data</span><div class="drawer-text">${[node.npcData.reputation?`Reputation: ${node.npcData.reputation}`:'',node.npcData.want?`Wants: ${node.npcData.want}`:'',node.npcData.knows?`Knows: ${node.npcData.knows}`:'',node.npcData.leverage?`Holds: ${node.npcData.leverage}`:'',node.npcData.expects?`Expects: ${node.npcData.expects}`:'',node.npcData.goal?`Goal: ${node.npcData.goal}`:'',node.npcData.fear?`Fear: ${node.npcData.fear}`:''].filter(Boolean).join('<br>')}</div></div>`:''}
     <div class="drawer-section"><span class="drawer-section-label">Leverage Scores</span>${state.heirs.length?scoreRows:`<div class="drawer-text" style="opacity:.4">No heirs imported.</div>`}</div>
     <div class="drawer-section">
       <span class="drawer-section-label">Accumulated Weight · ${Math.round(node.accumWeight||0)} / ${thresh}</span>
@@ -2108,7 +2110,7 @@ function setMode(mode,btn){
   const mobileNav=document.querySelector('.mobile-tab-nav');
   if(mode==='tools'){
     sessionGrid.style.display='none';
-    toolsGrid.style.display='grid';
+    toolsGrid.style.display='';
     if(mobileNav) mobileNav.style.display='none';
   } else {
     sessionGrid.style.display='';
@@ -2192,6 +2194,7 @@ function setToolSubTab(tab,btn){
   document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'block':'none';
   document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'block':'none';
   if(tab==='solo') populateSoloHeirSelect();
+  if(tab==='caravan') renderCaravanPartyReadiness();
 }
 
 // ═══════════════════════════════════════════
@@ -2414,6 +2417,28 @@ function renderSoloPrep(){
   </div>`;
 
   list.innerHTML=html;
+}
+
+function renderCaravanPartyReadiness(){
+  const el=document.getElementById('caravan-party-readiness');
+  if(!el)return;
+  if(!state.heirs.length){
+    el.innerHTML=`<div style="font-size:.78rem;color:var(--ink-light);font-style:italic;">No heirs imported yet — readiness will show here once you import session zero records.</div>`;
+    return;
+  }
+  const rows=state.heirs.map(h=>{
+    const profile=h.raw?.caravanProfile||[];
+    const text=profile.length?profile.join(', '):'No relevant training';
+    const dim=profile.length===0;
+    return `<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--panel-border);font-size:.78rem;">
+      <span style="color:var(--gold-bright);flex-shrink:0;">${h.name}</span>
+      <span style="text-align:right;color:${dim?'var(--ink-light)':'var(--ink)'};font-style:${dim?'italic':'normal'};">${text}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div style="border:1px solid var(--panel-border);padding:.6rem .7rem;">
+    <div style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;">Party Caravan Readiness</div>
+    ${rows}
+  </div>`;
 }
 
 function runCaravanGenerator(){
