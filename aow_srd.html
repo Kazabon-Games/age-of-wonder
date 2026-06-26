@@ -2666,9 +2666,46 @@ function buildSpell(){
   if(strainNum<=2&&tier==='T6')warnings.push('Tier six castings cannot produce less than stage four willstrain.');
   if(duration==='permanent'&&strainNum<3)warnings.push('Permanent duration implies sustained will commitment — stage three or above is expected.');
   if(school2===school1&&school2)warnings.push('Second school cannot be the same as the primary. Remove or change.');
+
+  // ── Content-aware checks ──
+  // Everything above only checks the fields against EACH OTHER. None of it
+  // checks the fields against what the spell actually claims to do — a
+  // spell can pass every check above while still being tagged the wrong
+  // school or an implausibly low tier for its own stated target and scope.
+  // This tool cannot compute tier from Scope/Precision/Resistance/Duration
+  // the way the SRD's real algorithm does (that requires GM judgment of the
+  // fictional situation, not a formula a dropdown can run) — but it can
+  // catch the most common, most avoidable mismatches: school language that
+  // doesn't match the school picked, and scope/permanence language that's
+  // wildly out of proportion to a low tier.
+  const targetAndMods=(target+' '+rawMods).toLowerCase();
+  const schoolSignals={
+    ALT:['body','heal','wound','transform','material','flesh','gland','organ','chemical','blood','bone','shape','structure'],
+    CON:['summon','conjure','fetch','bring forth','call forth','materialize'],
+    NEG:['silence','suppress','negate','unmake','counter','cancel','snuff'],
+    DIV:['know','read','sense','detect','truth','reveal','perceive','locate'],
+    TRN:['move','teleport','displace','position','swap','step','gate'],
+    DOM:['will','suggest','command','obey','believe','memory','emotion','behavior','compel','persuade'],
+  };
+  Object.entries(schoolSignals).forEach(([sch,words])=>{
+    if(sch===school1)return;
+    const hit=words.find(w=>new RegExp(`(^|[_\\s])${w}([_\\s]|$)`).test(targetAndMods));
+    if(hit&&!isCross){
+      warnings.push(`Target/modifiers mention "${hit}", which reads as ${sch} territory rather than ${school1}. Double-check the school is the one actually producing this effect, not just the one that felt thematically close.`);
+    }
+  });
+  const bigScopeWords=['all','every','entire','everyone','everything','city','kingdom','world','irreversible','permanently_unmake'];
+  const hitScope=bigScopeWords.find(w=>new RegExp(`(^|[_\\s])${w}([_\\s]|$)`).test(targetAndMods));
+  if(hitScope&&tierNum<=2){
+    warnings.push(`Target/modifiers mention "${hitScope}", which is a much larger scope than tier ${tierNum} typically covers. Revisit Scope/Precision/Resistance/Duration honestly — a wide-reaching or irreversible effect is rarely a tier one or two casting.`);
+  }
+  if(duration==='permanent'&&tierNum<=2&&!targetAndMods.includes('small')){
+    warnings.push('Permanent effects at tier one or two are unusual unless the target is explicitly small/minor in scope — confirm this is really as low-tier as picked.');
+  }
+
   if(validation){
     if(warnings.length>0){validation.className='builder-validation invalid';validation.textContent='⚠ '+warnings[0];}
-    else{validation.className='builder-validation valid';validation.textContent=nameFormatted!=='SPELL_NAME'&&targetFormatted!=='TARGET'?'✦ Syntax is coherent. This spell may proceed to the table.':'✦ Syntax structure valid. Complete all fields before casting.';}
+    else{validation.className='builder-validation valid';validation.textContent=nameFormatted!=='SPELL_NAME'&&targetFormatted!=='TARGET'?'✦ Syntax is internally consistent. Tier is still your read of Scope/Precision/Resistance/Duration, not something this tool can compute — confirm it with your GM before casting.':'✦ Syntax structure valid. Complete all fields before casting.';}
   }
 }
 
