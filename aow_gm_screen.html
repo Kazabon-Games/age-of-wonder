@@ -109,7 +109,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 
 /* composer */
 .event-composer{background:var(--night-mid);border-bottom:1px solid var(--panel-border);padding:.75rem 1rem;flex-shrink:0;overflow-y:auto;max-height:52vh;}
-#toolsub-exploration-panel,#toolsub-caravan-panel,#toolsub-solo-panel,#toolsub-opponent-panel,#toolsub-relations-panel{display:flex;flex-direction:column;height:100%;min-height:0;}
+#toolsub-exploration-panel,#toolsub-caravan-panel,#toolsub-solo-panel,#toolsub-opponent-panel,#toolsub-relations-panel,#toolsub-brief-panel{display:flex;flex-direction:column;height:100%;min-height:0;}
 .composer-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
 .composer-title{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
 .event-type-row{display:flex;gap:.25rem;margin-bottom:.5rem;flex-wrap:wrap;}
@@ -314,6 +314,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
   .mob-badge{position:absolute;top:.2rem;right:calc(50% - 1.2rem);background:var(--crimson-bright);color:#fff;font-size:.34rem;padding:.04rem .22rem;border-radius:1px;display:none;}
   .mob-badge.show{display:inline-block;}
   .tools-panel-inner{position:static!important;display:block!important;height:auto!important;overflow-y:auto!important;}
+  #panel-tools{overflow-y:auto!important;height:auto!important;max-height:none!important;}
 }
 
 /* ══════ THEME TOGGLE ══════ */
@@ -688,6 +689,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
       <button class="stype-btn" id="toolsub-solo-btn" onclick="setToolSubTab('solo',this)">Solo Prep</button>
       <button class="stype-btn" id="toolsub-opponent-btn" onclick="setToolSubTab('opponent',this)">Opponent</button>
       <button class="stype-btn" id="toolsub-relations-btn" onclick="setToolSubTab('relations',this)">Relations</button>
+      <button class="stype-btn" id="toolsub-brief-btn" onclick="setToolSubTab('brief',this)">Brief</button>
     </div>
 
     <div id="toolsub-exploration-panel">
@@ -908,6 +910,24 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
         </div>
         <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Every node already routes weight through these connections when events resolve — this just makes the wiring visible. World NPCs conduct to each other; personal NPCs route to the table through one world NPC; each personal NPC belongs to one heir.</div>
         <div id="relations-content"></div>
+      </div>
+    </div>
+
+    <div id="toolsub-brief-panel" style="display:none;">
+      <div class="event-composer">
+        <div class="composer-label-row">
+          <span class="composer-title">Full Spectrum Brief</span>
+        </div>
+        <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Everything this heir's session zero record actually says, cross-referenced against the legitimacy threshold, the leverage web, and their own NPCs — plus anything the record left genuinely unconfirmed. Not flavor text generated for the occasion; every line traces to a real field in the import.</div>
+        <select class="composer-select" id="brief-heir-select" onchange="renderBrief()" style="margin-bottom:.7rem;">
+          <option value="">— select a heir —</option>
+        </select>
+      </div>
+      <div class="log-area">
+        <div class="log-pane active" id="brief-results-pane">
+          <div id="brief-results-empty" class="log-empty">Select an imported heir above to generate their full spectrum brief.</div>
+          <div id="brief-results-list" style="padding:.7rem .9rem;"></div>
+        </div>
       </div>
     </div>
 
@@ -1159,6 +1179,27 @@ function generateCaravanRun(route,cohesion,cover,count){
   return {startingMomentum,route,cohesion,cover,events};
 }
 
+// Key translation — the heir record exports faction-centric leverage keys
+// (cityWatch, dockworkersUnion, courierNetwork, churchOfAxiom,
+// scholarsGuild) but the GM screen's nodes are keyed by the actual NPC who
+// holds that role (watchCommander, dockworkersForeman, courierMaster,
+// highPriest, archivistGeneral). Shared at module scope since both
+// ingestHeirRecord (seeding live leverage) and renderBrief (displaying a
+// capstone's stated leverage effect) need the same translation — found as
+// a real bug where this map was trapped local to ingestHeirRecord and the
+// brief's capstone display leaked raw, untranslated keys as a result.
+const FACTION_KEY_MAP = {
+  cityWatch:        'watchCommander',
+  dockworkersUnion: 'dockworkersForeman',
+  courierNetwork:   'courierMaster',
+  churchOfAxiom:    'highPriest',
+  scholarsGuild:    'archivistGeneral',
+  kingHector:       'kingHector',
+  royalChamberlain: 'royalChamberlain',
+  merchantConsortium:'merchantConsortium',
+  outskirtsBroker:  'outskirtsBroker',
+};
+
 const WORLD_NPCS = [
   {key:'kingHector',name:'King Hector',role:'The Monarch · Seat of Legitimacy',cluster:'crown',weight:'high',responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:['royalChamberlain']},
   {key:'royalChamberlain',name:'Royal Chamberlain',role:'Keeper of Royal Access',cluster:'crown',weight:'high',responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:['kingHector']},
@@ -1362,6 +1403,20 @@ function handleHeirImport(input) {
   input.value = '';
 }
 
+// Converts any free-text name into a safe node key. Player-chosen names
+// (personal NPCs, especially the open-ended Wild Card slot) can contain
+// apostrophes, quotes, or other punctuation a plain whitespace-replace
+// never accounts for. A name like "The Broker's Ghost" produces the key
+// the_broker's_ghost via the old whitespace-only approach, and that
+// apostrophe breaks the generated onclick="openDrawer('...')" attribute's
+// string literal — found as a real bug where the affected card's click
+// silently opened a completely different NPC's drawer instead. Strip
+// anything that isn't a letter, digit, or underscore, after lowercasing
+// and whitespace-to-underscore, so no name can ever produce an unsafe key.
+function slugifyName(name){
+  return (name||'').toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+}
+
 function ingestHeirRecord(data) {
   const collisions = [];
   // Deduplicate by name
@@ -1369,7 +1424,7 @@ function ingestHeirRecord(data) {
   const name = data.identity?.name || 'Unknown Heir';
   if (existingNames.includes(name.toLowerCase())) return collisions;
 
-  const heirKey = name.toLowerCase().replace(/\s+/g,'_') + '_' + Date.now();
+  const heirKey = slugifyName(name) + '_' + Date.now();
   const heir = {
     key:heirKey, name,
     house:data.house?.name||'—',
@@ -1382,22 +1437,12 @@ function ingestHeirRecord(data) {
   };
   state.heirs.push(heir);
 
-  // Key translation — heir record uses faction-centric keys, GM screen uses NPC-centric keys
-  const KEY_MAP = {
-    cityWatch:        'watchCommander',
-    dockworkersUnion: 'dockworkersForeman',
-    courierNetwork:   'courierMaster',
-    churchOfAxiom:    'highPriest',
-    scholarsGuild:    'archivistGeneral',
-    // These match already but include for completeness
-    kingHector:       'kingHector',
-    royalChamberlain: 'royalChamberlain',
-    merchantConsortium:'merchantConsortium',
-    outskirtsBroker:  'outskirtsBroker',
-  };
-  // Seed starting leverage
+  // Seed starting leverage (FACTION_KEY_MAP defined at module scope, shared
+  // with renderBrief — the heir record exports faction-centric keys like
+  // cityWatch/scholarsGuild/churchOfAxiom, the GM screen's nodes are keyed
+  // by the actual NPC like watchCommander/archivistGeneral/highPriest)
   Object.entries(heir.startingLeverage).forEach(([rawKey, score]) => {
-    const nodeKey = KEY_MAP[rawKey] || rawKey;
+    const nodeKey = FACTION_KEY_MAP[rawKey] || rawKey;
     if (state.nodes[nodeKey]) state.nodes[nodeKey].scores[heirKey] = score||0;
   });
 
@@ -1417,7 +1462,7 @@ function ingestHeirRecord(data) {
   ['ally','rival','contact','wildCard'].forEach(slot => {
     const npc = heir.npcs[slot];
     if (!npc?.name) return;
-    const npcKey = npc.name.toLowerCase().replace(/\s+/g,'_');
+    const npcKey = slugifyName(npc.name);
     if (!state.nodes[npcKey]) {
       const factionStr = (npc.faction||'').toLowerCase();
       const isPositioned = factionStr && !factionStr.includes('independent') && !factionStr.includes('none');
@@ -1442,7 +1487,7 @@ function ingestHeirRecord(data) {
 
   // Councillor
   if (heir.npcs?.councillor?.name) {
-    const cKey = heir.npcs.councillor.name.toLowerCase().replace(/\s+/g,'_');
+    const cKey = slugifyName(heir.npcs.councillor.name);
     if (!state.nodes[cKey]) {
       state.nodes[cKey] = {
         key:cKey, name:heir.npcs.councillor.name,
@@ -1653,7 +1698,7 @@ function applyWeightAndGenerateHooks(event) {
         if (h.key===actor) return;
         const rivalNpc = h.npcs?.rival;
         if (!rivalNpc?.name) return;
-        const rKey = rivalNpc.name.toLowerCase().replace(/\s+/g,'_');
+        const rKey = slugifyName(rivalNpc.name);
         if (rKey===target) {
           push(newHooks,event,'opportunity',
             `This action touched ${tn.name}, who is ${h.name}'s Rival. ${h.name} will hear about it — direction and what the Rival does next determines whether this helps or hurts.`,
@@ -1828,7 +1873,7 @@ function getRevealedNodes(rType, subject) {
 // ═══════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════
-function renderAll() { renderWeb(); populateSelects(); renderEventLog(); renderHooks(); renderHeirPills(); populateExploreHeirSelect(); }
+function renderAll() { renderWeb(); populateSelects(); renderEventLog(); renderHooks(); renderHeirPills(); populateExploreHeirSelect(); populateBriefHeirSelect(); }
 
 function renderHeirPills() {
   const c = document.getElementById('heir-filter-pills');
@@ -1838,7 +1883,10 @@ function renderHeirPills() {
   if (allBtn) c.appendChild(allBtn);
   else { const b=document.createElement('button'); b.className='heir-pill all active'; b.textContent='All'; b.onclick=()=>filterWeb('all',b); c.appendChild(b); }
   state.heirs.forEach(h=>{
-    const b=document.createElement('button'); b.className='heir-pill'; b.textContent=h.name.split(' ')[0];
+    const schoolKey=h.raw?.awakening?.revealedSchool;
+    const schoolLabel=schoolKey?` · ${schoolKey}`:'';
+    const b=document.createElement('button'); b.className='heir-pill'; b.textContent=h.name.split(' ')[0]+schoolLabel;
+    b.title=schoolKey&&SCHOOLS[schoolKey]?SCHOOLS[schoolKey].name:'';
     b.dataset.heirKey=h.key;
     b.onclick=()=>filterWeb(h.key,b); c.appendChild(b);
   });
@@ -2233,9 +2281,11 @@ function setToolSubTab(tab,btn){
   document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'flex':'none';
   document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'flex':'none';
   document.getElementById('toolsub-relations-panel').style.display=tab==='relations'?'flex':'none';
+  document.getElementById('toolsub-brief-panel').style.display=tab==='brief'?'flex':'none';
   if(tab==='solo') populateSoloHeirSelect();
   if(tab==='caravan') renderCaravanPartyReadiness();
   if(tab==='relations') renderRelations();
+  if(tab==='brief') populateBriefHeirSelect();
 }
 
 // ═══════════════════════════════════════════
@@ -2567,6 +2617,166 @@ function renderSoloPrep(){
       <div class="hook-text">${heir.name}'s own NPCs: ${names}. A solo session built around the Rival or a Wild Card with an unresolved thread often lands harder than another round with a world NPC — especially if nothing's moved with them in a while.</div>
     </div>`;
   }
+
+  list.innerHTML=html;
+}
+
+function populateBriefHeirSelect(){
+  const sel=document.getElementById('brief-heir-select');
+  if(!sel)return;
+  const currentVal=sel.value;
+  sel.innerHTML='<option value="">— select a heir —</option>'+state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
+  if(state.heirs.some(h=>h.key===currentVal)) sel.value=currentVal;
+}
+
+// The legitimacy threshold's four requirements, exactly as Appendix D states
+// them. This is the GM screen's first independent copy of this check — the
+// heir record has its own, the play sheet reads off player-editable
+// numbers, but until now the GM screen (the actual authoritative source)
+// had no copy of its own to check a heir against at a glance.
+function checkLegitimacyThreshold(heir){
+  const lev=heir.startingLeverage||{};
+  const factionKeys=['merchantConsortium','cityWatch','dockworkersUnion','courierNetwork','churchOfAxiom','scholarsGuild'];
+  const factionsAt2=factionKeys.filter(k=>(lev[k]||0)>=2).length;
+  const hectorMet=(lev.kingHector||0)>=2;
+  const chamberMet=(lev.royalChamberlain||0)>=1;
+  // High-weight endorsement: kingHector, churchOfAxiom (High Priest), or
+  // scholarsGuild (Archivist General) at +3, per the SRD's named figures.
+  const highEndorseMet=(lev.kingHector||0)>=3||(lev.churchOfAxiom||0)>=3||(lev.scholarsGuild||0)>=3;
+  return [
+    {label:'King Hector at +2 or above',met:hectorMet,current:lev.kingHector||0},
+    {label:`Three factions at +2 or above (currently ${factionsAt2})`,met:factionsAt2>=3,current:factionsAt2},
+    {label:'Royal Chamberlain at +1 or above',met:chamberMet,current:lev.royalChamberlain||0},
+    {label:'One high-weight endorsement at +3 or above',met:highEndorseMet,current:Math.max(lev.kingHector||0,lev.churchOfAxiom||0,lev.scholarsGuild||0)},
+  ];
+}
+
+function renderBrief(){
+  const heirKey=document.getElementById('brief-heir-select')?.value;
+  const empty=document.getElementById('brief-results-empty');
+  const list=document.getElementById('brief-results-list');
+  if(!list)return;
+  if(!heirKey){ if(empty) empty.style.display='block'; list.innerHTML=''; return; }
+  const heir=state.heirs.find(h=>h.key===heirKey);
+  if(!heir){ if(empty) empty.style.display='block'; list.innerHTML=''; return; }
+  if(empty) empty.style.display='none';
+
+  const raw=heir.raw||{};
+  const identity=raw.identity||{};
+  const house=raw.house||{};
+  const awakening=raw.awakening||{};
+  const combat=raw.combatProfile||{};
+  const capstone=raw.capstone;
+  const exploration=raw.explorationProfile||{};
+  const caravan=raw.caravanProfile||[];
+  const npcs=raw.npcs||{};
+  const lev=raw.startingLeverage||{};
+
+  let html='';
+
+  // ── Identity & Awakening ──
+  const school=SCHOOLS[awakening.revealedSchool];
+  const affinities=awakening.affinities||{};
+  const sortedAffinities=Object.entries(affinities).sort((a,b)=>b[1]-a[1]);
+  const topScore=sortedAffinities[0]?.[1];
+  const tiedSchools=sortedAffinities.filter(([,v])=>v===topScore).map(([k])=>k);
+  const wasNearTie=tiedSchools.length>1;
+
+  html+=`<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
+    <span class="hook-type weight-moved">${heir.name} — ${house.name||heir.house}</span>
+    <div class="hook-text">${identity.succession||'Succession unstated'} · ${house.district||heir.district||'District unstated'} District · Hector Relation: ${identity.hectorRelation||'unstated'}</div>
+    <div class="hook-entities">Revealed school: <strong>${school?school.name:awakening.revealedSchool||'—'}</strong> (${awakening.revealedSchool})${wasNearTie?` — tied at the crystal with ${tiedSchools.filter(k=>k!==awakening.revealedSchool).join(', ')}. The reveal came down to dominant personality profile, not a clean lead. Worth knowing this heir's magic could plausibly have gone a different way.`:''}</div>
+  </div>`;
+
+  // ── Capstone, with explicit gap-flagging if absent ──
+  if(capstone){
+    html+=`<div class="hook-card opportunity" style="margin-bottom:.7rem;">
+      <span class="hook-type opportunity">Capstone — ${capstone.title}</span>
+      <div class="hook-text">${capstone.description}</div>
+      <div class="hook-entities">+${capstone.leverageBonus?.amount||'?'} ${state.nodes[FACTION_KEY_MAP[capstone.leverageBonus?.key]||capstone.leverageBonus?.key]?.name||capstone.leverageBonus?.key||''} · ${(capstone.leveragePenalty||[]).map(p=>`−${p.amount} ${state.nodes[FACTION_KEY_MAP[p.key]||p.key]?.name||p.key}`).join(', ')}. Already folded into the leverage numbers below — do not apply it again.</div>
+    </div>`;
+  } else {
+    html+=`<div class="hook-card" style="margin-bottom:.7rem;border-color:var(--panel-border);">
+      <span class="hook-type" style="color:var(--ink-light);">No Capstone</span>
+      <div class="hook-text">Five years went to more than one aspect. No special capability, no leverage spike from a capstone — this is the normal case, not a gap, but worth knowing at a glance.</div>
+    </div>`;
+  }
+
+  // ── Combat profile, with genuine unconfirmed-field flagging ──
+  const combatFields=[
+    ['Weapon Specialty',combat.weaponSpecialty],
+    ['Fighting Style',combat.fightingStyle],
+    ['Signature Technique',combat.signatureTechnique],
+  ];
+  const unconfirmedCombat=combatFields.filter(([,v])=>!v);
+  html+=`<div class="hook-card" style="margin-bottom:.7rem;">
+    <span class="hook-type" style="color:var(--ink-light);">Combat Profile — ${combat.presenceLevel||'Baseline'}</span>
+    <div class="hook-text">${combatFields.filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(' · ')||'Nothing confirmed beyond presence level.'}</div>
+    ${unconfirmedCombat.length?`<div class="hook-entities" style="color:var(--gold-bright);">Unconfirmed: ${unconfirmedCombat.map(([k])=>k).join(', ')}. The play sheet prompts the player to confirm these with you directly — don't invent them yourself before that happens.</div>`:''}
+  </div>`;
+
+  // ── Legitimacy threshold, checked for real ──
+  const threshold=checkLegitimacyThreshold(raw);
+  const metCount=threshold.filter(t=>t.met).length;
+  html+=`<div class="hook-card ${metCount===4?'opportunity':'collision'}" style="margin-bottom:.7rem;">
+    <span class="hook-type ${metCount===4?'opportunity':'collision'}">Legitimacy Threshold — ${metCount} of 4 met</span>
+    <div class="hook-text">${threshold.map(t=>`${t.met?'✓':'○'} ${t.label}`).join('<br>')}</div>
+    ${metCount===4?`<div class="hook-entities" style="color:var(--gold-bright);">All four requirements met as of session zero alone — this heir's arc one resolution could trigger the moment you check at end of session one. Confirm this is intentional, not an oversight in the starting numbers.</div>`:''}
+  </div>`;
+
+  // ── Full leverage web ──
+  // Reverse the FACTION_KEY_MAP so each node key resolves back to whichever
+  // faction-centric key actually exists in lev (raw.startingLeverage) — the
+  // node key itself (e.g. watchCommander) is never a key in that object.
+  const REVERSE_KEY_MAP={};
+  Object.entries(FACTION_KEY_MAP).forEach(([factionKey,nodeKey])=>{REVERSE_KEY_MAP[nodeKey]=factionKey;});
+  const leverageLabels=WORLD_NPCS.filter(n=>['crown','factions','outskirts'].includes(n.cluster)).map(n=>n.key);
+  const levRows=leverageLabels.map(k=>{
+    const factionKey=REVERSE_KEY_MAP[k]||k;
+    const score=lev[factionKey]||0;
+    const name=state.nodes[k]?.name||k;
+    return `<span style="color:${score>0?'var(--forest-bright)':score<0?'var(--crimson-bright)':'var(--ink-light)'};">${name}: ${score>0?'+':''}${score}</span>`;
+  }).join(' · ');
+  html+=`<div class="hook-card" style="margin-bottom:.7rem;">
+    <span class="hook-type" style="color:var(--ink-light);">Full Leverage Web</span>
+    <div class="hook-text" style="line-height:1.8;">${levRows}</div>
+  </div>`;
+
+  // ── Personal NPCs, with cross-reference to rival/ally faction overlap ──
+  const npcSlots=[['ally','Ally'],['rival','Rival'],['contact','Contact'],['wildCard','Wild Card']];
+  const npcCards=npcSlots.map(([slot,label])=>{
+    const n=npcs[slot];
+    if(!n||!n.name) return `<div class="hook-entities" style="color:var(--ink-light);">${label}: not recorded.</div>`;
+    const detail=n.want||n.expects||n.significance||'';
+    const secondary=n.knows||n.leverage||n.status||'';
+    return `<div class="hook-entities"><strong>${label} — ${n.name}</strong> (${n.faction||n.category||'no faction'})${detail?` · wants: ${detail}`:''}${secondary?` · ${secondary}`:''}</div>`;
+  }).join('');
+  // Real cross-reference: does the Rival's faction match the Ally's, or any world faction the heir already has standing with?
+  const rivalFaction=npcs.rival?.faction;
+  const allyFaction=npcs.ally?.faction;
+  let crossRefNote='';
+  if(rivalFaction&&allyFaction&&rivalFaction===allyFaction){
+    crossRefNote=`<div class="hook-entities" style="color:var(--gold-bright);margin-top:.4rem;">Rival and Ally share a faction (${rivalFaction}) — any move against one plausibly has a reaction from the other. Worth deciding now whether that's a coincidence in the data or something to play as deliberate.</div>`;
+  }
+  html+=`<div class="hook-card" style="margin-bottom:.7rem;">
+    <span class="hook-type" style="color:var(--ink-light);">Personal NPCs</span>
+    ${npcCards}
+    ${crossRefNote}
+  </div>`;
+
+  // ── Exploration & Caravan readiness ──
+  html+=`<div class="hook-card" style="margin-bottom:.7rem;">
+    <span class="hook-type" style="color:var(--ink-light);">Exploration & Caravan</span>
+    <div class="hook-text">Solo depth ceiling: D${exploration.soloDepthCapability||1}. Caravan-relevant training: ${caravan.length?caravan.join(', '):'none'}.</div>
+  </div>`;
+
+  // ── Closing: the one thing worth knowing before Sunday ──
+  const lowestFaction=leverageLabels.filter(k=>!['kingHector','royalChamberlain'].includes(k)).reduce((min,k)=>(lev[REVERSE_KEY_MAP[k]||k]||0)<(lev[REVERSE_KEY_MAP[min]||min]||0)?k:min,leverageLabels[2]);
+  const lowestScore=lev[REVERSE_KEY_MAP[lowestFaction]||lowestFaction]||0;
+  html+=`<div class="hook-card collision">
+    <span class="hook-type collision">Before Sunday</span>
+    <div class="hook-text">Thinnest standing: ${state.nodes[lowestFaction]?.name||lowestFaction} at ${lowestScore>0?'+':''}${lowestScore}. ${metCount<4?`${4-metCount} threshold requirement${4-metCount>1?'s':''} still open.`:'Threshold already met on paper — watch for the moment it surfaces in play.'} ${npcs.rival?.name?`${npcs.rival.name} (Rival) is actively working against this heir's standing — factor that into anything this heir tries to build.`:''}</div>
+  </div>`;
 
   list.innerHTML=html;
 }
