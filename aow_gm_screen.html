@@ -39,7 +39,7 @@ html[data-theme="light"]{
   --gold-faint:rgba(139,105,20,0.14);
 }
 
-html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
+html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
 
 /* ══════ SHELL ══════ */
 .gm-shell{display:grid;grid-template-rows:auto 1fr;height:100dvh;}
@@ -105,6 +105,7 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
 
 /* ══════ CENTER ══════ */
 .center-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--night);min-height:0;}
+.tools-panel-inner{overflow-y:auto;}
 
 /* composer */
 .event-composer{background:var(--night-mid);border-bottom:1px solid var(--panel-border);padding:.75rem 1rem;flex-shrink:0;overflow-y:auto;max-height:52vh;}
@@ -685,6 +686,7 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
       <button class="stype-btn" id="toolsub-caravan-btn" onclick="setToolSubTab('caravan',this)">Caravan</button>
       <button class="stype-btn" id="toolsub-solo-btn" onclick="setToolSubTab('solo',this)">Solo Prep</button>
       <button class="stype-btn" id="toolsub-opponent-btn" onclick="setToolSubTab('opponent',this)">Opponent</button>
+      <button class="stype-btn" id="toolsub-relations-btn" onclick="setToolSubTab('relations',this)">Relations</button>
     </div>
 
     <div id="toolsub-exploration-panel">
@@ -693,6 +695,12 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
         <span class="composer-title">Chamber & Reward Generator</span>
       </div>
       <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Pick which civilization left the ruin and how deep it sits. Depth gates both danger and reward — D6 is Void Touched only, since nothing from the Architects or Predecessor Courts reaches that far down.</div>
+      <div style="margin-bottom:.5rem;">
+        <span class="composer-field-label">Heir Entering (optional — enables bonus detection)</span>
+        <select class="composer-select" id="tool-explore-heir-select">
+          <option value="">— Generate without checking bonuses —</option>
+        </select>
+      </div>
       <div class="composer-row three">
         <div>
           <span class="composer-field-label">Civilization</span>
@@ -838,8 +846,19 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
       <div class="composer-label-row">
         <span class="composer-title">Combat Opponent Builder</span>
       </div>
-      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Produces a complete, legal opponent — presence, stamina, and a real technique with trigger and slot cost — in the same vocabulary as the play sheet. Not a generator with randomness; this is a quick stat-out for someone you need ready before the exchange starts.</div>
+      <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.5rem;line-height:1.5;">Produces a complete, legal opponent — presence, stamina, and a real technique with trigger and slot cost — in the same vocabulary as the play sheet. Not a generator with randomness; this is a quick stat-out for someone you need ready before the exchange starts. Add as many as the encounter needs.</div>
+      <div style="margin-bottom:.5rem;">
+        <span class="composer-field-label">Encounter Location (applies to everyone in this fight)</span>
+        <select class="composer-select" id="opp-location-select" onchange="updateEncounterLocation()">
+          <option value="inside">Inside the Barrier — non-lethal stakes</option>
+          <option value="outside">Outside the Barrier — real stakes</option>
+        </select>
+      </div>
       <div class="composer-row three">
+        <div>
+          <span class="composer-field-label">Name (optional)</span>
+          <input type="text" class="composer-select" id="opp-name-input" placeholder="e.g. Watch Patrol #1"/>
+        </div>
         <div>
           <span class="composer-field-label">Training Level</span>
           <select class="composer-select" id="opp-training-select">
@@ -859,15 +878,8 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
             <option value="Projectile">Projectile</option>
           </select>
         </div>
-        <div>
-          <span class="composer-field-label">Location</span>
-          <select class="composer-select" id="opp-location-select">
-            <option value="inside">Inside the Barrier — non-lethal stakes</option>
-            <option value="outside">Outside the Barrier — real stakes</option>
-          </select>
-        </div>
       </div>
-      <button class="log-btn" onclick="runOpponentBuilder()">Build Opponent</button>
+      <button class="log-btn" onclick="runOpponentBuilder()">Add to Encounter</button>
     </div>
     <div class="log-area">
       <div class="log-pane active" id="opponent-results-pane">
@@ -879,35 +891,23 @@ html,body{height:100%;font-size:14px;background:var(--night);color:var(--vellum)
     <div id="opponent-tracker" style="display:none;border-top:1px solid var(--panel-border);">
       <div class="event-composer">
         <div class="composer-label-row">
-          <span class="composer-title">Live State — Call This As It Changes</span>
+          <span class="composer-title">Live Encounter — Call This As It Changes</span>
         </div>
-        <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Tap as exchanges land. This is the opponent's mirror of what a player tracks on their own Play Sheet — nothing more.</div>
-        <div class="composer-field-label" style="margin-bottom:.3rem;">Stamina</div>
-        <div class="stamina-selector" id="opp-stamina-selector">
-          <div class="stamina-btn active-0" data-stage="0" onclick="setOpponentStamina(0,this)">Fresh</div>
-          <div class="stamina-btn" data-stage="1" onclick="setOpponentStamina(1,this)">Winded</div>
-          <div class="stamina-btn" data-stage="2" onclick="setOpponentStamina(2,this)">Strained</div>
-          <div class="stamina-btn" data-stage="3" onclick="setOpponentStamina(3,this)">Spent</div>
-        </div>
-        <div class="composer-field-label" style="margin:.7rem 0 .3rem;">Wounds</div>
-        <div class="wound-grid" id="opp-wound-grid">
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'weapon-arm')" data-wound="weapon-arm"><span class="wound-name">Weapon Arm</span></div>
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'shield-arm')" data-wound="shield-arm"><span class="wound-name">Shield Arm</span></div>
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'legs')" data-wound="legs"><span class="wound-name">Legs</span></div>
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'torso')" data-wound="torso"><span class="wound-name">Torso</span></div>
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'head')" data-wound="head"><span class="wound-name">Head</span></div>
-          <div class="wound-btn" onclick="toggleOpponentWound(this,'presence')" data-wound="presence"><span class="wound-name">Presence</span></div>
-        </div>
-        <div id="opp-technique-row" style="margin-top:.7rem;display:none;">
-          <label style="display:flex;align-items:center;gap:.5rem;font-size:.8rem;color:var(--ink-light);cursor:pointer;">
-            <input type="checkbox" id="opp-technique-used" onchange="renderOpponentTrackerStatus()"/>
-            <span>Technique already fired this encounter</span>
-          </label>
-        </div>
-        <div id="opp-tracker-status" style="margin-top:.7rem;font-size:.82rem;line-height:1.6;color:var(--ink-light);"></div>
-        <button class="log-btn" style="margin-top:.8rem;background:var(--crimson);" onclick="endOpponentTracking()">Combat Ends — Clear Tracker</button>
+        <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Tap as exchanges land. Each opponent below mirrors what a player tracks on their own Play Sheet — nothing more. Rules the SRD actually states get flagged automatically; nothing here resolves the fight for you.</div>
+        <div id="opponent-roster"></div>
+        <button class="log-btn" style="margin-top:.8rem;background:var(--crimson);" onclick="endOpponentTracking()">Encounter Ends — Clear All</button>
       </div>
     </div>
+    </div>
+
+    <div id="toolsub-relations-panel" style="display:none;">
+      <div class="event-composer">
+        <div class="composer-label-row">
+          <span class="composer-title">Who Connects to Whom</span>
+        </div>
+        <div class="helper" style="font-size:.78rem;color:var(--ink-light);margin-bottom:.6rem;line-height:1.5;">Every node already routes weight through these connections when events resolve — this just makes the wiring visible. World NPCs conduct to each other; personal NPCs route to the table through one world NPC; each personal NPC belongs to one heir.</div>
+        <div id="relations-content"></div>
+      </div>
     </div>
 
   </div>
@@ -1400,9 +1400,17 @@ function ingestHeirRecord(data) {
     if (state.nodes[nodeKey]) state.nodes[nodeKey].scores[heirKey] = score||0;
   });
 
-  // Hector relation
-  const hMap = {allied:2,neutral:0,tension:-1};
-  if (state.nodes.kingHector) state.nodes.kingHector.scores[heirKey] = hMap[heir.hectorRelation]??0;
+  // NOTE: King Hector's starting score is fully derived above from
+  // startingLeverage.kingHector — the heir record already stacks Hector
+  // relation + founding deed + aspect years + ideal + succession into that
+  // one number, capped at +3 per the SRD's own Starting Leverage table.
+  // A prior version of this function re-derived a Hector-relation-only
+  // score here and overwrote the correct stacked value with it — found as
+  // a real bug via a real player's file (House Ye: allied + "Founded the
+  // city itself" correctly produces +3 in the source export, but this
+  // screen was showing +2, since the overwrite only ever looked at
+  // relation and ignored every other contributing factor). Do not
+  // reintroduce a second Hector-scoring path here.
 
   // Personal NPCs
   ['ally','rival','contact','wildCard'].forEach(slot => {
@@ -1819,7 +1827,7 @@ function getRevealedNodes(rType, subject) {
 // ═══════════════════════════════════════════
 // RENDER
 // ═══════════════════════════════════════════
-function renderAll() { renderWeb(); populateSelects(); renderEventLog(); renderHooks(); renderHeirPills(); }
+function renderAll() { renderWeb(); populateSelects(); renderEventLog(); renderHooks(); renderHeirPills(); populateExploreHeirSelect(); }
 
 function renderHeirPills() {
   const c = document.getElementById('heir-filter-pills');
@@ -2151,6 +2159,7 @@ function runGenerator(){
   const depthKey=document.getElementById('tool-depth-select').value;
   const countSel=document.getElementById('tool-count-select').value;
   const count=countSel==='custom'?(parseInt(document.getElementById('tool-custom-count').value)||1):parseInt(countSel);
+  const heirKey=document.getElementById('tool-explore-heir-select')?.value||'';
 
   const empty=document.getElementById('tool-results-empty');
   const list=document.getElementById('tool-results-list');
@@ -2159,7 +2168,36 @@ function runGenerator(){
   const chambers=generateSite(civKey,depthKey,count);
   state.lastGeneratedRewards=chambers.map(ch=>ch.reward); // addressable by index for export
 
-  list.innerHTML=chambers.map((ch,i)=>{
+  // Depth-Matching Bonus (SRD, Chapter Six): a heir whose current solo
+  // depth capability exactly equals the depth they're entering gets this
+  // bonus. This is the one piece of exploration-relevant data that's
+  // actually usable from the export — explorationProfile.civilizationSpecialty
+  // turned out, on inspection, to hold a Lore *field of study* (History,
+  // Theology, etc.), never an actual civilization name, so a Discovery
+  // Bonus keyed to "did this heir study the Architects specifically" isn't
+  // honestly checkable from the data that exists. Scoped to what's real
+  // rather than faking a check that would silently never fire.
+  let bonusCard='';
+  if(heirKey){
+    const heir=state.heirs.find(h=>h.key===heirKey);
+    if(heir){
+      const soloDepth=heir.raw?.explorationProfile?.soloDepthCapability||1;
+      const enteringDepthNum=parseInt(depthKey.replace('D',''));
+      if(soloDepth===enteringDepthNum){
+        bonusCard=`<div class="hook-card opportunity" style="margin-bottom:.7rem;border-color:var(--gold-bright);">
+          <span class="hook-type opportunity">Depth-Matching Bonus — ${heir.name}</span>
+          <div class="hook-text">${heir.name}'s current capability (D${soloDepth}) exactly matches this chamber's depth (${depthKey}). Per the SRD, this is the specific advantage of operating right at the edge of current capability — award an additional Depth-Matching Bonus alongside the chamber's base reward.</div>
+        </div>`;
+      } else if(soloDepth<enteringDepthNum){
+        bonusCard=`<div class="hook-card collision" style="margin-bottom:.7rem;">
+          <span class="hook-type collision">Underprepared — ${heir.name}</span>
+          <div class="hook-text">${heir.name}'s current capability is D${soloDepth}; this chamber is ${depthKey}. The reward and consequence both land at the chamber's real depth regardless of preparation — the system does not soften this.</div>
+        </div>`;
+      }
+    }
+  }
+
+  list.innerHTML=bonusCard+chambers.map((ch,i)=>{
     const r=ch.reward;
     if(!r) return '';
     if(r.error){
@@ -2193,8 +2231,10 @@ function setToolSubTab(tab,btn){
   document.getElementById('toolsub-caravan-panel').style.display=tab==='caravan'?'block':'none';
   document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'block':'none';
   document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'block':'none';
+  document.getElementById('toolsub-relations-panel').style.display=tab==='relations'?'block':'none';
   if(tab==='solo') populateSoloHeirSelect();
   if(tab==='caravan') renderCaravanPartyReadiness();
+  if(tab==='relations') renderRelations();
 }
 
 // ═══════════════════════════════════════════
@@ -2230,10 +2270,43 @@ const OPPONENT_PRESENCE_BY_TRAINING={
   trained:'Trained',
 };
 
+// ═══════════════════════════════════════════
+// LIVE OPPONENT TRACKER — multi-opponent roster for one encounter.
+// Not persisted across sessions; cleared explicitly when the encounter ends.
+// Each opponent is a full independent state; encounterLocation is shared
+// across the whole fight since location is a property of the scene, not
+// any one participant.
+// ═══════════════════════════════════════════
+let opponentRoster=[]; // [{id, name, training, weapon, hasTechnique, techniqueName, stamina, wounds:[], techniqueUsed}]
+let encounterLocation='inside';
+let opponentIdCounter=0;
+
+const OPPONENT_STAMINA_LABELS=['Fresh','Winded','Strained','Spent'];
+
+// Wound rules exactly as the SRD states them in Chapter Four — every rule
+// here is a direct mechanical consequence, not a judgment call. This is
+// the part of the tracker that should function as a mini judge: it should
+// know what the rule says happens, the same way it would for any other
+// table mechanic, not just record a checkbox.
+const WOUND_RULES={
+  'weapon-arm':{label:'Weapon Arm',note:'Basic weapon actions now cost one additional slot. All offensive techniques requiring the weapon arm are unavailable until treated.'},
+  'shield-arm':{label:'Shield Arm',note:'Two-handed defensive applications are unavailable. One-handed actions remain functional.'},
+  legs:{label:'Legs',note:'Move now costs one additional slot. Techniques requiring movement show caution or are unavailable.'},
+  torso:{label:'Torso',note:'Stamina degrades faster from here — this opponent reaches each later stage sooner than the raw exchange count would suggest.'},
+  head:{label:'Head',note:"Read degrades regardless of stamina state — this opponent's initiative and technique timing are now unreliable."},
+  presence:{label:'Presence',note:'All three presence components drop one stage immediately. Every technique is unavailable until at least one stage recovers.'},
+};
+
+function updateEncounterLocation(){
+  encounterLocation=document.getElementById('opp-location-select').value;
+  renderOpponentRoster();
+}
+
 function runOpponentBuilder(){
   const training=document.getElementById('opp-training-select').value;
   const weapon=document.getElementById('opp-weapon-select').value;
-  const location=document.getElementById('opp-location-select').value;
+  const nameInput=document.getElementById('opp-name-input').value.trim();
+  encounterLocation=document.getElementById('opp-location-select').value;
 
   const empty=document.getElementById('opponent-results-empty');
   const list=document.getElementById('opponent-results-list');
@@ -2243,13 +2316,15 @@ function runOpponentBuilder(){
   const specialty=WEAPON_SPECIALTIES_REF[weapon];
   const hasTechnique=training!=='untrained';
   const technique=hasTechnique?OPPONENT_WEAPON_TECHNIQUES[weapon]:null;
+  opponentIdCounter++;
+  const name=nameInput||`${weapon} Opponent ${opponentIdCounter}`;
 
-  const stakesNote=location==='inside'
+  const stakesNote=encounterLocation==='inside'
     ?'Inside the barrier — non-lethal. The fight ends at Spent stamina or three wound states. Neither side is at risk of death.'
     :'Outside the barrier — real stakes apply. Spent stamina here is the moment the fight becomes about survival, not winning. Flight is always an option, and its success depends on Leg wound status, stamina, terrain, and whether this opponent commits to pursuit.';
 
   let html=`<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
-    <span class="hook-type weight-moved">Presence & Capability</span>
+    <span class="hook-type weight-moved">${name} — Presence & Capability</span>
     <div class="hook-text"><strong>${presence}</strong> presence. Weapon: <strong>${weapon}</strong>.</div>
     <div class="hook-entities">${weapon} specialty: ${specialty}</div>
     ${training==='untrained'?`<div class="hook-entities" style="color:var(--crimson-bright);">No Combat training — zero technique access. This opponent's Act slot produces a basic strike only, exactly per the rules for zero Combat aspect years. Do not improvise a technique for them mid-fight.</div>`:''}
@@ -2257,7 +2332,7 @@ function runOpponentBuilder(){
 
   if(hasTechnique){
     html+=`<div class="hook-card opportunity" style="margin-bottom:.7rem;">
-      <span class="hook-type opportunity">Technique — ${technique.name}</span>
+      <span class="hook-type opportunity">${name} — Technique: ${technique.name}</span>
       <div class="hook-text"><strong>Trigger:</strong> ${technique.trigger}</div>
       <div class="hook-entities"><strong>Slot cost:</strong> ${technique.slots}</div>
       <div class="hook-entities"><strong>Effect:</strong> ${technique.effect}</div>
@@ -2266,88 +2341,124 @@ function runOpponentBuilder(){
   }
 
   html+=`<div class="hook-card collision">
-    <span class="hook-type collision">Stakes — ${location==='inside'?'Inside the Barrier':'Outside the Barrier'}</span>
+    <span class="hook-type collision">Stakes — ${encounterLocation==='inside'?'Inside the Barrier':'Outside the Barrier'}</span>
     <div class="hook-text">${stakesNote}</div>
   </div>`;
 
-  list.innerHTML=html;
+  list.innerHTML+=html; // append, don't replace — building up the encounter brief as opponents are added
 
-  // Reveal the live tracker for this opponent and reset it clean —
-  // a freshly built opponent always starts Fresh with no wounds.
-  currentOpponent={training,weapon,location,hasTechnique,techniqueName:technique?technique.name:null};
-  opponentState={stamina:0,wounds:[]};
+  // Add to the live roster
+  opponentRoster.push({
+    id:'opp_'+opponentIdCounter, name, training, weapon, hasTechnique,
+    techniqueName:technique?technique.name:null,
+    stamina:0, wounds:[], techniqueUsed:false,
+  });
+
   const tracker=document.getElementById('opponent-tracker');
   if(tracker) tracker.style.display='block';
-  document.querySelectorAll('#opp-stamina-selector .stamina-btn').forEach(b=>b.classList.remove('active-0','active-1','active-2','active-3'));
-  document.querySelector('#opp-stamina-selector .stamina-btn[data-stage="0"]')?.classList.add('active-0');
-  document.querySelectorAll('#opp-wound-grid .wound-btn').forEach(b=>b.classList.remove('active'));
-  const techRow=document.getElementById('opp-technique-row');
-  if(techRow) techRow.style.display=hasTechnique?'block':'none';
-  const techUsed=document.getElementById('opp-technique-used');
-  if(techUsed) techUsed.checked=false;
-  renderOpponentTrackerStatus();
+  document.getElementById('opp-name-input').value='';
+  renderOpponentRoster();
 }
 
-// ═══════════════════════════════════════════
-// LIVE OPPONENT TRACKER — lightweight, single-opponent state for the
-// duration of one fight. Not persisted across sessions; cleared explicitly
-// when combat ends, or silently replaced the next time an opponent is built.
-// ═══════════════════════════════════════════
-let currentOpponent=null;
-let opponentState={stamina:0,wounds:[]};
-
-const OPPONENT_STAMINA_LABELS=['Fresh','Winded','Strained','Spent'];
-
-function setOpponentStamina(stage,btn){
-  opponentState.stamina=stage;
-  document.querySelectorAll('#opp-stamina-selector .stamina-btn').forEach(b=>b.classList.remove('active-0','active-1','active-2','active-3'));
-  btn.classList.add(`active-${stage}`);
-  renderOpponentTrackerStatus();
+function setOpponentStamina(oppId,stage){
+  const opp=opponentRoster.find(o=>o.id===oppId);
+  if(opp) opp.stamina=stage;
+  renderOpponentRoster();
 }
 
-function toggleOpponentWound(btn,key){
-  const idx=opponentState.wounds.indexOf(key);
-  if(idx>=0){opponentState.wounds.splice(idx,1);btn.classList.remove('active');}
-  else{opponentState.wounds.push(key);btn.classList.add('active');}
-  renderOpponentTrackerStatus();
+function toggleOpponentWound(oppId,key){
+  const opp=opponentRoster.find(o=>o.id===oppId);
+  if(!opp)return;
+  const idx=opp.wounds.indexOf(key);
+  if(idx>=0) opp.wounds.splice(idx,1);
+  else opp.wounds.push(key);
+  renderOpponentRoster();
 }
 
-function renderOpponentTrackerStatus(){
-  const el=document.getElementById('opp-tracker-status');
-  if(!el||!currentOpponent)return;
-  const staminaLabel=OPPONENT_STAMINA_LABELS[opponentState.stamina];
-  const woundCount=opponentState.wounds.length;
-  const techUsed=document.getElementById('opp-technique-used')?.checked;
+function toggleOpponentTechniqueUsed(oppId){
+  const opp=opponentRoster.find(o=>o.id===oppId);
+  if(opp) opp.techniqueUsed=!opp.techniqueUsed;
+  renderOpponentRoster();
+}
 
-  let lines=[];
-  lines.push(`<strong>${staminaLabel}</strong>${woundCount?` · ${woundCount} wound${woundCount>1?'s':''}`:' · no wounds'}`);
+function removeOpponentFromRoster(oppId){
+  opponentRoster=opponentRoster.filter(o=>o.id!==oppId);
+  renderOpponentRoster();
+  if(!opponentRoster.length){
+    const tracker=document.getElementById('opponent-tracker');
+    if(tracker) tracker.style.display='none';
+  }
+}
 
-  if(opponentState.stamina>=3){
-    lines.push(`<span style="color:var(--crimson-bright);">Spent — no techniques available. ${currentOpponent.location==='inside'?'This is the trigger for combat resolution inside the barrier.':'Outside the barrier, this is the point where death becomes a real possibility.'}</span>`);
-  } else if(currentOpponent.hasTechnique&&techUsed&&currentOpponent.training==='developing'){
-    lines.push(`<span style="color:var(--gold-bright);">Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.</span>`);
+// The actual judge logic: given one opponent's current state, return every
+// rule-grounded consequence that's currently true. Each line traces to a
+// specific stated SRD rule, not a guess — this is what makes the tracker
+// function as a mini judge rather than a passive checklist.
+function getOpponentRuleFlags(opp){
+  const flags=[];
+  const staminaLabel=OPPONENT_STAMINA_LABELS[opp.stamina];
+
+  if(opp.stamina>=3){
+    flags.push({severity:'crimson',text:`Spent — no techniques available. ${encounterLocation==='inside'?'This is the trigger for combat resolution inside the barrier.':'Outside the barrier, this is the point where death becomes a real possibility.'}`});
+  } else if(opp.hasTechnique&&opp.techniqueUsed&&opp.training==='developing'){
+    flags.push({severity:'gold',text:'Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.'});
   }
 
-  if(opponentState.wounds.includes('presence')){
-    lines.push(`<span style="color:var(--crimson-bright);">Presence wound — all techniques unavailable until at least one stage of recovery.</span>`);
-  }
-  if(opponentState.wounds.includes('torso')){
-    lines.push(`Torso wound — stamina will degrade faster than normal from here.`);
-  }
-  if(opponentState.wounds.includes('head')){
-    lines.push(`Head wound — Read is degraded regardless of stamina; this opponent's initiative is unreliable now.`);
-  }
-  if(woundCount>=3&&currentOpponent.location==='inside'){
-    lines.push(`<span style="color:var(--gold-bright);">Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.</span>`);
+  opp.wounds.forEach(w=>{
+    const rule=WOUND_RULES[w];
+    if(rule) flags.push({severity:w==='presence'?'crimson':'normal',text:`${rule.label} — ${rule.note}`});
+  });
+
+  // Staff + Shield Arm interaction named explicitly in the SRD wound table.
+  if(opp.weapon==='Staff'&&opp.wounds.includes('shield-arm')){
+    flags.push({severity:'gold',text:'Staff Barrier Generation is specifically unavailable while Shield Arm is wounded — named directly in the SRD wound table, not a general two-handed restriction.'});
   }
 
-  el.innerHTML=lines.join('<br>');
+  if(opp.wounds.length>=3&&encounterLocation==='inside'){
+    flags.push({severity:'gold',text:'Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.'});
+  }
+
+  return {staminaLabel, flags};
+}
+
+function renderOpponentRoster(){
+  const el=document.getElementById('opponent-roster');
+  if(!el)return;
+  if(!opponentRoster.length){ el.innerHTML=''; return; }
+
+  el.innerHTML=opponentRoster.map(opp=>{
+    const {staminaLabel,flags}=getOpponentRuleFlags(opp);
+    const stageBtns=OPPONENT_STAMINA_LABELS.map((lbl,i)=>
+      `<div class="stamina-btn ${opp.stamina===i?'active-'+i:''}" onclick="setOpponentStamina('${opp.id}',${i})">${lbl}</div>`
+    ).join('');
+    const woundBtns=Object.entries(WOUND_RULES).map(([key,rule])=>
+      `<div class="wound-btn ${opp.wounds.includes(key)?'active':''}" onclick="toggleOpponentWound('${opp.id}','${key}')"><span class="wound-name">${rule.label}</span></div>`
+    ).join('');
+    const techRow=opp.hasTechnique?`<div style="margin-top:.6rem;">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--ink-light);cursor:pointer;">
+        <input type="checkbox" ${opp.techniqueUsed?'checked':''} onchange="toggleOpponentTechniqueUsed('${opp.id}')"/>
+        <span>${opp.techniqueName} already fired this encounter</span>
+      </label>
+    </div>`:'';
+    const flagsHtml=flags.map(f=>`<div style="color:${f.severity==='crimson'?'var(--crimson-bright)':f.severity==='gold'?'var(--gold-bright)':'var(--ink-light)'};margin-top:.3rem;">${f.text}</div>`).join('');
+
+    return `<div style="border:1px solid var(--panel-border);padding:.7rem .8rem;margin-bottom:.7rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;">
+        <strong style="color:var(--gold-bright);font-family:'Cinzel',serif;font-size:.85rem;">${opp.name}</strong>
+        <span style="cursor:pointer;color:var(--crimson-bright);font-size:.7rem;" onclick="removeOpponentFromRoster('${opp.id}')">remove</span>
+      </div>
+      <div class="stamina-selector">${stageBtns}</div>
+      <div class="wound-grid" style="margin-top:.5rem;">${woundBtns}</div>
+      ${techRow}
+      <div style="margin-top:.6rem;font-size:.78rem;line-height:1.5;"><strong>${staminaLabel}</strong>${opp.wounds.length?` · ${opp.wounds.length} wound${opp.wounds.length>1?'s':''}`:' · no wounds'}${flagsHtml}</div>
+    </div>`;
+  }).join('');
 }
 
 function endOpponentTracking(){
-  if(!confirm('Clear this opponent\'s tracked state? Use this once the fight is fully resolved.'))return;
-  currentOpponent=null;
-  opponentState={stamina:0,wounds:[]};
+  if(!confirm('Clear the entire encounter roster? Use this once the fight is fully resolved.'))return;
+  opponentRoster=[];
+  opponentIdCounter=0;
   const tracker=document.getElementById('opponent-tracker');
   if(tracker) tracker.style.display='none';
   const empty=document.getElementById('opponent-results-empty');
@@ -2361,6 +2472,14 @@ function populateSoloHeirSelect(){
   if(!sel)return;
   const currentVal=sel.value;
   sel.innerHTML='<option value="">— select heir —</option>'+state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
+  if(state.heirs.some(h=>h.key===currentVal)) sel.value=currentVal;
+}
+
+function populateExploreHeirSelect(){
+  const sel=document.getElementById('tool-explore-heir-select');
+  if(!sel)return;
+  const currentVal=sel.value;
+  sel.innerHTML='<option value="">— Generate without checking bonuses —</option>'+state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
   if(state.heirs.some(h=>h.key===currentVal)) sel.value=currentVal;
 }
 
@@ -2416,7 +2535,95 @@ function renderSoloPrep(){
     <div class="hook-text">${heir.name} can solo up to <strong>D${soloDepth}</strong> safely.${divExtended?' Their Divination training lets them read one depth level beyond this during the Read phase before committing — extended awareness, not an extended formal ceiling.':''} Attempting deeper proceeds without the preparation that depth requires — the chamber still produces its full reward and consequence regardless of whether they're ready to read or respond to it correctly.</div>
   </div>`;
 
+  // ── A real scene-starter, not just a permissions list ──
+  // Pick the most promising single eligible node (if any), pull its codex
+  // entry if it's a world NPC, and propose one concrete opening beat — a
+  // real line to open the scene with, not just a category of allowed action.
+  if(eligibleNodes.length){
+    const best=eligibleNodes.slice().sort((a,b)=>(b.scores[heirKey]||0)-(a.scores[heirKey]||0))[0];
+    const codex=NPC_CODEX[best.key];
+    let openingLine='';
+    if(codex){
+      openingLine=`Read for the tell before they speak: ${codex.tell} Then open with: ${codex.line}`;
+    } else {
+      openingLine=`${best.name} is the strongest standing available — open here. There's no authored codex entry for this NPC (likely a personal contact), so play their reaction off what ${heir.name} actually brings to the conversation.`;
+    }
+    html+=`<div class="hook-card weight-moved" style="margin-top:.7rem;">
+      <span class="hook-type weight-moved">Suggested Opening — ${best.name}</span>
+      <div class="hook-text">${openingLine}</div>
+      <div class="hook-entities">Current standing: ${best.scores[heirKey]>0?'+':''}${best.scores[heirKey]}. This is a suggestion, not a requirement — ${heir.name}'s player may have a different target in mind for this solo session.</div>
+    </div>`;
+  }
+
+  // Mention the heir's own personal NPCs as a second-order option, since
+  // solo sessions are explicitly the venue for personal-NPC-driven beats
+  // (the Ally/Rival/Contact/Wild Card slots) as much as world-NPC ones.
+  const personalForHeir=Object.values(state.nodes).filter(n=>n.ownerHeir===heirKey);
+  if(personalForHeir.length){
+    const names=personalForHeir.map(n=>`${n.name} (${n.slot})`).join(', ');
+    html+=`<div class="hook-card opportunity" style="margin-top:.7rem;">
+      <span class="hook-type opportunity">Or Open With a Personal NPC Instead</span>
+      <div class="hook-text">${heir.name}'s own NPCs: ${names}. A solo session built around the Rival or a Wild Card with an unresolved thread often lands harder than another round with a world NPC — especially if nothing's moved with them in a while.</div>
+    </div>`;
+  }
+
   list.innerHTML=html;
+}
+
+function renderRelations(){
+  const el=document.getElementById('relations-content');
+  if(!el)return;
+
+  if(!state.heirs.length && !Object.values(state.nodes).some(n=>n.cluster!=='positioned'&&n.cluster!=='satellite'&&n.cluster!=='councillor')){
+    el.innerHTML=`<div style="font-size:.82rem;color:var(--ink-light);font-style:italic;">No nodes to map yet.</div>`;
+    return;
+  }
+
+  // ── World NPC conductor graph ──
+  const worldNodes=Object.values(state.nodes).filter(n=>['crown','factions','outskirts'].includes(n.cluster));
+  let worldHtml=worldNodes.map(n=>{
+    const conductorKeys=getNodeConductors(n);
+    const isUniversal=n.conductors==='all';
+    const conductorNames=conductorKeys.map(k=>state.nodes[k]?.name).filter(Boolean);
+    const conductorDisplay=isUniversal
+      ? `<em style="color:var(--crimson-bright);">everything — the Broker conducts weight to any node in the web, by design</em>`
+      : (conductorNames.length?conductorNames.join(', '):'<em style="color:var(--ink-light);">nothing tracked</em>');
+    return `<div style="border:1px solid var(--panel-border);padding:.5rem .7rem;margin-bottom:.4rem;font-size:.8rem;">
+      <strong style="color:var(--gold-bright);">${n.name}</strong>
+      <span style="color:var(--ink-light);"> conducts to: </span>
+      ${conductorDisplay}
+    </div>`;
+  }).join('');
+
+  // ── Personal NPCs, grouped by owning heir, showing their world-NPC route ──
+  const personalNodes=Object.values(state.nodes).filter(n=>['positioned','satellite','councillor'].includes(n.cluster));
+  const byHeir={};
+  personalNodes.forEach(n=>{
+    const heir=state.heirs.find(h=>h.key===n.ownerHeir);
+    const heirName=heir?heir.name:'(unowned)';
+    byHeir[heirName]=byHeir[heirName]||[];
+    byHeir[heirName].push(n);
+  });
+  let personalHtml=Object.entries(byHeir).map(([heirName,nodes])=>{
+    const rows=nodes.map(n=>{
+      const routeName=n.worldLink?(state.nodes[n.worldLink]?.name||n.worldLink):null;
+      return `<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--panel-border);font-size:.8rem;">
+        <span>${n.name} <span style="color:var(--ink-light);font-style:italic;">(${n.slot||'npc'})</span></span>
+        <span style="color:${routeName?'var(--gold-bright)':'var(--ink-light)'};font-style:${routeName?'normal':'italic'};">${routeName?'→ '+routeName:'no world route'}</span>
+      </div>`;
+    }).join('');
+    return `<div style="border:1px solid var(--panel-border);padding:.5rem .7rem;margin-bottom:.5rem;">
+      <div style="font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.3rem;">${heirName}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;">World NPC Network</div>
+    ${worldHtml || '<div style="font-size:.8rem;color:var(--ink-light);font-style:italic;">No world nodes found.</div>'}
+    <div style="font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);margin:1rem 0 .5rem;">Personal NPCs, by Heir</div>
+    ${personalHtml || '<div style="font-size:.8rem;color:var(--ink-light);font-style:italic;">No personal NPCs imported yet — import heirs to populate this.</div>'}
+  `;
 }
 
 function renderCaravanPartyReadiness(){
@@ -2459,6 +2666,25 @@ function runCaravanGenerator(){
     <div class="hook-entities">${run.startingMomentum<=2?'Already in danger before a single event fires.':run.startingMomentum>=8?'Ideal conditions — events will need to compound to threaten this run.':'Functional but not optimized — a few mishandled events can turn this.'}</div>
   </div>`;
 
+  // Surface a likely failure state proactively when the run starts close
+  // to zero, rather than requiring a separate trip to the manual lookup
+  // below. This is deliberately NOT a full auto-resolution — the SRD
+  // treats momentum loss as a live GM read of the table, not a number the
+  // tool tracks event-by-event — but starting momentum itself is a real,
+  // already-computed value, and a run starting at 2 or below is close
+  // enough to zero that having the likely failure state already on screen
+  // saves a real step at exactly the moment it matters.
+  let proactiveFailureCard='';
+  if(run.startingMomentum<=2){
+    const likelyKey=run.startingMomentum<=0?'captured':run.startingMomentum===1?'scattered':'damaged';
+    const f=CARAVAN_FAILURE_STATES[likelyKey];
+    proactiveFailureCard=`<div class="hook-card collision" style="margin-bottom:.7rem;border-color:var(--crimson-bright);">
+      <span class="hook-type collision">This Run Is Close to Zero — Likely Failure State: ${f.name}</span>
+      <div class="hook-text">${f.desc}</div>
+      <div class="hook-entities">Not automatic — read the table and confirm this is actually where things land. Other failure states remain available in the lookup below if events push it a different direction.</div>
+    </div>`;
+  }
+
   const eventCards=run.events.map(e=>{
     const ev=e.event;
     return `<div class="hook-card weight-moved" style="margin-bottom:.7rem;">
@@ -2469,7 +2695,7 @@ function runCaravanGenerator(){
     </div>`;
   }).join('');
 
-  list.innerHTML=momentumCard+eventCards;
+  list.innerHTML=momentumCard+proactiveFailureCard+eventCards;
 }
 
 function renderCaravanFailureLookup(failureKey){
