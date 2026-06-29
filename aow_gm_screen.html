@@ -109,6 +109,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 
 /* composer */
 .event-composer{background:var(--night-mid);border-bottom:1px solid var(--panel-border);padding:.75rem 1rem;flex-shrink:0;overflow-y:auto;max-height:52vh;}
+#toolsub-exploration-panel,#toolsub-caravan-panel,#toolsub-solo-panel,#toolsub-opponent-panel,#toolsub-relations-panel{display:flex;flex-direction:column;height:100%;min-height:0;}
 .composer-label-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;}
 .composer-title{font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
 .event-type-row{display:flex;gap:.25rem;margin-bottom:.5rem;flex-wrap:wrap;}
@@ -2227,11 +2228,11 @@ function runGenerator(){
 function setToolSubTab(tab,btn){
   document.querySelectorAll('.tool-subtabs .stype-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('toolsub-exploration-panel').style.display=tab==='exploration'?'block':'none';
-  document.getElementById('toolsub-caravan-panel').style.display=tab==='caravan'?'block':'none';
-  document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'block':'none';
-  document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'block':'none';
-  document.getElementById('toolsub-relations-panel').style.display=tab==='relations'?'block':'none';
+  document.getElementById('toolsub-exploration-panel').style.display=tab==='exploration'?'flex':'none';
+  document.getElementById('toolsub-caravan-panel').style.display=tab==='caravan'?'flex':'none';
+  document.getElementById('toolsub-solo-panel').style.display=tab==='solo'?'flex':'none';
+  document.getElementById('toolsub-opponent-panel').style.display=tab==='opponent'?'flex':'none';
+  document.getElementById('toolsub-relations-panel').style.display=tab==='relations'?'flex':'none';
   if(tab==='solo') populateSoloHeirSelect();
   if(tab==='caravan') renderCaravanPartyReadiness();
   if(tab==='relations') renderRelations();

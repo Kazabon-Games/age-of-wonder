@@ -13,7 +13,7 @@
   --night-3:#241e17;
   --vellum:#f2e8d0;
   --vellum-dim:rgba(242,232,208,0.6);
-  --vellum-faint:rgba(242,232,208,0.25);
+  --vellum-faint:rgba(242,232,208,0.55);
   --gold:#c9a96e;
   --gold-dim:#9e7a48;
   --gold-faint:rgba(201,169,110,0.15);
@@ -34,9 +34,10 @@ html[data-theme="light"]{
   --night:#f2e8d0;
   --night-2:#e8dcc4;
   --night-3:#ddd0b4;
+  --leather:#e8dcc4;
   --vellum:#241e17;
   --vellum-dim:rgba(36,30,23,0.7);
-  --vellum-faint:rgba(36,30,23,0.4);
+  --vellum-faint:rgba(36,30,23,0.7);
   --border-soft:rgba(58,45,30,0.18);
   --border-mid:rgba(58,45,30,0.25);
 }
@@ -66,7 +67,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 /* ══════════════════════════════════
    PERSISTENT HEADER
 ══════════════════════════════════ */
-.header{background:var(--leather);border-bottom:1px solid rgba(201,169,110,0.2);padding:.6rem 1rem;display:none;flex-direction:column;gap:.4rem;position:sticky;top:0;z-index:100;}
+.header{background:var(--leather);border-bottom:1px solid rgba(201,169,110,0.2);padding:.6rem 7rem .6rem 1rem;display:none;flex-direction:column;gap:.4rem;position:sticky;top:0;z-index:100;}
 .header.show{display:flex;}
 .header-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
 .header-identity{display:flex;align-items:baseline;gap:.6rem;flex:1;min-width:0;}
@@ -294,7 +295,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 }
 @media(min-width:900px){
   .tab-inner{padding:2rem 2rem 3rem;}
-  .header{padding:.7rem 2rem;}
+  .header{padding:.7rem 7.5rem .7rem 2rem;}
   .tab-bar{justify-content:center;}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}}
@@ -614,6 +615,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
         <div style="display:flex;flex-direction:column;gap:.2rem;">
           <span style="font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);">Generated Syntax</span>
           <div id="spell-syntax-output" style="font-family:'Courier New',monospace;font-size:.68rem;color:#3a6b50;background:rgba(44,74,58,0.1);border:1px solid rgba(44,74,58,0.25);padding:.5rem .6rem;min-height:2rem;line-height:1.6;word-break:break-all;border-left:2px solid rgba(44,74,58,0.5);">Fill in components above to generate syntax.</div>
+          <div id="spell-syntax-validation" style="font-size:.72rem;line-height:1.5;margin-top:.2rem;"></div>
         </div>
         <textarea id="new-spell-effect" placeholder="What the spell produces — describe the effect in narrative terms"></textarea>
         <div class="cap-form-row">
@@ -896,6 +898,28 @@ function importFromS0(input){
       }
 
       const cp=data.combatProfile||{};
+
+      // If this is a genuinely different heir than whatever is currently
+      // loaded, do a full reset before populating — found as a real bug:
+      // the rest of this function is deliberately additive (uses
+      // if(!list.find(...)) guards) so a player can safely re-import their
+      // own updated record without losing manually-added spells. That same
+      // additive behavior silently merged a NEW heir's data on top of the
+      // OLD heir's leftover spells/techniques/contacts/wounds when used to
+      // switch heirs via "Re-import Record" instead. Only reset when the
+      // name actually changes, so the safe re-import-same-heir case is
+      // untouched.
+      if(state.setup.name&&state.setup.name!==heirName){
+        state={
+          setup:{name:'',house:'',succession:'',school:'',tier:1,weapon:'',presence:'Baseline',style:'',technique:''},
+          strain:0,stamina:0,wounds:[],phase:'Effort',dissolution:'',secondSchool:'',
+          leverage:{kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0},
+          spells:[],techniques:[],loot:[],documents:[],contacts:[],debts:[],
+          capstone:null,
+          notes:{prev:'',current:'',questions:''},
+        };
+      }
+
       state.setup={
         name:heirName,
         house:data.house?.name||'',
@@ -999,12 +1023,62 @@ function buildSpellSyntax(){
   const strainMap={1:'S1',2:'S1',3:'S2',4:'S2',5:'S3',6:'S4|DISSOLUTION_RISK'};
   const strainStage=strainMap[tier]||'S1';
 
-  const schoolStr=school2?`${school1}+${school2}`:school1;
-  const crossStr=school2?'|*multiplicative_overhead*':'';
+  const isCross=school2&&school2!==school1;
+  const schoolStr=isCross?`${school1}+${school2}`:school1;
+  const crossStr=isCross?'|*multiplicative_overhead*':'';
   const syntax=`OPEN/${schoolStr}.T${tier}:[${name}]@${target}|${modsStr}|<WILLSTRAIN:${strainStage}>|~${duration}~${crossStr}`;
 
   const out=document.getElementById('spell-syntax-output');
   if(out)out.textContent=syntax;
+
+  // ── Content-aware checks — same gap closed in the SRD's copy of this
+  // builder, ported here since this is the tool players actually touch
+  // most often. Checks form-vs-content, not just form-vs-form: does the
+  // chosen school match what the target/modifiers actually describe, and
+  // is the chosen tier plausible for the stated scope. This tool cannot
+  // compute tier from Scope/Precision/Resistance/Duration the way the
+  // SRD's real algorithm does — that needs GM judgment of the fictional
+  // situation — but it can catch the most common, most avoidable
+  // mismatches before they reach the table.
+  const validation=document.getElementById('spell-syntax-validation');
+  const warnings=[];
+  const tierNum=parseInt(tier);
+  const targetAndMods=(target+' '+rawMods).toLowerCase();
+  const schoolSignals={
+    ALT:['body','heal','wound','transform','material','flesh','gland','organ','chemical','blood','bone','shape','structure'],
+    CON:['summon','conjure','fetch','bring forth','call forth','materialize'],
+    NEG:['silence','suppress','negate','unmake','counter','cancel','snuff'],
+    DIV:['know','read','sense','detect','truth','reveal','perceive','locate'],
+    TRN:['move','teleport','displace','position','swap','step','gate'],
+    DOM:['will','suggest','command','obey','believe','memory','emotion','behavior','compel','persuade'],
+  };
+  Object.entries(schoolSignals).forEach(([sch,words])=>{
+    if(sch===school1)return;
+    const hit=words.find(w=>new RegExp(`(^|[_\\s])${w}([_\\s]|$)`).test(targetAndMods));
+    if(hit&&!isCross){
+      warnings.push(`Target/modifiers mention "${hit}", which reads as ${sch} territory rather than ${school1}. Double-check the school is the one actually producing this effect.`);
+    }
+  });
+  const bigScopeWords=['all','every','entire','everyone','everything','city','kingdom','world','irreversible','permanently_unmake'];
+  const hitScope=bigScopeWords.find(w=>new RegExp(`(^|[_\\s])${w}([_\\s]|$)`).test(targetAndMods));
+  if(hitScope&&tierNum<=2){
+    warnings.push(`Target/modifiers mention "${hitScope}", a much larger scope than tier ${tierNum} typically covers. Confirm this tier with your GM before recording it.`);
+  }
+  if(duration==='permanent'&&tierNum<=2&&!targetAndMods.includes('small')){
+    warnings.push('Permanent effects at tier one or two are unusual unless the target is explicitly small/minor — confirm this is really as low-tier as picked.');
+  }
+  if(isCross&&tierNum<3){
+    warnings.push('Cross-school castings require tier three minimum due to multiplicative overhead.');
+  }
+  if(validation){
+    if(warnings.length>0){
+      validation.innerHTML=`<span style="color:var(--crimson-bright);">⚠ ${warnings[0]}</span>`;
+    } else if(name!=='SPELL_NAME'&&target!=='target'){
+      validation.innerHTML=`<span style="color:var(--gold-dim);font-style:italic;">✦ Internally consistent. Tier is still your own read of the spell's actual scope and difficulty — confirm with your GM before casting.</span>`;
+    } else {
+      validation.innerHTML='';
+    }
+  }
 }
 
 
