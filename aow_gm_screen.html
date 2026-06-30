@@ -4,6 +4,50 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Age of Wonder — Wonderland · GM Screen</title>
+<!-- ═══════════════════════════════════════════════════════════════════
+     Age of Wonder GM Screen · Wonderland Engine
+     Version: 1.3.0
+     ───────────────────────────────────────────────────────────────────
+     CHANGELOG
+     v1.3.0 — NPC Dossier system (pre-Arc-One)
+       - NPC_CODEX replaced with NPC_DOSSIER: nine fully authored world
+         NPCs with four score-gated content tiers (codex at +1, dossier
+         at +2, private want/fear at +3, relations at +5) plus always-
+         visible GM-only sections (ceremony position, GM secrets).
+       - Names assigned to all nine: King Hector, Edrin Castellane,
+         Mira Thessaly, Bren Calder, Otto Greave, Ysolde Farrin,
+         Father Corwen Ashe, Roven Maddox, "The Tallyman."
+       - Visual description layer added to each NPC (+1 tier).
+       - +2 functional/dossier layer: how each NPC got their position,
+         how the role actually runs. Present for all nine including
+         Hector and Castellane (GM call, same tier).
+       - +3 private layer: want and fear underneath the performance.
+         Carries legitimacy-threshold weight for Hector, Ashe, Maddox
+         (SRD: one high-weight endorsement at +3 required).
+       - GM-only secrets added for Castellane, Maddox, Ashe — each
+         with a distinct discovery path (Divination Read, T3 Leverage
+         pull, human-intelligence only respectively). Always visible to
+         GM regardless of score; never score-gated.
+       - Relations layer: this NPC's private read on ring-adjacent NPCs.
+         Two unlock paths per SRD:
+         (A) Archivist General's lore ability — on-demand query UI in
+             the Archivist drawer, any NPC pair, once per session.
+         (B) +5 Invested passive — scoped to NPCs the heir has at
+             least +1 with. Hook fires when score first crosses +5.
+       - Tallyman exception: no dossier, private, relations, or secret
+         layers by design; one unprompted warning at +5 only.
+       - adjustScore now fires a hook when any heir first reaches +5
+         with a world NPC (relations unlock or Tallyman warning).
+       - Ceremony section added to all nine: where/what at the Arc One
+         opening crystal ceremony. Always visible to GM.
+       - WORLD_NPCS entries updated with personal names.
+       - Stage 7 harness rewritten to test the new gating structure
+         (five sub-tests: zero-score baseline, +1 codex unlock, GM
+         secrets always visible, Tallyman integrity, Archivist lore UI).
+       - Stage 11 worldbreaker extended with three new attacks: dossier
+         gate breach at score 0, Tallyman private-layer breach at +5,
+         XSS via GM Notes textarea on world NPC drawers.
+     ─────────────────────────────────────────────────────────────────── -->
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
