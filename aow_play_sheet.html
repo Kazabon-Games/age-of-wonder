@@ -478,6 +478,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
       <div class="tier-phase" id="magic-phase-display">Effort</div>
     </div>
   </div>
+  <div id="starting-choices-area"></div>
   <div class="section">
     <div class="section-title">Current Tier</div>
     <div class="tier-selector" id="tier-selector">
@@ -851,6 +852,11 @@ let state={
   phase:'Effort',
   dissolution:'',
   secondSchool:'',
+  magicCount:0,        // years of magic study from session zero, drives pick eligibility below
+  tier2Available:false,
+  tier2Picked:false,   // true once player has chosen their T2 spell — prevents re-prompting
+  secondSchoolAvailable:false,
+  secondSchoolPicked:false, // true once player has chosen their second school — prevents re-prompting
   leverage:{kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0},
   spells:[],
   techniques:[],
@@ -913,6 +919,7 @@ function importFromS0(input){
         state={
           setup:{name:'',house:'',succession:'',school:'',tier:1,weapon:'',presence:'Baseline',style:'',technique:''},
           strain:0,stamina:0,wounds:[],phase:'Effort',dissolution:'',secondSchool:'',
+          magicCount:0,tier2Available:false,tier2Picked:false,secondSchoolAvailable:false,secondSchoolPicked:false,
           leverage:{kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0},
           spells:[],techniques:[],loot:[],documents:[],contacts:[],debts:[],
           capstone:null,
@@ -950,16 +957,46 @@ function importFromS0(input){
         });
       }
 
+      // Magic progression eligibility from session zero — per SRD Appendix
+      // E: 2 years unlocks T2 access (own school), 3 years opens a second
+      // school (player's choice, begins at T1). These are choices made HERE
+      // on the Play Sheet, not auto-granted — see pickers rendered in the
+      // Magic tab. tier2Picked/secondSchoolPicked are only ever set true by
+      // the player actually choosing, never reset by re-import, so a safe
+      // re-import of the same heir doesn't re-prompt a choice already made.
+      // Derive from magicStudyYears directly rather than trusting the
+      // exported boolean flags alone — older Heir Record exports (from
+      // before this Play Sheet feature existed) won't have
+      // secondSchoolAvailable at all, and some won't have a correct
+      // tier2Available either, since that threshold itself was fixed
+      // alongside this feature. Real player files predate code changes;
+      // the source of truth is the actual year count, which has been
+      // present in every export version.
+      state.magicCount=data.awakening?.magicStudyYears||0;
+      state.tier2Available=(data.awakening?.tier2Available!==undefined)?!!data.awakening.tier2Available:state.magicCount>=2;
+      state.secondSchoolAvailable=(data.awakening?.secondSchoolAvailable!==undefined)?!!data.awakening.secondSchoolAvailable:state.magicCount>=3;
+
       // Capstone Specialization — only present if the heir committed five years to one aspect
       if(data.capstone){
         state.capstone={...data.capstone,usedThisSession:false};
       }
 
       // Pre-populate starting spells if any
+      // NOTE: older heir exports may contain a spell tagged "(adjacent)" or
+      // "*" — this came from a since-removed rule that auto-granted a T1
+      // spell from a hardcoded "adjacent school" lookup at 2 years of magic
+      // study. That rule never matched the SRD (which has no adjacent-school
+      // concept — only a player-chosen second school at 3 years) and has
+      // been retired. These tagged spells are skipped entirely on import
+      // rather than relabeled, since silently stripping the tag and keeping
+      // the spell under the heir's primary school would misattribute it.
+      // Players affected keep any spell they were told they have at the
+      // table — this only prevents the bad grant from re-surfacing on import.
       if(data.awakening?.startingSpells?.length){
         const schoolKey=data.awakening.revealedSchool;
         data.awakening.startingSpells.forEach(spellName=>{
-          const cleanName=spellName.replace(' (adjacent)','').replace('*','').trim();
+          if(spellName.includes('(adjacent)')||spellName.includes('*'))return;
+          const cleanName=spellName.trim();
           if(!state.spells.find(s=>s.name===cleanName)){
             state.spells.push({
               name:cleanName,
@@ -1315,7 +1352,82 @@ function renderCombat(){
 }
 
 // ═══════════════════ MAGIC TAB ═══════════════════
+function renderStartingChoices(){
+  const area=document.getElementById('starting-choices-area');
+  if(!area)return;
+  const schoolKey=state.setup.school;
+  let html='';
+
+  // T2 pick — own school only, per SRD (2 years unlocks T2 access in your
+  // own school; there is no adjacent-school provision in the rules).
+  // Already-picked detection checks both the explicit flag AND whether a T2
+  // spell in this school already exists in state.spells, so a player who
+  // added their T2 spell manually before this picker existed doesn't get
+  // re-prompted.
+  const hasT2InSchool=state.spells.some(s=>s.school===schoolKey&&s.tier===2);
+  if(state.tier2Available&&!state.tier2Picked&&!hasT2InSchool&&schoolKey){
+    const opts=SPELL_LIBRARY.filter(s=>s.school===schoolKey&&s.tier==='T2');
+    html+=`<div class="section" style="border-color:var(--crimson);">
+      <div class="section-title" style="color:var(--crimson);">Choose Your Tier Two Spell</div>
+      <div style="font-size:.82rem;color:var(--page-text-light);margin-bottom:.6rem;">Two years of study unlocked tier two access in ${SCHOOLS[schoolKey].name}. Choose one — per the SRD this is a real, demanding casting; willstrain reflects the weight before your will is fully developed.</div>
+      ${opts.map(s=>`<div class="cap-card" style="margin-bottom:.4rem;">
+        <div class="cap-body">
+          <div class="cap-header"><span class="cap-name">${s.name}</span><span class="cap-tier">T2</span></div>
+          <div class="cap-effect">${s.brief}</div>
+          <button class="cap-form-btn" style="margin-top:.5rem;" onclick="pickTier2('${s.name}')">Choose ${s.name}</button>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // Second school pick — per SRD Multi-School Access: opens at three years
+  // of study, begins at T1, player's free choice of any of the other five
+  // schools. Cross-school casting itself requires T2 in that second school,
+  // earned through play — not granted here.
+  if(state.secondSchoolAvailable&&!state.secondSchoolPicked&&!state.secondSchool){
+    const others=Object.keys(SCHOOLS).filter(k=>k!==schoolKey);
+    html+=`<div class="section" style="border-color:var(--gold-dim);">
+      <div class="section-title" style="color:var(--gold-dim);">Choose Your Second School</div>
+      <div style="font-size:.82rem;color:var(--page-text-light);margin-bottom:.6rem;">Three years of study opened a second school. Per the SRD it begins at tier one — its three tier one spells are granted now. Cross-school casting opens later, once you reach tier two in this school through play.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+        ${others.map(k=>`<button class="cap-form-btn" style="border-color:${SCHOOLS[k].color};color:${SCHOOLS[k].color};" onclick="pickSecondSchool('${k}')">${SCHOOLS[k].name}</button>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  area.innerHTML=html;
+}
+
+function pickTier2(name){
+  const schoolKey=state.setup.school;
+  const s=SPELL_LIBRARY.find(x=>x.school===schoolKey&&x.tier==='T2'&&x.name===name);
+  if(!s)return;
+  if(!state.spells.find(sp=>sp.name===s.name)){
+    state.spells.push({name:s.name,tier:2,school:s.school,effect:s.brief,syntax:s.syntax});
+  }
+  state.tier2Picked=true;
+  save();renderMagic();renderOverview();
+}
+
+function pickSecondSchool(schoolKey){
+  state.secondSchool=schoolKey;
+  state.secondSchoolPicked=true;
+  const sel=document.getElementById('second-school-select');
+  if(sel)sel.value=schoolKey;
+  // Grant the full T1 list of the chosen second school, per "begin the second school at tier one"
+  (T1_LIBRARY_FOR_SCHOOL(schoolKey)||[]).forEach(s=>{
+    if(!state.spells.find(sp=>sp.name===s.name)){
+      state.spells.push({name:s.name,tier:1,school:s.school,effect:s.brief,syntax:s.syntax});
+    }
+  });
+  save();renderMagic();renderOverview();
+}
+
+function T1_LIBRARY_FOR_SCHOOL(schoolKey){
+  return SPELL_LIBRARY.filter(s=>s.school===schoolKey&&s.tier==='T1');
+}
 function renderMagic(){
+  renderStartingChoices();
   const school=state.setup.school?SCHOOLS[state.setup.school]:null;
   const nameEl=document.getElementById('magic-school-name');
   const axiomEl=document.getElementById('magic-school-axiom');

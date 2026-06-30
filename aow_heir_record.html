@@ -1550,20 +1550,23 @@ function buildProfile(){
   const schoolKey=getRevealedSchool();
   const school=schoolKey?SCHOOLS[schoolKey]:null;
 
-  // Magic aspect count drives spell access
+  // Magic aspect count drives spell access — per SRD Appendix E: one year =
+  // T1 own school. Two years = T2 access unlocked, own school. Three years
+  // = second school opens (begins at T1, player's choice — see Multi-School
+  // Access). Four+ years = enters Phase of Fluency at awakening (assembly
+  // overhead skipped from the start). There is no "adjacent school" rule in
+  // the SRD; that concept does not exist in canon and the spell grant tied
+  // to it was removed.
   const magicYears=yearData.filter(d=>d&&d.aspect==='magic');
   const magicCount=magicYears.length;
   let startingSpells=[];
   let tier2Available=false;
-  let passiveBonus=false;
+  let secondSchoolAvailable=false;
+  let enteredFluency=false;
   if(magicCount>=1&&schoolKey) startingSpells=T1_SPELLS[schoolKey]||[];
-  if(magicCount>=2&&schoolKey){
-    const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
-    const adjKey=adj[schoolKey];
-    if(adjKey&&T1_SPELLS[adjKey]) startingSpells=[...startingSpells,T1_SPELLS[adjKey][0]+'*'];
-  }
-  if(magicCount>=3) tier2Available=true;
-  if(magicCount>=4) passiveBonus=true;
+  if(magicCount>=2) tier2Available=true;
+  if(magicCount>=3) secondSchoolAvailable=true;
+  if(magicCount>=4) enteredFluency=true;
 
   // Combat profile
   const combatYears=yearData.filter(d=>d&&d.aspect==='combat');
@@ -1611,8 +1614,9 @@ function buildProfile(){
       ${school?`<div class="pc-row"><span class="pc-label">Axiom</span><span class="pc-val" style="font-style:italic;font-size:.72rem;">${school.axiom}</span></div>`:''}
       <div class="pc-row"><span class="pc-label">Magic Study Years</span><span class="pc-val ${magicCount>=3?'highlight':''}">${magicCount} of 5</span></div>
       ${startingSpells.length?`<div style="margin-top:.5rem;"><div class="pc-label" style="margin-bottom:.3rem;">Starting Spells</div>${startingSpells.map(s=>`<span class="pc-tag">${s}</span>`).join('')}</div>`:'<div class="pc-block" style="color:var(--page-text-light);font-style:italic;margin-top:.4rem;">No magic study — spells acquired through play.</div>'}
-      ${tier2Available?`<div class="pc-row" style="margin-top:.4rem;"><span class="pc-label">Tier Two Access</span><span class="pc-val highlight">One T2 spell available</span></div>`:''}
-      ${passiveBonus?`<div class="pc-row"><span class="pc-label">Passive Bonus</span><span class="pc-val highlight">${magicYears[magicYears.length-1]?.subs.p3||'Orientation acquired'}</span></div>`:''}
+      ${tier2Available?`<div class="pc-row" style="margin-top:.4rem;"><span class="pc-label">Tier Two Access</span><span class="pc-val highlight">One T2 spell — choose on Play Sheet</span></div>`:''}
+      ${secondSchoolAvailable?`<div class="pc-row"><span class="pc-label">Second School</span><span class="pc-val highlight">Available — choose on Play Sheet, begins at T1</span></div>`:''}
+      ${enteredFluency?`<div class="pc-row"><span class="pc-label">Phase at Awakening</span><span class="pc-val highlight">Fluency — assembly overhead skipped</span></div>`:''}
     </div>
     <div class="profile-card">
       <div class="pc-title">Combat Profile</div>
@@ -1650,15 +1654,9 @@ function buildSpellAccess(){
   } else if(magicCount===1){
     html+=`You know the theory. Three tier one spells are available from your school.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}</div>`;
   } else if(magicCount===2){
-    const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
-    const adjKey=adj[schoolKey];const adjSchool=adjKey?SCHOOLS[adjKey]:null;
-    html+=`You have studied your school and its adjacent tradition. Three tier one spells from ${school.name}${adjSchool?` and one from ${adjSchool.name}`:''} are available.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}${adjSchool&&T1_SPELLS[adjKey]?`<span class="pc-tag" style="border-color:var(--gold-dim);color:var(--gold-dim);">${T1_SPELLS[adjKey][0]} *</span>`:''}</div><div style="font-size:.72rem;font-style:italic;color:var(--page-text-light);margin-top:.3rem;">* Adjacent school — higher willstrain cost until second school formally developed.</div>`;
-  } else if(magicCount===3){
-    html+=`Three years of study unlocks your first tier two spell alongside tier one access. The tier two spell is available but demanding — be aware of willstrain before your will is fully developed.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose with GM</span></div>`;
-  } else {
-    const magicData=yearData.filter(d=>d&&d.aspect==='magic');
-    const orientation=magicData[magicData.length-1]?.subs.p3||'';
-    html+=`${magicCount} years of dedicated study. Full tier one access, one tier two spell, and a philosophical orientation. You have likely sacrificed political or combat development for this depth.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose with GM</span>${orientation?`<span class="pc-tag" style="border-color:var(--forest);color:var(--forest);">${orientation}</span>`:''}</div>`;
+    html+=`Two years of study unlocks tier two access in your own school, alongside your tier one spells.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose on your Play Sheet</span></div>`;
+  } else if(magicCount>=3){
+    html+=`${magicCount===3?'Three':magicCount} years of study${magicCount===3?' opens':' have opened'} a second school — full tier one access, your tier two spell, and the choice of a second school beginning at tier one.</div><div style="margin-top:.4rem;">${(T1_SPELLS[schoolKey]||[]).map(s=>`<span class="pc-tag">${s}</span>`).join('')}<span class="pc-tag" style="border-color:var(--crimson);color:var(--crimson);">One T2 Spell — choose on your Play Sheet</span><span class="pc-tag" style="border-color:var(--gold-dim);color:var(--gold-dim);">Second School Available — choose on your Play Sheet</span></div><div style="font-size:.72rem;font-style:italic;color:var(--page-text-light);margin-top:.3rem;">Per the SRD: a second school begins at tier one. Cross-school casting requires tier two in that second school, earned through play.</div>`;
   }
   el.innerHTML=html;
 }
@@ -1968,10 +1966,8 @@ function buildPrintSummary(){
   const style=combatYears[1]?.subs.p2||null;
   const hybridStyles=['Duelist-Mage','Spell and Steel','Quickcaster','Battlemage','Warden','Channeler'];
   const hybrid=combatYears.length>0&&magicYears.length>0&&(style?hybridStyles.some(h=>style.includes(h.split(' ')[0])):false);
-  const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};
   let spellList=[];
   if(magicCount>=1&&schoolKey)spellList=[...(T1_SPELLS[schoolKey]||[])];
-  if(magicCount>=2&&schoolKey){const ak=adj[schoolKey];if(ak&&T1_SPELLS[ak])spellList.push(T1_SPELLS[ak][0]+' *');}
   const totalTraining=yearData.filter(d=>d).length;
   const soloCap=Math.min(3,Math.floor(totalTraining/2)+1);
   const caravanCaps=[];
@@ -2071,11 +2067,13 @@ function saveRecord(){
   const loreYears=yearData.filter(d=>d&&d.aspect==='lore');
   const totalTraining=yearData.filter(d=>d).length;
 
-  // Spell access
+  // Spell access — per SRD Appendix E: 1yr=T1 own school, 2yr=T2 access
+  // unlocked (own school, player picks on Play Sheet), 3yr=second school
+  // opens at T1 (player's choice of school, on Play Sheet). No adjacent-
+  // school grant exists in the SRD.
   const magicCount=magicYears.length;
   let startingSpells=[];
   if(magicCount>=1&&revealedSchool) startingSpells=T1_SPELLS[revealedSchool]||[];
-  if(magicCount>=2&&revealedSchool){const adj={ALT:'TRN',CON:'ALT',NEG:'DIV',DIV:'NEG',TRN:'CON',DOM:'TRN'};const adjKey=adj[revealedSchool];if(adjKey&&T1_SPELLS[adjKey])startingSpells=[...startingSpells,T1_SPELLS[adjKey][0]+' (adjacent)'];}
 
   const record={
     version:'1.1',
@@ -2119,7 +2117,8 @@ function saveRecord(){
       awakeningReaction:gv('awakening-reaction'),
       magicStudyYears:magicCount,
       startingSpells,
-      tier2Available:magicCount>=3,
+      tier2Available:magicCount>=2,
+      secondSchoolAvailable:magicCount>=3,
       philosophicalOrientation:magicCount>=4?(magicYears[magicYears.length-1]?.subs.p3||null):null,
     },
     combatProfile:{
