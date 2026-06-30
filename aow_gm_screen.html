@@ -478,6 +478,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     <button class="top-btn" onclick="confirmAdvanceSession()">Advance →</button>
     <input type="file" id="heir-file-input" accept=".json" multiple style="display:none" onchange="handleHeirImport(this)"/>
     <button class="top-btn primary" onclick="document.getElementById('heir-file-input').click()">⬆ Import Heirs</button>
+    <button class="top-btn" onclick="confirmResetSession()">↺ Reset Session Data</button>
   </div>
 </div>
 
@@ -949,7 +950,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 </div>
 
 <!-- IMPORT MODAL -->
-<div class="modal-overlay" id="import-modal" onclick="if(event.target===this)closeImportModal()">
+<div class="modal-overlay" id="import-modal">
   <div class="modal-box">
     <div class="modal-title">Heir Records Imported</div>
     <div class="modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
@@ -1346,6 +1347,30 @@ function load() {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+function confirmResetSession() {
+  if (!confirm('Reset all session data?\n\n• All imported heirs removed\n• All leverage scores cleared\n• All hooks, events, and notes cleared\n• Session counter returns to 1\n\nWorld NPCs (King Hector, Royal Chamberlain, the faction leaders) remain — only imported and session-specific data clears. This is for re-testing imports cleanly and cannot be undone.')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  state = {
+    session:1, sessionType:'main', selectedDirection:'favorable',
+    selectedEventType:'action', selectedTier:1,
+    activeFilter:'all', hookFilter:'all', drawerNode:null,
+    _unreadHooks:0, _unreadLog:0,
+    heirs:[], nodes:{}, events:[], hooks:[],
+    notes:{session:'',between:'',threads:''},
+    snapshots:[],
+    lastGeneratedRewards:[],
+  };
+  const ns = document.getElementById('notes-session');
+  const nb = document.getElementById('notes-between');
+  const nt = document.getElementById('notes-threads');
+  if (ns) ns.value = '';
+  if (nb) nb.value = '';
+  if (nt) nt.value = '';
+  closeDrawer();
+  init();
+  save();
+}
+
 function init() {
   // Always seed world NPCs first
   WORLD_NPCS.forEach(n => {
