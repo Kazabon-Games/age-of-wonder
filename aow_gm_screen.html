@@ -949,7 +949,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 </div>
 
 <!-- IMPORT MODAL -->
-<div class="modal-overlay" id="import-modal">
+<div class="modal-overlay" id="import-modal" onclick="if(event.target===this)closeImportModal()">
   <div class="modal-box">
     <div class="modal-title">Heir Records Imported</div>
     <div class="modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
