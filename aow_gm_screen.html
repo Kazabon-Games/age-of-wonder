@@ -27,6 +27,15 @@
   --crimson-bright:#9b2a2a;
   --indigo:#3a3060;
   --panel-border:rgba(139,105,20,0.18);
+  /* Caution/warning tier, distinct from gold's decorative/brand role and
+     from crimson's danger role. Found as a real readability bug: gold was
+     doing double duty as both UI chrome (titles, borders, buttons — used
+     150+ times decoratively) and as the "pay attention" severity signal in
+     combat flags, so genuine warnings had no visual distinction from
+     ordinary decoration. Amber is reserved exclusively for caution-tier
+     severity; gold goes back to being purely decorative. */
+  --amber:#b8722a;
+  --amber-bright:#e0964a;
 }
 html[data-theme="light"]{
   --night:#f5eedf;
@@ -37,6 +46,17 @@ html[data-theme="light"]{
   --vellum-mid:#5c3d1e;
   --panel-border:rgba(58,45,30,0.22);
   --gold-faint:rgba(139,105,20,0.14);
+  /* Found as a real contrast bug: gold-bright at #c9a030 (used 42 times for
+     titles, primed-node borders, and emphasis text) measures 7.9:1 against
+     the dark background — excellent — but only 2.12:1 against light mode's
+     cream background, failing WCAG AA (4.5 minimum) badly. It was never
+     given its own light-mode value, so it inherited the dark-tuned color
+     unchanged. Darkened here specifically for legibility against cream;
+     --gold and --gold-dim already passed AA in both modes and are left
+     untouched to avoid changing anything that wasn't actually broken. */
+  --gold-bright:#7a5510;
+  --amber:#9c5d1e;
+  --amber-bright:#7a4814;
 }
 
 html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
@@ -742,6 +762,10 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
         <span class="composer-field-label">How many chambers?</span>
         <input type="number" class="composer-select" id="tool-custom-count" min="1" max="20" value="6" style="width:100%;"/>
       </div>
+      <div style="margin:.5rem 0;display:flex;align-items:center;gap:.4rem;">
+        <input type="checkbox" id="tool-layout-mode" style="width:auto;"/>
+        <label for="tool-layout-mode" style="font-size:.7rem;color:var(--ink-light);cursor:pointer;">Layout Mode — present as a connected sequence of rooms; mark danger rooms manually as you walk the party through</label>
+      </div>
       <button class="log-btn" onclick="runGenerator()">Generate</button>
     </div>
     <div class="log-area">
@@ -1006,14 +1030,40 @@ const SCHOOLS={
 // Three previous civilizations, per the SRD's Exploration chapter. Each produces a
 // structurally different reward — this is why the Reward Generator branches by
 // civilization rather than treating every find as the same kind of object.
+// Per-civilization, per-depth phrasing — taken directly from the SRD's own
+// "Civilization Access" column (Exploration chapter depth table), not
+// invented. D1 has no civilization-specific Void phrase in the SRD — it
+// only describes "surface-level traces of all three civilizations" — so
+// void's D1 entry intentionally uses that same generic phrase rather than
+// fabricating a specific one the source text doesn't provide.
+const DEPTH_PHRASE={
+  architect:{D1:'an outer structure',D2:'an operational zone',D3:'a deep operational zone, mechanisms at full activation',D4:'a core system, requiring real knowledge to interpret safely',D5:'source architecture — the deepest functional systems',D6:'—'},
+  predecessor:{D1:'a public record room',D2:'an administrative record',D3:'a restricted record',D4:'a sealed vault',D5:'a founding document',D6:'—'},
+  void:{D1:'a surface-level trace',D2:'a peripheral space, first indications',D3:'a peripheral space',D4:'a transition space',D5:'a primary space — first genuine contact with what was encountered',D6:'a deep space'},
+};
+
 const CIVILIZATIONS={
   architect:{
     name:'The Architects',
     rewardShape:'item',
     flavor:'Mechanism and structure. The Architects integrated will into physical construction — what they left still operates.',
     danger:'Physical. Mechanisms at full activation.',
+    // Expanded from the SRD's own framing: an Architect ruin is not
+    // abandoned, it is still running — the templates below split across
+    // three registers (the mechanism itself, the moment of finding it, the
+    // implication of what it was for) so a multi-chamber site doesn't read
+    // as the same sentence shape eight times in a row.
     descTemplates:[
-      'a {adj} mechanism, still humming with residual will','a {adj} construct half-sunk into the chamber floor','a {adj} apparatus built into the wall itself','a {adj} device left mid-function, as if its makers stepped away mid-thought'
+      'a {adj} mechanism, still humming with residual will',
+      'a {adj} construct half-sunk into the chamber floor',
+      'a {adj} apparatus built into the wall itself',
+      'a {adj} device left mid-function, as if its makers stepped away mid-thought',
+      'something {adj} that responds to your presence before you have decided whether to approach it',
+      'a {adj} structure that has been maintaining itself, unattended, for longer than any record accounts for',
+      'a {adj} mechanism whose purpose isn\'t obvious — only that it is waiting for a specific condition to be met',
+      'a {adj} piece of integrated will, structural rather than cast, doing something none of you came prepared to interpret',
+      'a {adj} array of components that were clearly built to work together, though most of the chamber around them has not survived',
+      'a {adj} fixture that activates in sequence with something elsewhere in the ruin — you can feel it, not just hear it',
     ],
   },
   predecessor:{
@@ -1021,8 +1071,23 @@ const CIVILIZATIONS={
     rewardShape:'document',
     flavor:'A political civilization. What they left is administrative — record rooms, succession documents, the infrastructure of a governing body that predates Aetheria Nova.',
     danger:'Political. Other interested parties want what was found, or want it to stay lost.',
+    // Expanded from the SRD's framing of what Predecessor Court ruins
+    // actually are — record rooms, council chambers, administrative
+    // infrastructure that predates Aetheria Nova's founding — and what
+    // makes a find dangerous: not the document itself, but who wants it
+    // found or kept buried, including material the Archivist General
+    // chose to exclude from the public archive.
     descTemplates:[
-      'a sealed succession record, wax still intact','an administrative ledger from a council that no longer exists','a personal correspondence between two figures history does not name','a founding-era document the current order has strong reasons to keep buried'
+      'a sealed succession record, wax still intact',
+      'an administrative ledger from a council that no longer exists',
+      'a personal correspondence between two figures history does not name',
+      'a founding-era document the current order has strong reasons to keep buried',
+      'a record room, mostly intact, organized by a filing logic none of you recognize',
+      'a council chamber\'s minutes, detailing a vote that the public record describes differently',
+      'a document bearing a seal that predates the Crown\'s current line entirely',
+      'something the Archivist General would have had clear reason to leave out of the public archive',
+      'an inventory of holdings that don\'t correspond to anything in the current political map',
+      'a private account of a succession that the official histories resolved very differently',
     ],
   },
   void:{
@@ -1030,8 +1095,23 @@ const CIVILIZATIONS={
     rewardShape:'item',
     flavor:'Unknown in advance. What these spaces contain looks like what it looks like and does things that are not what it looks like. The axiom\'s normal behavior may not apply consistently here.',
     danger:'The space itself. Consequence of contact with something not of the world in the conventional sense.',
+    // Expanded carefully against the SRD's own constraint: this is NOT a
+    // third named civilization the way Architects/Predecessors are — its
+    // actual name doesn't appear in any record, and what's here are
+    // consequences of contact, not artifacts from a known culture. Every
+    // template preserves that unresolved, can't-fully-explain quality
+    // rather than accidentally writing it as settled lore.
     descTemplates:[
-      'an object that looks like {mundane} but is unmistakably not','something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be','a {mundane}, ordinary in every visible way, that the Read school cannot fully explain','what appears to be a {mundane} until you look at it the second time'
+      'an object that looks like {mundane} but is unmistakably not',
+      'something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be',
+      'a {mundane}, ordinary in every visible way, that the Read school cannot fully explain',
+      'what appears to be a {mundane} until you look at it the second time',
+      'a {mundane} that none of you can quite agree on the appearance of, afterward',
+      'something shaped like a {mundane} that was clearly never meant to be one',
+      'a {mundane}-sized absence where a {mundane} should be, holding the shape without holding the substance',
+      'a {mundane} that the axiom\'s normal rules don\'t seem to fully apply to',
+      'something recovered that resembles a {mundane}, accompanied by a feeling none of you can name',
+      'a {mundane}, whole and undamaged, in a space where nothing else survived intact',
     ],
   },
 };
@@ -1049,28 +1129,58 @@ const DEPTH_TABLE={
 // ═══════════════════════════════════════════
 // REWARD GENERATOR — vocabularies
 // ═══════════════════════════════════════════
-const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful'];
-const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub'];
-const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still'];
-const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark'];
-const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing'];
-const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims'];
+const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful','tarnished','luminous','weightless','too-heavy','faintly warm','stained','pristine','restless'];
+const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub','buckle','spoon','clasp','marble','whistle','locket','nail','spindle'];
+const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still','Faded','Echo','Buried','Forgotten','Old','Wandering','Severed','Unspoken'];
+const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark','Compass','Ledger','Needle','Crown','Latch','Wick','Tide','Sigil'];
+// Expanded with situations grounded in the same political stakes the SRD
+// uses elsewhere — succession, debt, alliance, legitimacy — rather than
+// generic fantasy intrigue, so a Predecessor document still reads as
+// belonging to THIS political world.
+const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing','a land grant whose original boundaries were later redrawn','a confession that was never formally entered into record','an appointment that bypassed the normal succession process entirely','a dispute over harbor rights that the official histories call settled'];
+// Expanded to cover every faction actually tracked in the leverage system
+// (FACTION_KEY_MAP / NPC_LIST) — the original 6-item list was missing City
+// Watch, Dockworkers Union, and Courier Network entirely, so a Predecessor
+// document could never implicate three of the game's real factions.
+const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims','the City Watch\'s founding charter','the Dockworkers Union\'s harbor rights','the Courier Network\'s claimed neutrality','the Royal Chamberlain\'s office directly'];
+
 
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function generateReward(civKey,depthKey){
+function generateReward(civKey,depthKey,seen){
   const civ=CIVILIZATIONS[civKey];
   const depth=DEPTH_TABLE[depthKey];
   if(!civ||!depth) return null;
   if(!depth.civAccess.includes(civKey)) return {error:`${civ.name} does not reach ${depthKey}. ${depthKey==='D6'?'Only Void Touched spaces exist at this depth.':'Choose a different civilization or depth.'}`};
 
+  // 'seen' is an optional {desc, name, subject, implicates} object of Sets,
+  // used by generateSite to keep a single batch from repeating itself.
+  // Each field retries independently against its own pool — found as a
+  // real bug that the original version only deduped the composed
+  // description text, leaving item names and document subject/implicates
+  // completely unguarded. DOC_SUBJECTS and DOC_IMPLICATES specifically had
+  // pools small enough (8 and 6 items) that an 8-chamber Predecessor site
+  // was a near-certain repeat on both before this fix. Each retry loop is
+  // capped at 20 attempts so a batch that genuinely exceeds a pool's real
+  // size degrades to an unguarded pick instead of looping forever.
+  const retryAgainst=(setOrNull,getVal)=>{
+    let val=getVal();
+    if(setOrNull){
+      let attempts=0;
+      while(setOrNull.has(val)&&attempts<20){ val=getVal(); attempts++; }
+    }
+    return val;
+  };
+
   if(civ.rewardShape==='document'){
+    const desc=retryAgainst(seen?.desc,()=>pick(civ.descTemplates));
+    const subject=retryAgainst(seen?.subject,()=>pick(DOC_SUBJECTS));
+    const implicates=retryAgainst(seen?.implicates,()=>pick(DOC_IMPLICATES));
     return {
       shape:'document',
       civ:civKey, civName:civ.name, depth:depthKey,
-      subject:pick(DOC_SUBJECTS),
-      implicates:pick(DOC_IMPLICATES),
-      desc:pick(civ.descTemplates),
+      subject, implicates, desc,
+      depthPhrase:DEPTH_PHRASE[civKey]?.[depthKey]||'',
       danger:civ.danger,
       rewardTier:depth.rewardTier,
     };
@@ -1080,26 +1190,37 @@ function generateReward(civKey,depthKey){
   const schoolKeys=Object.keys(SCHOOLS);
   const schoolKey=pick(schoolKeys);
   const school=SCHOOLS[schoolKey];
-  const name=`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`;
+  const name=retryAgainst(seen?.name,()=>`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`);
   const tier=Math.min(6,depth.rewardTier);
-  const descTemplate=pick(civ.descTemplates);
-  const desc=descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
+  const desc=retryAgainst(seen?.desc,()=>{
+    const descTemplate=pick(civ.descTemplates);
+    return descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
+  });
 
   return {
     shape:'item',
     civ:civKey, civName:civ.name, depth:depthKey,
     name, school:schoolKey, schoolName:school.name, schoolColor:school.color,
-    tier, desc, danger:civ.danger,
+    tier, desc, depthPhrase:DEPTH_PHRASE[civKey]?.[depthKey]||'',
+    danger:civ.danger,
     rewardTier:depth.rewardTier,
   };
 }
 
 function generateSite(civKey,depthKey,count){
   const chambers=[];
+  const seen={desc:new Set(),name:new Set(),subject:new Set(),implicates:new Set()};
   for(let i=0;i<count;i++){
+    const reward=generateReward(civKey,depthKey,seen);
+    if(reward&&!reward.error){
+      if(reward.desc) seen.desc.add(reward.desc);
+      if(reward.name) seen.name.add(reward.name);
+      if(reward.subject) seen.subject.add(reward.subject);
+      if(reward.implicates) seen.implicates.add(reward.implicates);
+    }
     chambers.push({
       index:i+1,
-      reward:generateReward(civKey,depthKey),
+      reward,
     });
   }
   return chambers;
@@ -2136,7 +2257,7 @@ function openDrawer(nodeKey) {
   document.getElementById('drawer-content').innerHTML=`
     <div class="drawer-name">${node.name}</div>
     <span class="drawer-role">${node.role}</span>
-    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--gold-bright);"><div class="drawer-text" style="color:var(--gold-bright);">This councillor's personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered (title, reputation, goal) is shown below as written.</div></div>`:''}
+    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--amber-bright);"><div class="drawer-text" style="color:var(--amber-bright);">This councillor's personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered (title, reputation, goal) is shown below as written.</div></div>`:''}
     ${node.responds?`<div class="drawer-section"><span class="drawer-section-label">Responds To</span><div class="drawer-text">${node.responds}</div></div>`:''}
     ${NPC_CODEX[nodeKey]?renderCodexSection(NPC_CODEX[nodeKey]):''}
     ${node.npcData?`<div class="drawer-section"><span class="drawer-section-label">Session Zero Data</span><div class="drawer-text">${[node.npcData.title?`Title: ${node.npcData.title}`:'',node.npcData.reputation?`Reputation: ${node.npcData.reputation}`:'',node.npcData.want?`Wants: ${node.npcData.want}`:'',node.npcData.knows?`Knows: ${node.npcData.knows}`:'',node.npcData.leverage?`Holds: ${node.npcData.leverage}`:'',node.npcData.expects?`Expects: ${node.npcData.expects}`:'',node.npcData.goal?`Goal: ${node.npcData.goal}`:'',node.npcData.fear?`Fear: ${node.npcData.fear}`:''].filter(Boolean).join('<br>')}</div></div>`:''}
@@ -2272,6 +2393,7 @@ function runGenerator(){
   const countSel=document.getElementById('tool-count-select').value;
   const count=countSel==='custom'?(parseInt(document.getElementById('tool-custom-count').value)||1):parseInt(countSel);
   const heirKey=document.getElementById('tool-explore-heir-select')?.value||'';
+  const layoutMode=document.getElementById('tool-layout-mode')?.checked||false;
 
   const empty=document.getElementById('tool-results-empty');
   const list=document.getElementById('tool-results-list');
@@ -2279,6 +2401,12 @@ function runGenerator(){
 
   const chambers=generateSite(civKey,depthKey,count);
   state.lastGeneratedRewards=chambers.map(ch=>ch.reward); // addressable by index for export
+  state.lastGeneratedDepthKey=depthKey; // needed by the layout danger-room handoff to Opponent Builder
+
+  if(layoutMode){
+    renderLayoutSequence(chambers,civKey,depthKey);
+    return;
+  }
 
   // Depth-Matching Bonus (SRD, Chapter Six): a heir whose current solo
   // depth capability exactly equals the depth they're entering gets this
@@ -2320,6 +2448,7 @@ function runGenerator(){
     if(r.shape==='document'){
       return `<div class="hook-card opportunity" style="margin-bottom:.7rem;">
         <span class="hook-type opportunity">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
+        ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
         <div class="hook-text"><strong>Found:</strong> ${r.desc}</div>
         <div class="hook-entities">Concerns: ${r.subject} — implicates ${r.implicates}</div>
         <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
@@ -2328,6 +2457,7 @@ function runGenerator(){
     }
     return `<div class="hook-card weight-moved" style="margin-bottom:.7rem;border-left:3px solid ${r.schoolColor};">
       <span class="hook-type weight-moved">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
+      ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
       <div class="hook-text"><strong>${r.name}</strong> — ${r.desc}</div>
       <div class="hook-entities">${r.schoolName} · Tier ${r.tier} effect</div>
       <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
@@ -2335,6 +2465,83 @@ function runGenerator(){
     </div>`;
   }).join('');
 }
+
+// ═══════════════════════════════════════════
+// LAYOUT MODE — connected room sequence, GM-toggled danger.
+//
+// There is no SRD hazard/trap mechanic distinct from Combat — the rules
+// are explicit that exploration danger outside the city resolves under
+// "full stakes" combat (Chapter Four, the same no-barrier rules that
+// already drive the Opponent Builder). So a "danger room" here doesn't
+// invent a trap-roll system; it flags that proceeding triggers a real
+// encounter and hands off to the Opponent Builder that already exists,
+// pre-filled rather than duplicated. The GM still decides which specific
+// room is dangerous (no SRD-derived ratio exists to auto-assign this) and
+// still picks the actual opponent's training/weapon — this only saves the
+// GM from re-typing the depth context into the Opponent tab by hand.
+// ═══════════════════════════════════════════
+let layoutRooms=[]; // [{index, reward, kind:'reward'|'danger', resolved:bool}]
+
+const DEPTH_SUGGESTED_TRAINING={D1:'untrained',D2:'untrained',D3:'developing',D4:'developing',D5:'trained',D6:'trained'};
+
+function renderLayoutSequence(chambers,civKey,depthKey){
+  layoutRooms=chambers.map(ch=>({index:ch.index,reward:ch.reward,kind:'reward',resolved:false}));
+  renderLayoutRooms();
+}
+
+function toggleRoomDanger(idx){
+  const room=layoutRooms.find(r=>r.index===idx);
+  if(!room) return;
+  room.kind=room.kind==='danger'?'reward':'danger';
+  renderLayoutRooms();
+}
+
+function renderLayoutRooms(){
+  const list=document.getElementById('tool-results-list');
+  if(!list) return;
+  const depthKey=state.lastGeneratedDepthKey;
+  const suggestedTraining=DEPTH_SUGGESTED_TRAINING[depthKey]||'developing';
+  list.innerHTML=layoutRooms.map((room,i)=>{
+    const r=room.reward;
+    const isLast=i===layoutRooms.length-1;
+    const connector=isLast?'':'<div style="text-align:center;color:var(--ink-light);font-size:.9rem;padding:.15rem 0;">↓</div>';
+    if(!r||r.error){
+      return `<div class="hook-card collision" style="margin-bottom:0;"><span class="hook-type collision">Room ${room.index}</span><div class="hook-text">${r?r.error:'Generation failed for this room.'}</div></div>${connector}`;
+    }
+    const civDef=CIVILIZATIONS[r.civ];
+    const dangerBorder=room.kind==='danger'?'border-color:var(--crimson-bright);':'';
+    const toggleLabel=room.kind==='danger'?'Mark as Reward Room':'Mark as Danger Room';
+    const itemOrDoc=r.shape==='document'
+      ?`<div class="hook-text"><strong>Found:</strong> ${r.desc}</div><div class="hook-entities">Concerns: ${r.subject} — implicates ${r.implicates}</div>`
+      :`<div class="hook-text"><strong>${r.name}</strong> — ${r.desc}</div><div class="hook-entities">${r.schoolName} · Tier ${r.tier} effect</div>`;
+    const dangerBlock=room.kind==='danger'?`
+        <div class="hook-entities" style="color:var(--crimson-bright);margin-top:.4rem;">This room triggers a full-stakes encounter per the SRD's exploration danger rules (Chapter Four) — not a separate trap roll. Suggested opponent capability for ${depthKey}: <strong>${suggestedTraining}</strong>, as a starting point only — the GM picks the actual opponent.</div>
+        <button class="hook-btn" style="margin-top:.5rem;border-color:var(--crimson-bright);color:var(--crimson-bright);" onclick="resolveRoomToOpponentBuilder(${room.index},'${suggestedTraining}')">⚔ Resolve via Opponent Builder</button>`:'';
+    return `<div class="hook-card ${room.kind==='danger'?'collision':'opportunity'}" style="margin-bottom:0;${dangerBorder}">
+      <span class="hook-type ${room.kind==='danger'?'collision':'opportunity'}">Room ${room.index} · ${civDef.name} · ${r.depth}${room.resolved?' · Resolved':''}</span>
+      ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
+      ${itemOrDoc}
+      ${dangerBlock}
+      <button class="hook-btn" style="margin-top:.5rem;" onclick="toggleRoomDanger(${room.index})">${toggleLabel}</button>
+    </div>${connector}`;
+  }).join('');
+}
+
+function resolveRoomToOpponentBuilder(roomIdx,suggestedTraining){
+  const room=layoutRooms.find(r=>r.index===roomIdx);
+  if(room) room.resolved=true;
+  // Pre-fill the existing Opponent Builder form rather than duplicating its
+  // logic — this is a handoff, not a parallel system.
+  const trainingSel=document.getElementById('opp-training-select');
+  const nameInput=document.getElementById('opp-name-input');
+  const locationSel=document.getElementById('opp-location-select');
+  if(trainingSel) trainingSel.value=suggestedTraining;
+  if(nameInput) nameInput.value=`Room ${roomIdx} Encounter`;
+  if(locationSel) locationSel.value='outside'; // exploration sites are outside the barrier per the SRD's full-stakes framing
+  document.getElementById('toolsub-opponent-btn')?.click();
+  renderLayoutRooms();
+}
+
 
 function setToolSubTab(tab,btn){
   document.querySelectorAll('.tool-subtabs .stype-btn').forEach(b=>b.classList.remove('active'));
@@ -2515,7 +2722,7 @@ function getOpponentRuleFlags(opp){
   if(opp.stamina>=3){
     flags.push({severity:'crimson',text:`Spent — no techniques available. ${encounterLocation==='inside'?'This is the trigger for combat resolution inside the barrier.':'Outside the barrier, this is the point where death becomes a real possibility.'}`});
   } else if(opp.hasTechnique&&opp.techniqueUsed&&opp.training==='developing'){
-    flags.push({severity:'gold',text:'Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.'});
+    flags.push({severity:'amber',text:'Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.'});
   }
 
   opp.wounds.forEach(w=>{
@@ -2525,11 +2732,11 @@ function getOpponentRuleFlags(opp){
 
   // Staff + Shield Arm interaction named explicitly in the SRD wound table.
   if(opp.weapon==='Staff'&&opp.wounds.includes('shield-arm')){
-    flags.push({severity:'gold',text:'Staff Barrier Generation is specifically unavailable while Shield Arm is wounded — named directly in the SRD wound table, not a general two-handed restriction.'});
+    flags.push({severity:'amber',text:'Staff Barrier Generation is specifically unavailable while Shield Arm is wounded — named directly in the SRD wound table, not a general two-handed restriction.'});
   }
 
   if(opp.wounds.length>=3&&encounterLocation==='inside'){
-    flags.push({severity:'gold',text:'Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.'});
+    flags.push({severity:'amber',text:'Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.'});
   }
 
   return {staminaLabel, flags};
@@ -2554,7 +2761,7 @@ function renderOpponentRoster(){
         <span>${opp.techniqueName} already fired this encounter</span>
       </label>
     </div>`:'';
-    const flagsHtml=flags.map(f=>`<div style="color:${f.severity==='crimson'?'var(--crimson-bright)':f.severity==='gold'?'var(--gold-bright)':'var(--ink-light)'};margin-top:.3rem;">${f.text}</div>`).join('');
+    const flagsHtml=flags.map(f=>`<div style="color:${f.severity==='crimson'?'var(--crimson-bright)':f.severity==='amber'?'var(--amber-bright)':'var(--ink-light)'};margin-top:.3rem;">${f.text}</div>`).join('');
 
     return `<div style="border:1px solid var(--panel-border);padding:.7rem .8rem;margin-bottom:.7rem;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;">
