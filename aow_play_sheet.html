@@ -326,9 +326,10 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
       <span class="header-house" id="h-house">—</span>
     </div>
     <span class="header-school" id="h-school">—</span>
-    <button class="reset-session-btn" onclick="resetSession()">Reset for New Session</button>
   </div>
   <div class="header-status">
+    <button class="reset-session-btn" onclick="editSetup()">Switch Heir</button>
+    <button class="reset-session-btn" onclick="resetSession()">Reset for New Session</button>
     <span class="status-pill" id="h-tier">T1</span>
     <span class="status-pill" id="h-strain">Fresh</span>
     <span class="status-pill" id="h-stamina">Fresh</span>
@@ -998,12 +999,18 @@ function importFromS0(input){
           if(spellName.includes('(adjacent)')||spellName.includes('*'))return;
           const cleanName=spellName.trim();
           if(!state.spells.find(s=>s.name===cleanName)){
+            // Pull the real brief/syntax from SPELL_LIBRARY — same source the
+            // T2 and second-school pickers already use — rather than a
+            // placeholder. Found as a real bug: this import path predated
+            // those pickers and was never updated to match, so starting T1
+            // spells showed no description while later-picked spells did.
+            const lib=SPELL_LIBRARY.find(s=>s.school===schoolKey&&s.tier==='T1'&&s.name===cleanName);
             state.spells.push({
               name:cleanName,
               tier:1,
               school:schoolKey||'ALT',
-              effect:'Starting spell — add effect description during play.',
-              syntax:'',
+              effect:lib?lib.brief:'Starting spell — add effect description during play.',
+              syntax:lib?lib.syntax:'',
             });
           }
         });
