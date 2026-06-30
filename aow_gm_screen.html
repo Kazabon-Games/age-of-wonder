@@ -27,15 +27,6 @@
   --crimson-bright:#9b2a2a;
   --indigo:#3a3060;
   --panel-border:rgba(139,105,20,0.18);
-  /* Caution/warning tier, distinct from gold's decorative/brand role and
-     from crimson's danger role. Found as a real readability bug: gold was
-     doing double duty as both UI chrome (titles, borders, buttons — used
-     150+ times decoratively) and as the "pay attention" severity signal in
-     combat flags, so genuine warnings had no visual distinction from
-     ordinary decoration. Amber is reserved exclusively for caution-tier
-     severity; gold goes back to being purely decorative. */
-  --amber:#b8722a;
-  --amber-bright:#e0964a;
 }
 html[data-theme="light"]{
   --night:#f5eedf;
@@ -46,17 +37,6 @@ html[data-theme="light"]{
   --vellum-mid:#5c3d1e;
   --panel-border:rgba(58,45,30,0.22);
   --gold-faint:rgba(139,105,20,0.14);
-  /* Found as a real contrast bug: gold-bright at #c9a030 (used 42 times for
-     titles, primed-node borders, and emphasis text) measures 7.9:1 against
-     the dark background — excellent — but only 2.12:1 against light mode's
-     cream background, failing WCAG AA (4.5 minimum) badly. It was never
-     given its own light-mode value, so it inherited the dark-tuned color
-     unchanged. Darkened here specifically for legibility against cream;
-     --gold and --gold-dim already passed AA in both modes and are left
-     untouched to avoid changing anything that wasn't actually broken. */
-  --gold-bright:#7a5510;
-  --amber:#9c5d1e;
-  --amber-bright:#7a4814;
 }
 
 html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
@@ -498,7 +478,6 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     <button class="top-btn" onclick="confirmAdvanceSession()">Advance →</button>
     <input type="file" id="heir-file-input" accept=".json" multiple style="display:none" onchange="handleHeirImport(this)"/>
     <button class="top-btn primary" onclick="document.getElementById('heir-file-input').click()">⬆ Import Heirs</button>
-    <button class="top-btn" onclick="confirmResetSession()">↺ Reset Session Data</button>
   </div>
 </div>
 
@@ -761,10 +740,6 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
       <div id="tool-custom-count-row" style="display:none;margin-top:.4rem;">
         <span class="composer-field-label">How many chambers?</span>
         <input type="number" class="composer-select" id="tool-custom-count" min="1" max="20" value="6" style="width:100%;"/>
-      </div>
-      <div style="margin:.5rem 0;display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="tool-layout-mode" style="width:auto;"/>
-        <label for="tool-layout-mode" style="font-size:.7rem;color:var(--ink-light);cursor:pointer;">Layout Mode — present as a connected sequence of rooms; mark danger rooms manually as you walk the party through</label>
       </div>
       <button class="log-btn" onclick="runGenerator()">Generate</button>
     </div>
@@ -1030,40 +1005,14 @@ const SCHOOLS={
 // Three previous civilizations, per the SRD's Exploration chapter. Each produces a
 // structurally different reward — this is why the Reward Generator branches by
 // civilization rather than treating every find as the same kind of object.
-// Per-civilization, per-depth phrasing — taken directly from the SRD's own
-// "Civilization Access" column (Exploration chapter depth table), not
-// invented. D1 has no civilization-specific Void phrase in the SRD — it
-// only describes "surface-level traces of all three civilizations" — so
-// void's D1 entry intentionally uses that same generic phrase rather than
-// fabricating a specific one the source text doesn't provide.
-const DEPTH_PHRASE={
-  architect:{D1:'an outer structure',D2:'an operational zone',D3:'a deep operational zone, mechanisms at full activation',D4:'a core system, requiring real knowledge to interpret safely',D5:'source architecture — the deepest functional systems',D6:'—'},
-  predecessor:{D1:'a public record room',D2:'an administrative record',D3:'a restricted record',D4:'a sealed vault',D5:'a founding document',D6:'—'},
-  void:{D1:'a surface-level trace',D2:'a peripheral space, first indications',D3:'a peripheral space',D4:'a transition space',D5:'a primary space — first genuine contact with what was encountered',D6:'a deep space'},
-};
-
 const CIVILIZATIONS={
   architect:{
     name:'The Architects',
     rewardShape:'item',
     flavor:'Mechanism and structure. The Architects integrated will into physical construction — what they left still operates.',
     danger:'Physical. Mechanisms at full activation.',
-    // Expanded from the SRD's own framing: an Architect ruin is not
-    // abandoned, it is still running — the templates below split across
-    // three registers (the mechanism itself, the moment of finding it, the
-    // implication of what it was for) so a multi-chamber site doesn't read
-    // as the same sentence shape eight times in a row.
     descTemplates:[
-      'a {adj} mechanism, still humming with residual will',
-      'a {adj} construct half-sunk into the chamber floor',
-      'a {adj} apparatus built into the wall itself',
-      'a {adj} device left mid-function, as if its makers stepped away mid-thought',
-      'something {adj} that responds to your presence before you have decided whether to approach it',
-      'a {adj} structure that has been maintaining itself, unattended, for longer than any record accounts for',
-      'a {adj} mechanism whose purpose isn\'t obvious — only that it is waiting for a specific condition to be met',
-      'a {adj} piece of integrated will, structural rather than cast, doing something none of you came prepared to interpret',
-      'a {adj} array of components that were clearly built to work together, though most of the chamber around them has not survived',
-      'a {adj} fixture that activates in sequence with something elsewhere in the ruin — you can feel it, not just hear it',
+      'a {adj} mechanism, still humming with residual will','a {adj} construct half-sunk into the chamber floor','a {adj} apparatus built into the wall itself','a {adj} device left mid-function, as if its makers stepped away mid-thought'
     ],
   },
   predecessor:{
@@ -1071,23 +1020,8 @@ const CIVILIZATIONS={
     rewardShape:'document',
     flavor:'A political civilization. What they left is administrative — record rooms, succession documents, the infrastructure of a governing body that predates Aetheria Nova.',
     danger:'Political. Other interested parties want what was found, or want it to stay lost.',
-    // Expanded from the SRD's framing of what Predecessor Court ruins
-    // actually are — record rooms, council chambers, administrative
-    // infrastructure that predates Aetheria Nova's founding — and what
-    // makes a find dangerous: not the document itself, but who wants it
-    // found or kept buried, including material the Archivist General
-    // chose to exclude from the public archive.
     descTemplates:[
-      'a sealed succession record, wax still intact',
-      'an administrative ledger from a council that no longer exists',
-      'a personal correspondence between two figures history does not name',
-      'a founding-era document the current order has strong reasons to keep buried',
-      'a record room, mostly intact, organized by a filing logic none of you recognize',
-      'a council chamber\'s minutes, detailing a vote that the public record describes differently',
-      'a document bearing a seal that predates the Crown\'s current line entirely',
-      'something the Archivist General would have had clear reason to leave out of the public archive',
-      'an inventory of holdings that don\'t correspond to anything in the current political map',
-      'a private account of a succession that the official histories resolved very differently',
+      'a sealed succession record, wax still intact','an administrative ledger from a council that no longer exists','a personal correspondence between two figures history does not name','a founding-era document the current order has strong reasons to keep buried'
     ],
   },
   void:{
@@ -1095,23 +1029,8 @@ const CIVILIZATIONS={
     rewardShape:'item',
     flavor:'Unknown in advance. What these spaces contain looks like what it looks like and does things that are not what it looks like. The axiom\'s normal behavior may not apply consistently here.',
     danger:'The space itself. Consequence of contact with something not of the world in the conventional sense.',
-    // Expanded carefully against the SRD's own constraint: this is NOT a
-    // third named civilization the way Architects/Predecessors are — its
-    // actual name doesn't appear in any record, and what's here are
-    // consequences of contact, not artifacts from a known culture. Every
-    // template preserves that unresolved, can't-fully-explain quality
-    // rather than accidentally writing it as settled lore.
     descTemplates:[
-      'an object that looks like {mundane} but is unmistakably not',
-      'something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be',
-      'a {mundane}, ordinary in every visible way, that the Read school cannot fully explain',
-      'what appears to be a {mundane} until you look at it the second time',
-      'a {mundane} that none of you can quite agree on the appearance of, afterward',
-      'something shaped like a {mundane} that was clearly never meant to be one',
-      'a {mundane}-sized absence where a {mundane} should be, holding the shape without holding the substance',
-      'a {mundane} that the axiom\'s normal rules don\'t seem to fully apply to',
-      'something recovered that resembles a {mundane}, accompanied by a feeling none of you can name',
-      'a {mundane}, whole and undamaged, in a space where nothing else survived intact',
+      'an object that looks like {mundane} but is unmistakably not','something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be','a {mundane}, ordinary in every visible way, that the Read school cannot fully explain','what appears to be a {mundane} until you look at it the second time'
     ],
   },
 };
@@ -1129,58 +1048,28 @@ const DEPTH_TABLE={
 // ═══════════════════════════════════════════
 // REWARD GENERATOR — vocabularies
 // ═══════════════════════════════════════════
-const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful','tarnished','luminous','weightless','too-heavy','faintly warm','stained','pristine','restless'];
-const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub','buckle','spoon','clasp','marble','whistle','locket','nail','spindle'];
-const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still','Faded','Echo','Buried','Forgotten','Old','Wandering','Severed','Unspoken'];
-const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark','Compass','Ledger','Needle','Crown','Latch','Wick','Tide','Sigil'];
-// Expanded with situations grounded in the same political stakes the SRD
-// uses elsewhere — succession, debt, alliance, legitimacy — rather than
-// generic fantasy intrigue, so a Predecessor document still reads as
-// belonging to THIS political world.
-const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing','a land grant whose original boundaries were later redrawn','a confession that was never formally entered into record','an appointment that bypassed the normal succession process entirely','a dispute over harbor rights that the official histories call settled'];
-// Expanded to cover every faction actually tracked in the leverage system
-// (FACTION_KEY_MAP / NPC_LIST) — the original 6-item list was missing City
-// Watch, Dockworkers Union, and Courier Network entirely, so a Predecessor
-// document could never implicate three of the game's real factions.
-const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims','the City Watch\'s founding charter','the Dockworkers Union\'s harbor rights','the Courier Network\'s claimed neutrality','the Royal Chamberlain\'s office directly'];
-
+const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful'];
+const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub'];
+const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still'];
+const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark'];
+const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing'];
+const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims'];
 
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-function generateReward(civKey,depthKey,seen){
+function generateReward(civKey,depthKey){
   const civ=CIVILIZATIONS[civKey];
   const depth=DEPTH_TABLE[depthKey];
   if(!civ||!depth) return null;
   if(!depth.civAccess.includes(civKey)) return {error:`${civ.name} does not reach ${depthKey}. ${depthKey==='D6'?'Only Void Touched spaces exist at this depth.':'Choose a different civilization or depth.'}`};
 
-  // 'seen' is an optional {desc, name, subject, implicates} object of Sets,
-  // used by generateSite to keep a single batch from repeating itself.
-  // Each field retries independently against its own pool — found as a
-  // real bug that the original version only deduped the composed
-  // description text, leaving item names and document subject/implicates
-  // completely unguarded. DOC_SUBJECTS and DOC_IMPLICATES specifically had
-  // pools small enough (8 and 6 items) that an 8-chamber Predecessor site
-  // was a near-certain repeat on both before this fix. Each retry loop is
-  // capped at 20 attempts so a batch that genuinely exceeds a pool's real
-  // size degrades to an unguarded pick instead of looping forever.
-  const retryAgainst=(setOrNull,getVal)=>{
-    let val=getVal();
-    if(setOrNull){
-      let attempts=0;
-      while(setOrNull.has(val)&&attempts<20){ val=getVal(); attempts++; }
-    }
-    return val;
-  };
-
   if(civ.rewardShape==='document'){
-    const desc=retryAgainst(seen?.desc,()=>pick(civ.descTemplates));
-    const subject=retryAgainst(seen?.subject,()=>pick(DOC_SUBJECTS));
-    const implicates=retryAgainst(seen?.implicates,()=>pick(DOC_IMPLICATES));
     return {
       shape:'document',
       civ:civKey, civName:civ.name, depth:depthKey,
-      subject, implicates, desc,
-      depthPhrase:DEPTH_PHRASE[civKey]?.[depthKey]||'',
+      subject:pick(DOC_SUBJECTS),
+      implicates:pick(DOC_IMPLICATES),
+      desc:pick(civ.descTemplates),
       danger:civ.danger,
       rewardTier:depth.rewardTier,
     };
@@ -1190,37 +1079,26 @@ function generateReward(civKey,depthKey,seen){
   const schoolKeys=Object.keys(SCHOOLS);
   const schoolKey=pick(schoolKeys);
   const school=SCHOOLS[schoolKey];
-  const name=retryAgainst(seen?.name,()=>`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`);
+  const name=`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`;
   const tier=Math.min(6,depth.rewardTier);
-  const desc=retryAgainst(seen?.desc,()=>{
-    const descTemplate=pick(civ.descTemplates);
-    return descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
-  });
+  const descTemplate=pick(civ.descTemplates);
+  const desc=descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
 
   return {
     shape:'item',
     civ:civKey, civName:civ.name, depth:depthKey,
     name, school:schoolKey, schoolName:school.name, schoolColor:school.color,
-    tier, desc, depthPhrase:DEPTH_PHRASE[civKey]?.[depthKey]||'',
-    danger:civ.danger,
+    tier, desc, danger:civ.danger,
     rewardTier:depth.rewardTier,
   };
 }
 
 function generateSite(civKey,depthKey,count){
   const chambers=[];
-  const seen={desc:new Set(),name:new Set(),subject:new Set(),implicates:new Set()};
   for(let i=0;i<count;i++){
-    const reward=generateReward(civKey,depthKey,seen);
-    if(reward&&!reward.error){
-      if(reward.desc) seen.desc.add(reward.desc);
-      if(reward.name) seen.name.add(reward.name);
-      if(reward.subject) seen.subject.add(reward.subject);
-      if(reward.implicates) seen.implicates.add(reward.implicates);
-    }
     chambers.push({
       index:i+1,
-      reward,
+      reward:generateReward(civKey,depthKey),
     });
   }
   return chambers;
@@ -1329,80 +1207,298 @@ const FACTION_KEY_MAP = {
 };
 
 const WORLD_NPCS = [
-  {key:'kingHector',name:'King Hector',role:'The Monarch · Seat of Legitimacy',cluster:'crown',weight:'high',responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:['royalChamberlain']},
-  {key:'royalChamberlain',name:'Royal Chamberlain',role:'Keeper of Royal Access',cluster:'crown',weight:'high',responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:['kingHector']},
-  {key:'merchantConsortium',name:'Merchant Guildmaster',role:'Controls Trade & Commerce',cluster:'factions',weight:'medium',responds:'Commercial advantage. Competitor intelligence. Harbor protection.',conductors:['dockworkersForeman','outskirtsBroker']},
-  {key:'watchCommander',name:'Watch Commander',role:'Commands the City Watch',cluster:'factions',weight:'medium',responds:'Order. Resources. Actionable threat intelligence.',conductors:['royalChamberlain','merchantConsortium']},
-  {key:'dockworkersForeman',name:'Dockworkers Foreman',role:'Controls Harbor Labor',cluster:'factions',weight:'medium',responds:'Fair coin. Worker protection. Predictable dealing.',conductors:['merchantConsortium','outskirtsBroker']},
-  {key:'courierMaster',name:'Courier Master',role:'Controls Information Flow',cluster:'factions',weight:'medium',responds:'Coin and information trades. Sells to all parties equally.',conductors:['outskirtsBroker','archivistGeneral']},
-  {key:'highPriest',name:'High Priest of the Axiom',role:'Controls Religious Legitimacy',cluster:'factions',weight:'medium',responds:'Theological alignment. Generosity. Moral consistency.',conductors:['royalChamberlain','archivistGeneral']},
-  {key:'archivistGeneral',name:'Archivist General',role:'Controls Historical Records',cluster:'factions',weight:'medium',responds:'Truth. Knowledge preservation. The long view.',conductors:['highPriest','courierMaster']},
-  {key:'outskirtsBroker',name:'Outskirts Broker',role:'Controls the Black Market',cluster:'outskirts',weight:'special',responds:'Coin. Favors. Willingness to operate outside the law.',conductors:'all'},
+  {key:'kingHector',      name:'King Hector',                    role:'The Monarch · Crown of Legitimacy',  cluster:'crown',    weight:'high',   responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:['royalChamberlain']},
+  {key:'royalChamberlain',name:'Edrin Castellane',               role:'Royal Chamberlain · Keeper of Access',cluster:'crown',   weight:'high',   responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:['kingHector']},
+  {key:'merchantConsortium',name:'Mira Thessaly',                role:'Merchant Guildmaster · Trade & Commerce',cluster:'factions',weight:'medium',responds:'Commercial advantage. Competitor intelligence. Harbor protection.',conductors:['dockworkersForeman','outskirtsBroker']},
+  {key:'watchCommander',  name:'Bren Calder',                    role:'Watch Commander · City Watch',        cluster:'factions', weight:'medium', responds:'Order. Resources. Actionable threat intelligence.',conductors:['royalChamberlain','merchantConsortium']},
+  {key:'dockworkersForeman',name:'Otto Greave',                  role:'Dockworkers Foreman · Harbor Labor',  cluster:'factions', weight:'medium', responds:'Fair coin. Worker protection. Predictable dealing.',conductors:['merchantConsortium','outskirtsBroker']},
+  {key:'courierMaster',   name:'Ysolde Farrin',                  role:'Courier Master · Information Flow',   cluster:'factions', weight:'medium', responds:'Coin and information trades. Sells to all parties equally.',conductors:['outskirtsBroker','archivistGeneral']},
+  {key:'highPriest',      name:'Father Corwen Ashe',             role:'High Priest of the Axiom · Religious Legitimacy',cluster:'factions',weight:'medium',responds:'Theological alignment. Generosity. Moral consistency.',conductors:['royalChamberlain','archivistGeneral']},
+  {key:'archivistGeneral',name:'Roven Maddox',                   role:'Archivist General · Historical Records',cluster:'factions',weight:'medium',responds:'Truth. Knowledge preservation. The long view.',conductors:['highPriest','courierMaster']},
+  {key:'outskirtsBroker', name:'"The Tallyman"',                 role:'Outskirts Broker · Black Market',     cluster:'outskirts',weight:'special',responds:'Coin. Favors. Willingness to operate outside the law.',conductors:'all'},
 ];
 
 // ═══════════════════════════════════════════
-// NPC PERFORMANCE CODEX
-// Authored once, not generated — these are nine specific named people, not
-// a randomized pool. Every detail here extrapolates directly from what the
-// SRD already establishes about each NPC's psychology and history; nothing
-// contradicts or invents beyond it. Built to be read in the seconds before
-// a scene starts, not studied in advance.
+// NPC DOSSIER
+// Authored once — nine specific named people, not a generated pool.
+// All content is grounded in the SRD; nothing invented beyond it.
+//
+// Gating by leverage tier (SRD-grounded):
+//   codex  (+1 Acknowledged) — performance layer, visible after any T1 Introduce
+//   visual (+1, same tier)   — physical description for scene-setting
+//   dossier(+2 Functional)   — how they got here; how the role actually runs
+//                              faction NPCs only (six of nine) — Hector and
+//                              Castellane included by GM call, same functional tier
+//   private(+3 Trusted)      — want and fear underneath the performance
+//                              carries legitimacy-threshold weight ONLY for
+//                              kingHector, highPriest, archivistGeneral (SRD)
+//   relations                — what this NPC privately thinks of another;
+//                              two unlock paths per SRD:
+//                              (A) Archivist lore ability — on-demand, any pair
+//                              (B) +5 Invested, scoped to NPCs heir has +1 with
+//   secret (GM-only)         — buried fact + discovery path; Castellane, Maddox,
+//                              Ashe only. Not a leverage tier — surfaced through
+//                              Divination Read, T3 Leverage pulls, or discovery
+//                              checks (same logic as T5 Remove rule in SRD)
+//   ceremony                 — where/what at the Arc One opening crystal ceremony
+//   tallyman exception       — no dossier, private, relations, or secret layers
+//                              by design; one +5 bonus only (see outskirtsBroker)
 // ═══════════════════════════════════════════
-const NPC_CODEX = {
+const NPC_DOSSIER = {
+
   kingHector:{
-    voice:'Measured, unhurried. Never raises his voice because he has never needed to. Asks one precise question rather than several vague ones.',
-    presence:'Sits or stands like someone who has never once worried about being interrupted. Makes direct eye contact and holds it slightly longer than comfortable — he is reading you, not performing for you.',
-    tell:'When he has already decided against someone, he becomes faultlessly polite. Warmth costs him nothing to fake; the absence of warmth is the actual signal.',
-    line:'"Tell me what you did. Not what you meant to do."',
-    crossedBy:'Being managed instead of dealt with plainly. He has seen every performance twice. The fastest way to lose ground with him is to assume he hasn\'t.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Measured, unhurried. Never raises his voice because he has never needed to. Asks one precise question rather than several vague ones.',
+      presence:'Sits or stands like someone who has never once worried about being interrupted. Makes direct eye contact and holds it slightly longer than comfortable — he is reading you, not performing for you.',
+      tell:'When he has already decided against someone, he becomes faultlessly polite. Warmth costs him nothing to fake; the absence of warmth is the actual signal.',
+      line:'"Tell me what you did. Not what you meant to do."',
+      crossedBy:'Being managed instead of dealt with plainly. He has seen every performance twice. The fastest way to lose ground with him is to assume he hasn\'t.',
+    },
+    visual:'Mid-to-late fifties, silver-grey hair kept short and unfussy, lined face that reads as carved rather than aged. Dresses with restraint for a king — dark, well-cut, minimal gold, nothing performative. Pale grey eyes that hold a gaze a half-second too long. Posture is stillness, not display.',
+    // +2 FUNCTIONAL (GM call — not faction-gated but same tier of institutional knowledge)
+    dossier:'Does not rule through fear or popularity — rules by never once giving the council a clean reason to question succession. Every major decision in twenty years has the same shape: slow, deliberate, defensible after the fact even by people who disagreed. Almost never acts on the first report of anything — waits for a second one, from a different source, before moving. Heirs who study the actual decision pattern notice this. Heirs who study the reputation miss it.',
+    // +3 TRUSTED (legitimacy-threshold eligible — SRD names Hector as one of three)
+    private:{
+      wants:'To die having named a successor he actually trusts, not merely accepts. Twenty years in, he still isn\'t sure such a person exists.',
+      fears:'That stability has cost him the ability to tell loyalty from habit.',
+    },
+    // RELATIONS — no entry for Hector; he is structurally isolated from the ring by design.
+    // He knows the Chamberlain; the other seven are names the Chamberlain invokes.
+    relations:{},
+    // CEREMONY — crystal hall, school revelations just happened
+    ceremony:'Seated at the dais, not standing among the crowd. Does not approach anyone — people approach him, one at a time, by invitation. The heir who simply waits to be noticed will wait the whole ceremony.',
+  },
+
   royalChamberlain:{
-    voice:'Precise, administrative, never wastes a word. Speaks in the cadence of someone reading a schedule even when the topic is personal.',
-    presence:'Always seems to be doing two things at once — listening to you while tracking three other obligations. Never fully still.',
-    tell:'A pause before saying "let me see what I can arrange" means the calendar was never actually full — they are deciding whether you have earned the slot.',
-    line:'"His Majesty\'s time is the kingdom\'s time. I am simply the one who remembers that when others forget."',
-    crossedBy:'Being treated as an obstacle rather than a person with their own pressures. Heirs who go around them instead of through them get remembered for it.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Precise, administrative, never wastes a word. Speaks in the cadence of someone reading a schedule even when the topic is personal.',
+      presence:'Always seems to be doing two things at once — listening to you while tracking three other obligations. Never fully still.',
+      tell:'A pause before saying "let me see what I can arrange" means the calendar was never actually full — they are deciding whether you have earned the slot.',
+      line:'"His Majesty\'s time is the kingdom\'s time. I am simply the one who remembers that when others forget."',
+      crossedBy:'Being treated as an obstacle rather than a person with their own pressures. Heirs who go around them instead of through them get remembered for it.',
+    },
+    visual:'Lean, precise, somewhere in his forties. Immaculate dark robes with a ledger or schedule-case always in hand or nearby. Sharp angular face, ink-stained fingers despite the otherwise spotless presentation. Moves like someone perpetually mid-calculation.',
+    // +2 FUNCTIONAL
+    dossier:'Access to Hector is not sold and not pure merit — it is sequenced. Castellane keeps a running, unstated priority order based on what is actually urgent to the kingdom that week, and reorders it constantly. The "let me see what I can arrange" pause people read as gatekeeping is, functionally, him recalculating that order in real time. Heirs who bring something genuinely time-sensitive get moved up fast — faster than status or favour alone would buy.',
+    // +3 TRUSTED
+    private:{
+      wants:'To be indispensable past the point of replacement — the role is the identity, there is nothing under the administrator.',
+      fears:'A Chamberlain after him who is better at it, proving he was never as irreplaceable as he needed to believe.',
+    },
+    // RELATIONS
+    relations:{
+      kingHector:'Complete, unexamined mutual trust. Hector relies on Castellane without asking why. Castellane knows the trust is the only thing keeping the "indispensable" fear at bay — and privately suspects Hector would notice his replacement faster than he has let himself believe.',
+      watchCommander:'Functional, slightly cold. Calder sees him as a man who has never enforced anything himself making rules about enforcement. Castellane sees Calder as reliable in the specific, narrow way a tool is reliable — useful, never quite a peer.',
+      highPriest:'The closest thing Castellane has to genuine respect outside the Crown. Both understand discretion as a discipline. Ashe is also the one person who might test Castellane\'s sense of identity by asking who he is without the title — which is exactly why Castellane keeps the relationship cordial but shallow.',
+    },
+    // GM-ONLY SECRET
+    // Discovery: Divination Read on "has Castellane ever acted against Hector\'s interests" returns
+    // true/false — confirms something exists. Full detail requires T3 Leverage pull on a royal
+    // household contact old enough to remember the petition queue irregularity. Not in any archive.
+    secret:'At least once, Castellane quietly delayed and buried a petition to Hector that he judged would have destabilised the kingdom — not for personal gain, but unilaterally, without Hector ever knowing the petition existed. He substituted his own judgment for the King\'s exactly once, told himself it was necessary, and has never repeated it. Directly contradicts his stated value of loyalty to Hector above all factions. If surfaced it does not merely embarrass him — it is the kind of thing that costs him the role, because the entire basis of his authority is that he never does this.',
+    // CEREMONY
+    ceremony:'Stationed just off the dais, working the room\'s actual logistics — who speaks to Hector next, in what order. Heirs who want time with the King go through him first, whether they realise it or not.',
+  },
+
   merchantConsortium:{
-    voice:'Fast, transactional, mentally pricing everything as they speak. Finishes sentences a beat before you expect.',
-    presence:'Always glancing toward the door or the ledger — not rude, just permanently aware of the next thing.',
-    tell:'Stops negotiating entirely and goes quiet when they realize they\'re talking to someone who actually understands trade. That silence is respect, not disinterest.',
-    line:'"I\'ve given eleven years to this guild. I didn\'t do it by mistaking politeness for profit."',
-    crossedBy:'Wasting their time with a meeting that produces nothing. They\'ll take the meeting once. A second wasted meeting ends the relationship.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Fast, transactional, mentally pricing everything as she speaks. Finishes sentences a beat before you expect.',
+      presence:'Always glancing toward the door or the ledger — not rude, just permanently aware of the next thing.',
+      tell:'Stops negotiating entirely and goes quiet when she realises she is talking to someone who actually understands trade. That silence is respect, not disinterest.',
+      line:'"I\'ve given eleven years to this guild. I didn\'t do it by mistaking politeness for profit."',
+      crossedBy:'Wasting her time with a meeting that produces nothing. She\'ll take the meeting once. A second wasted meeting ends the relationship.',
+    },
+    visual:'Sharp-eyed woman, early forties, expensive fabric worn for function rather than show — rings on practical fingers, no wasted ornament. Quick, economical gestures. Always seems to be glancing past you toward the next transaction.',
+    // +2 FUNCTIONAL
+    dossier:'Built her standing inside the Consortium — not inherited it. Started as a junior trade negotiator and out-competed three more senior members for the seat through better numbers, not politics. Runs the Guild on a hard rule: every deal gets the same terms regardless of house name, which initially cost her support from nobles expecting preferential treatment and ultimately built the eleven-year reputation that makes her word actually mean something.',
+    // +3 TRUSTED
+    private:{
+      wants:'A successor inside the Guild she trusts with eleven years of work — and has not found one.',
+      fears:'That the Consortium dies with her competence rather than outliving it, the way Greave\'s Union outlives any one Foreman.',
+    },
+    // RELATIONS
+    relations:{
+      watchCommander:'Mutual, wary professionalism. She needs the Watch\'s protection for the harbour; Calder needs the Guild\'s intelligence on threats. Neither fully trusts the other\'s motives, but both have learned the arrangement works precisely because neither pretends it is friendship.',
+      dockworkersForeman:'The most genuinely warm relationship on the ring. Eleven years of dealing fairly, no broken promises either direction. Greave is, unspoken, the closest thing to the successor she wants for the Union — not in title, but in standard. Neither has said this aloud.',
+    },
+    // CEREMONY
+    ceremony:'Near the merchant-house delegation, visibly assessing which schools landed on which heirs — already pricing future leverage. The first to actually approach a heir directly rather than wait.',
+  },
+
   watchCommander:{
-    voice:'Blunt, economical, soldier\'s cadence. Answers the question asked, not the question implied.',
-    presence:'Stands like they\'re still in formation even at rest. Watches exits, not faces.',
-    tell:'Their jaw sets when someone asks them to bend the law rather than enforce it more effectively — the request itself is the offense, regardless of how it\'s phrased.',
-    line:'"I enforce. I don\'t adjudicate. Take the politics somewhere else."',
-    crossedBy:'Being asked to exceed their mandate. They will not be talked into becoming someone\'s personal force.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Blunt, economical, soldier\'s cadence. Answers the question asked, not the question implied.',
+      presence:'Stands like he is still in formation even at rest. Watches exits, not faces.',
+      tell:'His jaw sets when someone asks him to bend the law rather than enforce it more effectively — the request itself is the offense, regardless of how it is phrased.',
+      line:'"I enforce. I don\'t adjudicate. Take the politics somewhere else."',
+      crossedBy:'Being asked to exceed his mandate. He will not be talked into becoming someone\'s personal force.',
+    },
+    visual:'Solid, weathered, built like someone who still trains with the rank and file. Watch uniform worn correctly and without vanity — no embellishment beyond regulation. Scarred hands, short-cropped hair, eyes that track exits and corners by habit.',
+    // +2 FUNCTIONAL
+    dossier:'Rose through the ranks rather than was appointed — the rare Commander who walked a beat before commanding one. Took the post after the previous Commander was caught taking coin from the Merchant Consortium to look away from harbour theft. Calder\'s first act in the role was making that case public himself, which is why he reads "bend the law" requests as the offense itself. Still personally reviews every report involving a noble house. No exceptions. No delegation.',
+    // +3 TRUSTED
+    private:{
+      wants:'One clean case where enforcement and justice are actually the same thing, instead of the usual gap between them.',
+      fears:'That he has already stopped noticing the gap, and that is the actual corruption — not bribery, just fatigue.',
+    },
+    // RELATIONS
+    relations:{
+      royalChamberlain:'Functional, slightly cold. He sees Castellane as a man who has never enforced anything himself making rules about enforcement. Treats the relationship as a necessary chain of command, not a partnership.',
+      merchantConsortium:'Mutual, wary professionalism. Needs the Guild\'s intelligence; she needs his protection. Neither trusts the other\'s motives. The arrangement works precisely because neither pretends it is friendship.',
+    },
+    // CEREMONY
+    ceremony:'Posted at an exit, not mingling. Watching the room the way he watches everything — for what\'s wrong, not who\'s interesting. Easiest to approach precisely because no one else is bothering to.',
+  },
+
   dockworkersForeman:{
-    voice:'Plain-spoken, working cadence, no court polish and no interest in acquiring any.',
-    presence:'Physically present in a way courtiers aren\'t — calloused hands, sun on the skin, the bearing of someone who has actually carried weight.',
-    tell:'Elected three times running by people who don\'t have to like you to vote for you. Trusts the second time someone keeps a promise; never trusts the first.',
-    line:'"You showed up once with a promise. Come back when it\'s kept and we\'ll talk about a second one."',
-    crossedBy:'Treating the Union as a tool instead of people. They\'ll know immediately, and the harbor gets inconveniently slow.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Plain-spoken, working cadence, no court polish and no interest in acquiring any.',
+      presence:'Physically present in a way courtiers aren\'t — calloused hands, sun on the skin, the bearing of someone who has actually carried weight.',
+      tell:'Trusts the second time someone keeps a promise; never trusts the first.',
+      line:'"You showed up once with a promise. Come back when it\'s kept and we\'ll talk about a second one."',
+      crossedBy:'Treating the Union as a tool instead of people. He\'ll know immediately, and the harbour gets inconveniently slow.',
+    },
+    visual:'Broad, sun-darkened, calloused hands that do real work. Simple harbour clothing, sleeves rolled regardless of season. Squints like someone used to reading weather and tide more than faces — though he reads faces too.',
+    // +2 FUNCTIONAL
+    dossier:'Won his first election on a single promise: no Union vote gets bought, ever, by anyone, including him. Kept it through three terms by refusing every gift above the value of a shared meal — a standard he applies to himself before anyone else. The Union\'s actual day-to-day power is not the harbour labour itself; it is that nothing moves through the docks without his crews knowing, which makes him a passive intelligence source whether he intends to be or not.',
+    // +3 TRUSTED
+    private:{
+      wants:'The third election to be the last one he needs — someone ready to take it from him before age does.',
+      fears:'No one is ready, and stepping back means the Union goes back to being used as a tool the moment he is gone.',
+    },
+    // RELATIONS
+    relations:{
+      merchantConsortium:'The most genuinely warm relationship on the ring. Eleven years of dealing fairly, no broken promises either direction. Thessaly is, unspoken, the closest thing to the standard he wants in the next leader — not in title, but in how she holds her word. Neither has said this aloud.',
+      outskirtsBroker:'Transactional and faintly resentful on his side. Uses the Broker when the Union needs something the Consortium won\'t provide, and hates that it works as well as it does. The Tallyman doesn\'t notice or care — the coin clears either way.',
+    },
+    // CEREMONY
+    ceremony:'Present but visibly uncomfortable in court dress, standing near the back with the working-faction representatives rather than the nobility. Responds well to a heir who crosses the room to him instead of expecting him to come forward.',
+  },
+
   courierMaster:{
-    voice:'Quiet, deliberate, never says more than the exchange requires. Lets silences sit instead of filling them.',
-    presence:'Easy to forget is in the room — which is precisely the point. Notices everything, reveals almost nothing.',
-    tell:'A faint, knowing half-smile when an heir tries to fish for information through the message patterns. They know exactly what\'s being attempted.',
-    line:'"I don\'t read the letters. I don\'t have to."',
-    crossedBy:'Any attempt to compromise message security. They\'ll take the coin, route the message anyway, and quietly note who asked.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Quiet, deliberate, never says more than the exchange requires. Lets silences sit instead of filling them.',
+      presence:'Easy to forget is in the room — which is precisely the point. Notices everything, reveals almost nothing.',
+      tell:'A faint, knowing half-smile when an heir tries to fish for information through the message patterns. She knows exactly what is being attempted.',
+      line:'"I don\'t read the letters. I don\'t have to."',
+      crossedBy:'Any attempt to compromise message security. She\'ll take the coin, route the message anyway, and quietly note who asked.',
+    },
+    visual:'Slight, unremarkable on purpose — the kind of presence easy to lose in a crowd, deliberately. Plain travel-grey clothing with many small pockets and seals. Calm, unreadable expression; the most still person in any room she is in.',
+    // +2 FUNCTIONAL
+    dossier:'Trained inside the Network from childhood — there is no outside-hire path into the role, which is part of why the Network\'s discretion has never been compromised. Every courier swears the same oath she did: read nothing, remember nothing aloud, report only patterns. She personally vets every new recruit herself rather than delegating it — the one task she has never trusted to anyone else.',
+    // +3 TRUSTED
+    private:{
+      wants:'To know one thing for certain instead of inferring everything from pattern and silence.',
+      fears:'She has been reading patterns so long she has forgotten what direct knowledge even feels like.',
+    },
+    // RELATIONS
+    relations:{
+      outskirtsBroker:'The strangest pairing, and maybe the truest. Both deal in information without using it themselves. There is something like recognition between them — two people who have hollowed the same way for different reasons. Farrin is possibly the only person the Tallyman would tell the truth to, if asked the right question at the right time. No one has asked yet.',
+      archivistGeneral:'Adversarial in a quiet, structural way. Maddox believes the record should say what happened; Farrin believes some things should never become a record at all. They respect each other\'s competence and fundamentally disagree about whether truth and discretion can coexist.',
+    },
+    // CEREMONY
+    ceremony:'Hardest to spot on purpose — present somewhere in the room, unremarkable, gone from one position before anyone clocks her in it. A heir has to be actively looking to register she was even there.',
+  },
+
   highPriest:{
-    voice:'Warm but exact — every word chosen for what it implies, not just what it states. Speaks like someone used to being quoted.',
-    presence:'Stillness that reads as deliberate, not passive. Folds hands, holds silence before answering anything that matters.',
-    tell:'Generosity that arrives immediately for the genuinely faithful and arrives slowly, with questions, for the merely useful.',
-    line:'"The Axiom does not ask if you are perfect. It asks if you are honest about what you are."',
-    crossedBy:'A visible gap between stated ideal and private behavior. They are discerning about which contradictions they\'ll overlook — and an heir never knows which ones in advance.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Warm but exact — every word chosen for what it implies, not just what it states. Speaks like someone used to being quoted.',
+      presence:'Stillness that reads as deliberate, not passive. Folds hands, holds silence before answering anything that matters.',
+      tell:'Generosity that arrives immediately for the genuinely faithful and arrives slowly, with questions, for the merely useful.',
+      line:'"The Axiom does not ask if you are perfect. It asks if you are honest about what you are."',
+      crossedBy:'A visible gap between stated ideal and private behaviour. He is discerning about which contradictions he will overlook — and an heir never knows which ones in advance.',
+    },
+    visual:'Warm-faced, late fifties, vestments of the Axiom worn with quiet authority rather than spectacle. Folded hands, deliberate stillness. Eyes that seem to be listening for what is not being said.',
+    // +2 FUNCTIONAL
+    dossier:'Came up through the Church\'s outreach orders, not its scholarly track — which shows in how he runs it: more time in the districts than the chapel. His discernment policy (generosity fast for the faithful, slow with questions for the merely useful) is not doctrine — it is a personal policy he instituted after a predecessor was burned by a noble house performing faith for political cover.',
+    // +3 TRUSTED (legitimacy-threshold eligible — SRD names High Priest as one of three)
+    private:{
+      wants:'To be tested himself, the way he tests everyone else\'s gap between ideal and behaviour.',
+      fears:'He would not survive his own standard — and has arranged his life carefully so it never gets checked.',
+    },
+    // RELATIONS
+    relations:{
+      royalChamberlain:'The closest thing Castellane has to genuine respect outside the Crown — warm from Ashe\'s side, cordial but deliberately shallow from Castellane\'s. Ashe is aware Castellane keeps it that way, and finds that more revealing than Castellane intends.',
+      archivistGeneral:'The deepest, oldest tie on the ring. Truth and faith have needed each other for centuries in Shemsara. Ashe is the only person Maddox might actually confess the falsified record to — because confession is Ashe\'s whole vocation. Whether Ashe would absolve him or report him to the Guild is something neither has tested, and both are aware that is exactly why the friendship still works.',
+    },
+    // GM-ONLY SECRET
+    // Discovery: not in any record — a Read spell on "did Ashe bear any responsibility for his
+    // predecessor\'s fall" technically returns false (no direct action taken). The only path is
+    // T3 Leverage pulling on a contact with genuine Church history — a senior clergy member old
+    // enough to remember the transition. Even on success, what surfaces is "something irregular
+    // about the predecessor\'s fall," not Ashe\'s role specifically. Closing that gap requires a
+    // second T3 pull or a direct confrontation at +3 or above, where the right question asked
+    // plainly produces the truth.
+    secret:'The predecessor he replaced — the one burned by a noble house performing faith for political cover, which Ashe used to justify his discernment policy — was not entirely the victim in that situation. Ashe knew the predecessor was being manipulated and said nothing, calculating that the outcome (the predecessor\'s removal, his own elevation) was better for the Church than intervention would have been. He did not cause what happened. He did not stop it either. His entire tenure is built on closing the gap between ideal and behaviour, and the founding act of that tenure was watching someone fall into exactly that gap and stepping into the vacancy.',
+    // CEREMONY
+    ceremony:'Near the heirs who received Divination or Order-adjacent reveals specifically, already reading the room\'s emotional temperature rather than its politics.',
+  },
+
   archivistGeneral:{
-    voice:'Dry, exact, footnotes everything. Corrects imprecise language reflexively, even mid-conversation.',
-    presence:'Surrounded by paper even when there is no paper nearby — the bearing of someone whose attention always has a card catalog running underneath it.',
-    tell:'Same flat, unhurried "no" regardless of how the request is dressed up. Three councillors got the same answer three different ways and never got a different word.',
-    line:'"The record will say what happened. It will not say what was convenient."',
-    crossedBy:'Asking them to alter the historical record, however gently framed. The Guild\'s credibility is the only currency they have, and they will not spend it.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Dry, exact, footnotes everything. Corrects imprecise language reflexively, even mid-conversation.',
+      presence:'Surrounded by paper even when there is no paper nearby — the bearing of someone whose attention always has a card catalog running underneath it.',
+      tell:'Same flat, unhurried "no" regardless of how the request is dressed up. Three councillors got the same answer three different ways and never got a different word.',
+      line:'"The record will say what happened. It will not say what was convenient."',
+      crossedBy:'Asking him to alter the historical record, however gently framed. The Guild\'s credibility is the only currency he has, and he will not spend it.',
+    },
+    visual:'Spare, exacting, somewhere past sixty. Ink-stained, slightly dusty robes of the Scholars Guild, spectacles, a perpetual half-frown of correction. Surrounded by the impression of paper even when none is visible.',
+    // +2 FUNCTIONAL
+    dossier:'Earned the post on a single incident early in his career: caught and corrected a falsified trade record that would have started a dispute between two houses, and did it quietly enough that neither house realised how close they had come to conflict. That incident is the origin of the Guild\'s "the record will say what happened" doctrine under his tenure — and, privately, the standard he measures every other record-keeping decision against, including the one he has never confessed.',
+    // +3 TRUSTED (legitimacy-threshold eligible — SRD names Archivist as one of three)
+    private:{
+      wants:'One record he was forced to falsify, once, that no one ever found — and the absolution of confessing it before he dies.',
+      fears:'Someone else finds it first, and the Guild\'s credibility he has spent a life protecting collapses retroactively.',
+    },
+    // RELATIONS
+    relations:{
+      courierMaster:'Adversarial in a quiet, structural way. He believes the record should say what happened; Farrin believes some things should never become a record at all. They respect each other\'s competence and fundamentally disagree about whether truth and discretion can coexist — which is, not coincidentally, the exact tension underneath both of their private fears.',
+      highPriest:'The deepest, oldest tie on the ring. He is the only person Maddox might actually confess to — because confession is Ashe\'s whole vocation. Whether Ashe would absolve him or report him to the Guild is something neither has tested. Both know that is exactly why the friendship still works.',
+    },
+    // GM-ONLY SECRET
+    // Discovery: a Divination Read on "does the Archivist General\'s record have any exception"
+    // returns true — enough to know a question exists. Finding the actual record requires a T3
+    // Leverage action using a contact with deep Guild access (senior archivist, long-tenure records
+    // runner) AND knowing what year and what houses to search. Without that specificity a heir is
+    // searching fifty years of archive blind. Alternatively: Ashe knows something is there — not
+    // what, just that Maddox has never once sought absolution for anything, which to a priest of
+    // his caliber is itself the tell. A heir at +3 with Ashe who asks the right question gets that
+    // observation, not the underlying fact.
+    secret:'Early in his tenure, Maddox altered a single trade record — not fabricated from nothing, but quietly adjusted figures to make a minor house\'s debt to a major one look smaller than it was. The debtor house survived because of it. He has never touched a record since, and spent thirty years building the "the record will say what happened" doctrine specifically as personal penance. He has told himself it was a one-time act of mercy rather than corruption. It was both. The real danger is not what this does to Maddox personally — it is that it retroactively calls into question every Guild record during his tenure. That is the leverage a heir with this information holds: not over Maddox, but over the institution itself.',
+    // CEREMONY
+    ceremony:'Near the formal record-keeper\'s table, already writing something down — the ceremony\'s outcomes are, structurally, the first thing he archives. A heir who asks what he is recording gets a real answer.',
+  },
+
   outskirtsBroker:{
-    voice:'Casual, unbothered, never raises stakes through tone — the price does that. Speaks like every conversation is the hundredth one just like it.',
-    presence:'Comfortable in spaces no one else in Shemsara would be comfortable in. Never the most powerful person in the room and never bothered by that.',
-    tell:'Prices go up the moment moral hesitation shows on someone\'s face. Confidence is read as competence; visible discomfort is read as leverage.',
-    line:'"I don\'t care what you\'re buying it for. I care that you can pay for it."',
-    crossedBy:'Being caught favoring one side. Neutrality is survival, not principle — break it and the Broker stops existing in the way that makes them useful.'},
+    // +1 ACKNOWLEDGED
+    codex:{
+      voice:'Casual, unbothered, never raises stakes through tone — the price does that. Speaks like every conversation is the hundredth one just like it.',
+      presence:'Comfortable in spaces no one else in Shemsara would be comfortable in. Never the most powerful person in the room and never bothered by that.',
+      tell:'Prices go up the moment moral hesitation shows on someone\'s face. Confidence is read as competence; visible discomfort is read as leverage.',
+      line:'"I don\'t care what you\'re buying it for. I care that you can pay for it."',
+      crossedBy:'Being caught favouring one side. Neutrality is survival, not principle — break it and the Broker stops existing in the way that makes them useful.',
+    },
+    visual:'Deliberately nondescript — plain, unbranded clothing that gives away nothing about wealth, faction, or origin. Face is the hardest to pin down or recall later; that is by design, not coincidence. The only fixed visual anchor is a habit of counting something idly with their hands — coin, beads, anything — while they talk.',
+    // NO dossier, private, relations, or secret layers — the Tallyman stays unknowable by design.
+    // +5 EXCEPTION ONLY:
+    // At +5 Invested, and only then, the Tallyman does one thing no leverage or coin explains —
+    // warns the heir once, unprompted, about a danger he has no transactional reason to flag.
+    // Never explains why. Happens exactly once per heir, ever. After that, exactly as unknowable
+    // as before. The GM should treat this as the single crack in the Tallyman that exists anywhere
+    // in canon.
+    bonusFive:'Once, unprompted, the Tallyman warns this heir about a specific danger he has no reason to flag — no coin in it, no favour owed, no explanation given. It happens once, across all sessions, ever. After that he is exactly as unknowable as before.',
+    // CEREMONY
+    ceremony:'Present, unbadged, blending into household staff or a minor delegation\'s retinue. Only a heir who is specifically watching for who does not fit notices him at all. No interaction without the heir initiating — and even then, only if the heir already has reason to be looking.',
+  },
+
 };
 
 const LOCATION_WITNESSES = {
@@ -1468,30 +1564,6 @@ function load() {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
-function confirmResetSession() {
-  if (!confirm('Reset all session data?\n\n• All imported heirs removed\n• All leverage scores cleared\n• All hooks, events, and notes cleared\n• Session counter returns to 1\n\nWorld NPCs (King Hector, Royal Chamberlain, the faction leaders) remain — only imported and session-specific data clears. This is for re-testing imports cleanly and cannot be undone.')) return;
-  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
-  state = {
-    session:1, sessionType:'main', selectedDirection:'favorable',
-    selectedEventType:'action', selectedTier:1,
-    activeFilter:'all', hookFilter:'all', drawerNode:null,
-    _unreadHooks:0, _unreadLog:0,
-    heirs:[], nodes:{}, events:[], hooks:[],
-    notes:{session:'',between:'',threads:''},
-    snapshots:[],
-    lastGeneratedRewards:[],
-  };
-  const ns = document.getElementById('notes-session');
-  const nb = document.getElementById('notes-between');
-  const nt = document.getElementById('notes-threads');
-  if (ns) ns.value = '';
-  if (nb) nb.value = '';
-  if (nt) nt.value = '';
-  closeDrawer();
-  init();
-  save();
-}
-
 function init() {
   // Always seed world NPCs first
   WORLD_NPCS.forEach(n => {
@@ -2228,15 +2300,126 @@ function closeQuickPopOnOutsideClick(e){
 // ═══════════════════════════════════════════
 // DRAWER
 // ═══════════════════════════════════════════
-function renderCodexSection(codex){
-  return `<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;margin:.5rem 0;">
-    <span class="drawer-section-label" style="color:var(--gold-bright);">Performing This NPC</span>
-    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Voice —</strong> ${codex.voice}</div>
-    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Presence —</strong> ${codex.presence}</div>
-    <div class="drawer-text" style="margin-bottom:.4rem;"><strong>Tell —</strong> ${codex.tell}</div>
-    <div class="drawer-text" style="margin-bottom:.4rem;font-style:italic;color:var(--gold);">${codex.line}</div>
-    <div class="drawer-text" style="color:var(--crimson-bright);"><strong>Crossed by —</strong> ${codex.crossedBy}</div>
-  </div>`;
+function renderDossierSection(nodeKey){
+  const d = NPC_DOSSIER[nodeKey];
+  if (!d) return '';
+
+  const node = state.nodes[nodeKey];
+  const scores = node?.scores || {};
+  const maxScore = state.heirs.length
+    ? Math.max(...state.heirs.map(h => scores[h.key] ?? 0))
+    : 0;
+
+  const locked = (label, threshold) =>
+    `<div class="drawer-text" style="color:var(--ink-light);font-style:italic;opacity:.5;margin-bottom:.3rem;">[${label} — unlocks at +${threshold}]</div>`;
+
+  let html = `<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;margin:.5rem 0;">`;
+
+  // +1 ACKNOWLEDGED: codex + visual
+  if (maxScore >= 1 && d.codex) {
+    html += `<span class="drawer-section-label" style="color:var(--gold-bright);">Performing This NPC</span>`;
+    if (d.visual) html += `<div class="drawer-text" style="margin-bottom:.55rem;font-style:italic;color:var(--vellum-mid);">${d.visual}</div>`;
+    html += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>Voice —</strong> ${d.codex.voice}</div>`;
+    html += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>Presence —</strong> ${d.codex.presence}</div>`;
+    html += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>Tell —</strong> ${d.codex.tell}</div>`;
+    html += `<div class="drawer-text" style="margin-bottom:.4rem;font-style:italic;color:var(--gold);">${d.codex.line}</div>`;
+    html += `<div class="drawer-text" style="color:var(--crimson-bright);margin-bottom:.3rem;"><strong>Crossed by —</strong> ${d.codex.crossedBy}</div>`;
+  } else if (d.codex) {
+    html += `<span class="drawer-section-label" style="color:var(--gold-bright);">Performing This NPC</span>`;
+    html += locked('Performance layer', 1);
+  }
+
+  // +2 FUNCTIONAL: dossier
+  if (d.dossier) {
+    html += `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+    if (maxScore >= 2) {
+      html += `<span class="drawer-section-label" style="color:var(--gold-bright);">How They Got Here</span>`;
+      html += `<div class="drawer-text" style="margin-bottom:.3rem;">${d.dossier}</div>`;
+    } else {
+      html += locked('Functional dossier', 2);
+    }
+  }
+
+  // +3 TRUSTED: private
+  if (d.private) {
+    html += `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+    if (maxScore >= 3) {
+      html += `<span class="drawer-section-label" style="color:var(--gold-bright);">Underneath</span>`;
+      html += `<div class="drawer-text" style="margin-bottom:.3rem;"><strong>Wants —</strong> ${d.private.wants}</div>`;
+      html += `<div class="drawer-text" style="margin-bottom:.3rem;"><strong>Fears —</strong> ${d.private.fears}</div>`;
+    } else {
+      html += locked('Private layer (want / fear)', 3);
+    }
+  }
+
+  // +5 TALLYMAN EXCEPTION
+  if (d.bonusFive) {
+    html += `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+    if (maxScore >= 5) {
+      html += `<span class="drawer-section-label" style="color:var(--gold-bright);">+5 Exception</span>`;
+      html += `<div class="drawer-text" style="margin-bottom:.3rem;">${d.bonusFive}</div>`;
+    } else {
+      html += locked('+5 exception — one unprompted warning', 5);
+    }
+  }
+
+  // CEREMONY — always visible to GM
+  if (d.ceremony) {
+    html += `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+    html += `<span class="drawer-section-label" style="color:var(--gold-bright);">Arc One Opening Ceremony</span>`;
+    html += `<div class="drawer-text" style="margin-bottom:.3rem;">${d.ceremony}</div>`;
+  }
+
+  // GM SECRET — always visible to GM, never player-facing
+  if (d.secret) {
+    html += `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+    html += `<span class="drawer-section-label" style="color:var(--crimson-bright);">GM Secret · Discovery-Gated</span>`;
+    html += `<div class="drawer-text" style="color:var(--crimson-bright);margin-bottom:.3rem;">${d.secret}</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+// Relations: passive +5 path — called from openDrawer when any heir hits +5
+function renderRelationsForHeir(nodeKey, heirKey) {
+  const d = NPC_DOSSIER[nodeKey];
+  if (!d?.relations || !Object.keys(d.relations).length) return '';
+  const node = state.nodes[nodeKey];
+  const heirScore = node?.scores?.[heirKey] ?? 0;
+  if (heirScore < 5) return '';
+  const heir = state.heirs.find(h => h.key === heirKey);
+  if (!heir) return '';
+
+  let html = `<div style="border-top:1px solid var(--panel-border);margin:.5rem 0;"></div>`;
+  html += `<span class="drawer-section-label" style="color:var(--gold-bright);">Private Read on Others · ${heir.name} (+5)</span>`;
+  Object.entries(d.relations).forEach(([otherKey, text]) => {
+    const otherNode = state.nodes[otherKey];
+    if (!otherNode) return;
+    const heirScoreWithOther = otherNode.scores?.[heirKey] ?? 0;
+    if (heirScoreWithOther < 1) {
+      html += `<div class="drawer-text" style="color:var(--ink-light);font-style:italic;opacity:.5;margin-bottom:.3rem;">[${otherNode.name} — heir needs +1 with them first]</div>`;
+    } else {
+      html += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>${otherNode.name} —</strong> ${text}</div>`;
+    }
+  });
+  return html;
+}
+
+// Relations: Archivist lore ability — on-demand, any NPC pair
+function renderArchivistLoreQuery(fromKey, toKey) {
+  const dFrom = NPC_DOSSIER[fromKey];
+  const dTo   = NPC_DOSSIER[toKey];
+  const fromNode = state.nodes[fromKey];
+  const toNode   = state.nodes[toKey];
+  let result = '';
+  if (dFrom?.relations?.[toKey]) {
+    result += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>${fromNode?.name||fromKey} on ${toNode?.name||toKey} —</strong> ${dFrom.relations[toKey]}</div>`;
+  }
+  if (dTo?.relations?.[fromKey]) {
+    result += `<div class="drawer-text" style="margin-bottom:.4rem;"><strong>${toNode?.name||toKey} on ${fromNode?.name||fromKey} —</strong> ${dTo.relations[fromKey]}</div>`;
+  }
+  return result || '<em style="color:var(--ink-light);">No recorded relation between these two.</em>';
 }
 
 function openDrawer(nodeKey) {
@@ -2254,12 +2437,39 @@ function openDrawer(nodeKey) {
       <button class="drawer-adj" onclick="adjustScore('${nodeKey}','${h.key}',1)">+</button>
     </div>`;
   }).join('');
+
+  // Relations blocks — one per heir who has hit +5 with this NPC
+  const relationsBlocks = state.heirs
+    .map(h => renderRelationsForHeir(nodeKey, h.key))
+    .filter(Boolean)
+    .join('');
+
+  // Archivist lore UI — only shown on the Archivist General's drawer
+  const archivistLoreUI = nodeKey === 'archivistGeneral' ? `
+    <div class="drawer-section" style="border-top:1px solid var(--panel-border);padding-top:.5rem;">
+      <span class="drawer-section-label" style="color:var(--gold-bright);">Lore Ability · On-Demand Query</span>
+      <div class="drawer-text" style="margin-bottom:.4rem;font-style:italic;color:var(--ink-light);">Once per session — select two NPCs to surface their private read on each other.</div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem;">
+        <select id="lore-from" class="fs" style="flex:1;min-width:100px;font-size:.8rem;background:var(--night-mid);color:var(--vellum);border:1px solid var(--panel-border);padding:.2rem .3rem;">
+          <option value="">NPC A</option>
+          ${WORLD_NPCS.map(n=>`<option value="${n.key}">${n.name}</option>`).join('')}
+        </select>
+        <select id="lore-to" class="fs" style="flex:1;min-width:100px;font-size:.8rem;background:var(--night-mid);color:var(--vellum);border:1px solid var(--panel-border);padding:.2rem .3rem;">
+          <option value="">NPC B</option>
+          ${WORLD_NPCS.map(n=>`<option value="${n.key}">${n.name}</option>`).join('')}
+        </select>
+      </div>
+      <button onclick="runArchivistQuery()" style="font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;background:transparent;border:1px solid var(--gold-dim);color:var(--gold);padding:.28rem .7rem;cursor:pointer;">Query the Record</button>
+      <div id="lore-result" style="margin-top:.5rem;"></div>
+    </div>` : '';
+
   document.getElementById('drawer-content').innerHTML=`
     <div class="drawer-name">${node.name}</div>
     <span class="drawer-role">${node.role}</span>
-    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--amber-bright);"><div class="drawer-text" style="color:var(--amber-bright);">This councillor's personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered (title, reputation, goal) is shown below as written.</div></div>`:''}
+    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--gold-bright);"><div class="drawer-text" style="color:var(--gold-bright);">This councillor's personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered (title, reputation, goal) is shown below as written.</div></div>`:''}
     ${node.responds?`<div class="drawer-section"><span class="drawer-section-label">Responds To</span><div class="drawer-text">${node.responds}</div></div>`:''}
-    ${NPC_CODEX[nodeKey]?renderCodexSection(NPC_CODEX[nodeKey]):''}
+    ${renderDossierSection(nodeKey)}
+    ${relationsBlocks ? `<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;margin:.5rem 0;">${relationsBlocks}</div>` : ''}
     ${node.npcData?`<div class="drawer-section"><span class="drawer-section-label">Session Zero Data</span><div class="drawer-text">${[node.npcData.title?`Title: ${node.npcData.title}`:'',node.npcData.reputation?`Reputation: ${node.npcData.reputation}`:'',node.npcData.want?`Wants: ${node.npcData.want}`:'',node.npcData.knows?`Knows: ${node.npcData.knows}`:'',node.npcData.leverage?`Holds: ${node.npcData.leverage}`:'',node.npcData.expects?`Expects: ${node.npcData.expects}`:'',node.npcData.goal?`Goal: ${node.npcData.goal}`:'',node.npcData.fear?`Fear: ${node.npcData.fear}`:''].filter(Boolean).join('<br>')}</div></div>`:''}
     <div class="drawer-section"><span class="drawer-section-label">Leverage Scores</span>${state.heirs.length?scoreRows:`<div class="drawer-text" style="opacity:.4">No heirs imported.</div>`}</div>
     <div class="drawer-section">
@@ -2267,6 +2477,7 @@ function openDrawer(nodeKey) {
       <div class="weight-fill-bar"><div class="weight-fill-inner" style="width:${fillPct}%;background:${fillPct>=80?'var(--crimson-bright)':'var(--gold-bright)'}"></div></div>
     </div>
     ${node.worldLink?`<div class="drawer-section"><span class="drawer-section-label">Conducts Through</span><div class="drawer-text">${state.nodes[node.worldLink]?.name||node.worldLink}</div></div>`:''}
+    ${archivistLoreUI}
     <div class="drawer-section">
       <span class="drawer-section-label">GM Notes — This NPC</span>
       <textarea class="drawer-notes-area" id="drawer-notes-${nodeKey}" placeholder="Private notes on this NPC. Not visible to players." oninput="saveNodeNote('${nodeKey}',this.value)">${node.gmNote||''}</textarea>
@@ -2275,12 +2486,47 @@ function openDrawer(nodeKey) {
   document.getElementById('npc-drawer').classList.add('open');
 }
 
+function runArchivistQuery() {
+  const fromKey = document.getElementById('lore-from')?.value;
+  const toKey   = document.getElementById('lore-to')?.value;
+  const result  = document.getElementById('lore-result');
+  if (!result) return;
+  if (!fromKey || !toKey || fromKey === toKey) {
+    result.innerHTML = '<em style="color:var(--ink-light);">Select two different NPCs.</em>';
+    return;
+  }
+  result.innerHTML = `<div style="background:rgba(139,105,20,0.08);border-left:2px solid var(--gold-dim);padding:.4rem .6rem;font-size:.86rem;">
+    ${renderArchivistLoreQuery(fromKey, toKey)}
+  </div>`;
+}
+
 function closeDrawer() { document.getElementById('npc-drawer').classList.remove('open'); state.drawerNode=null; }
 
 function adjustScore(nodeKey, heirKey, delta) {
   if (!state.nodes[nodeKey].scores) state.nodes[nodeKey].scores={};
   const cur=state.nodes[nodeKey].scores[heirKey]||0;
-  state.nodes[nodeKey].scores[heirKey]=Math.min(5,Math.max(-5,cur+delta));
+  const next=Math.min(5,Math.max(-5,cur+delta));
+  state.nodes[nodeKey].scores[heirKey]=next;
+  // +5 relations unlock hook — fires once when a score first reaches +5
+  // Scoped per SRD: heir learns this NPC's private read on others they've
+  // already met (+1 or above). Discovery announced as a GM hook.
+  if(next===5 && cur<5){
+    const d=NPC_DOSSIER[nodeKey];
+    const heirName=state.heirs.find(h=>h.key===heirKey)?.name||heirKey;
+    const nodeName=state.nodes[nodeKey]?.name||nodeKey;
+    if(d?.relations && Object.keys(d.relations).length){
+      push(state.hooks,null,'trigger-primed',
+        `${heirName} has reached +5 with ${nodeName}. Their private read on others they have met is now in play — check the drawer Relations section. The Invested relationship may surface these opinions unprompted in scene.`,
+        [nodeName,heirName]);
+      renderHooks();
+    } else if(d?.bonusFive){
+      // Tallyman exception
+      push(state.hooks,null,'trigger-primed',
+        `${heirName} has reached +5 with ${nodeName}. The one-time unprompted warning is now available — see the drawer for the exact framing. It happens once, across all sessions, ever.`,
+        [nodeName,heirName]);
+      renderHooks();
+    }
+  }
   openDrawer(nodeKey); renderWeb(); save();
 }
 
@@ -2393,7 +2639,6 @@ function runGenerator(){
   const countSel=document.getElementById('tool-count-select').value;
   const count=countSel==='custom'?(parseInt(document.getElementById('tool-custom-count').value)||1):parseInt(countSel);
   const heirKey=document.getElementById('tool-explore-heir-select')?.value||'';
-  const layoutMode=document.getElementById('tool-layout-mode')?.checked||false;
 
   const empty=document.getElementById('tool-results-empty');
   const list=document.getElementById('tool-results-list');
@@ -2401,12 +2646,6 @@ function runGenerator(){
 
   const chambers=generateSite(civKey,depthKey,count);
   state.lastGeneratedRewards=chambers.map(ch=>ch.reward); // addressable by index for export
-  state.lastGeneratedDepthKey=depthKey; // needed by the layout danger-room handoff to Opponent Builder
-
-  if(layoutMode){
-    renderLayoutSequence(chambers,civKey,depthKey);
-    return;
-  }
 
   // Depth-Matching Bonus (SRD, Chapter Six): a heir whose current solo
   // depth capability exactly equals the depth they're entering gets this
@@ -2448,7 +2687,6 @@ function runGenerator(){
     if(r.shape==='document'){
       return `<div class="hook-card opportunity" style="margin-bottom:.7rem;">
         <span class="hook-type opportunity">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
-        ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
         <div class="hook-text"><strong>Found:</strong> ${r.desc}</div>
         <div class="hook-entities">Concerns: ${r.subject} — implicates ${r.implicates}</div>
         <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
@@ -2457,7 +2695,6 @@ function runGenerator(){
     }
     return `<div class="hook-card weight-moved" style="margin-bottom:.7rem;border-left:3px solid ${r.schoolColor};">
       <span class="hook-type weight-moved">${chambers.length>1?`Chamber ${ch.index} · `:''}${civDef.name} · ${r.depth}</span>
-      ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
       <div class="hook-text"><strong>${r.name}</strong> — ${r.desc}</div>
       <div class="hook-entities">${r.schoolName} · Tier ${r.tier} effect</div>
       <div class="hook-entities" style="color:var(--crimson-bright);">Danger: ${r.danger}</div>
@@ -2465,83 +2702,6 @@ function runGenerator(){
     </div>`;
   }).join('');
 }
-
-// ═══════════════════════════════════════════
-// LAYOUT MODE — connected room sequence, GM-toggled danger.
-//
-// There is no SRD hazard/trap mechanic distinct from Combat — the rules
-// are explicit that exploration danger outside the city resolves under
-// "full stakes" combat (Chapter Four, the same no-barrier rules that
-// already drive the Opponent Builder). So a "danger room" here doesn't
-// invent a trap-roll system; it flags that proceeding triggers a real
-// encounter and hands off to the Opponent Builder that already exists,
-// pre-filled rather than duplicated. The GM still decides which specific
-// room is dangerous (no SRD-derived ratio exists to auto-assign this) and
-// still picks the actual opponent's training/weapon — this only saves the
-// GM from re-typing the depth context into the Opponent tab by hand.
-// ═══════════════════════════════════════════
-let layoutRooms=[]; // [{index, reward, kind:'reward'|'danger', resolved:bool}]
-
-const DEPTH_SUGGESTED_TRAINING={D1:'untrained',D2:'untrained',D3:'developing',D4:'developing',D5:'trained',D6:'trained'};
-
-function renderLayoutSequence(chambers,civKey,depthKey){
-  layoutRooms=chambers.map(ch=>({index:ch.index,reward:ch.reward,kind:'reward',resolved:false}));
-  renderLayoutRooms();
-}
-
-function toggleRoomDanger(idx){
-  const room=layoutRooms.find(r=>r.index===idx);
-  if(!room) return;
-  room.kind=room.kind==='danger'?'reward':'danger';
-  renderLayoutRooms();
-}
-
-function renderLayoutRooms(){
-  const list=document.getElementById('tool-results-list');
-  if(!list) return;
-  const depthKey=state.lastGeneratedDepthKey;
-  const suggestedTraining=DEPTH_SUGGESTED_TRAINING[depthKey]||'developing';
-  list.innerHTML=layoutRooms.map((room,i)=>{
-    const r=room.reward;
-    const isLast=i===layoutRooms.length-1;
-    const connector=isLast?'':'<div style="text-align:center;color:var(--ink-light);font-size:.9rem;padding:.15rem 0;">↓</div>';
-    if(!r||r.error){
-      return `<div class="hook-card collision" style="margin-bottom:0;"><span class="hook-type collision">Room ${room.index}</span><div class="hook-text">${r?r.error:'Generation failed for this room.'}</div></div>${connector}`;
-    }
-    const civDef=CIVILIZATIONS[r.civ];
-    const dangerBorder=room.kind==='danger'?'border-color:var(--crimson-bright);':'';
-    const toggleLabel=room.kind==='danger'?'Mark as Reward Room':'Mark as Danger Room';
-    const itemOrDoc=r.shape==='document'
-      ?`<div class="hook-text"><strong>Found:</strong> ${r.desc}</div><div class="hook-entities">Concerns: ${r.subject} — implicates ${r.implicates}</div>`
-      :`<div class="hook-text"><strong>${r.name}</strong> — ${r.desc}</div><div class="hook-entities">${r.schoolName} · Tier ${r.tier} effect</div>`;
-    const dangerBlock=room.kind==='danger'?`
-        <div class="hook-entities" style="color:var(--crimson-bright);margin-top:.4rem;">This room triggers a full-stakes encounter per the SRD's exploration danger rules (Chapter Four) — not a separate trap roll. Suggested opponent capability for ${depthKey}: <strong>${suggestedTraining}</strong>, as a starting point only — the GM picks the actual opponent.</div>
-        <button class="hook-btn" style="margin-top:.5rem;border-color:var(--crimson-bright);color:var(--crimson-bright);" onclick="resolveRoomToOpponentBuilder(${room.index},'${suggestedTraining}')">⚔ Resolve via Opponent Builder</button>`:'';
-    return `<div class="hook-card ${room.kind==='danger'?'collision':'opportunity'}" style="margin-bottom:0;${dangerBorder}">
-      <span class="hook-type ${room.kind==='danger'?'collision':'opportunity'}">Room ${room.index} · ${civDef.name} · ${r.depth}${room.resolved?' · Resolved':''}</span>
-      ${r.depthPhrase&&r.depthPhrase!=='—'?`<div class="hook-entities" style="font-style:italic;opacity:.75;">${r.depthPhrase}</div>`:''}
-      ${itemOrDoc}
-      ${dangerBlock}
-      <button class="hook-btn" style="margin-top:.5rem;" onclick="toggleRoomDanger(${room.index})">${toggleLabel}</button>
-    </div>${connector}`;
-  }).join('');
-}
-
-function resolveRoomToOpponentBuilder(roomIdx,suggestedTraining){
-  const room=layoutRooms.find(r=>r.index===roomIdx);
-  if(room) room.resolved=true;
-  // Pre-fill the existing Opponent Builder form rather than duplicating its
-  // logic — this is a handoff, not a parallel system.
-  const trainingSel=document.getElementById('opp-training-select');
-  const nameInput=document.getElementById('opp-name-input');
-  const locationSel=document.getElementById('opp-location-select');
-  if(trainingSel) trainingSel.value=suggestedTraining;
-  if(nameInput) nameInput.value=`Room ${roomIdx} Encounter`;
-  if(locationSel) locationSel.value='outside'; // exploration sites are outside the barrier per the SRD's full-stakes framing
-  document.getElementById('toolsub-opponent-btn')?.click();
-  renderLayoutRooms();
-}
-
 
 function setToolSubTab(tab,btn){
   document.querySelectorAll('.tool-subtabs .stype-btn').forEach(b=>b.classList.remove('active'));
@@ -2722,7 +2882,7 @@ function getOpponentRuleFlags(opp){
   if(opp.stamina>=3){
     flags.push({severity:'crimson',text:`Spent — no techniques available. ${encounterLocation==='inside'?'This is the trigger for combat resolution inside the barrier.':'Outside the barrier, this is the point where death becomes a real possibility.'}`});
   } else if(opp.hasTechnique&&opp.techniqueUsed&&opp.training==='developing'){
-    flags.push({severity:'amber',text:'Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.'});
+    flags.push({severity:'gold',text:'Developing training, one technique only — already used this encounter. Basic strikes only until it resets next encounter.'});
   }
 
   opp.wounds.forEach(w=>{
@@ -2732,11 +2892,11 @@ function getOpponentRuleFlags(opp){
 
   // Staff + Shield Arm interaction named explicitly in the SRD wound table.
   if(opp.weapon==='Staff'&&opp.wounds.includes('shield-arm')){
-    flags.push({severity:'amber',text:'Staff Barrier Generation is specifically unavailable while Shield Arm is wounded — named directly in the SRD wound table, not a general two-handed restriction.'});
+    flags.push({severity:'gold',text:'Staff Barrier Generation is specifically unavailable while Shield Arm is wounded — named directly in the SRD wound table, not a general two-handed restriction.'});
   }
 
   if(opp.wounds.length>=3&&encounterLocation==='inside'){
-    flags.push({severity:'amber',text:'Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.'});
+    flags.push({severity:'gold',text:'Three wound states reached — this is also a combat-resolution trigger inside the barrier, same as Spent stamina.'});
   }
 
   return {staminaLabel, flags};
@@ -2761,7 +2921,7 @@ function renderOpponentRoster(){
         <span>${opp.techniqueName} already fired this encounter</span>
       </label>
     </div>`:'';
-    const flagsHtml=flags.map(f=>`<div style="color:${f.severity==='crimson'?'var(--crimson-bright)':f.severity==='amber'?'var(--amber-bright)':'var(--ink-light)'};margin-top:.3rem;">${f.text}</div>`).join('');
+    const flagsHtml=flags.map(f=>`<div style="color:${f.severity==='crimson'?'var(--crimson-bright)':f.severity==='gold'?'var(--gold-bright)':'var(--ink-light)'};margin-top:.3rem;">${f.text}</div>`).join('');
 
     return `<div style="border:1px solid var(--panel-border);padding:.7rem .8rem;margin-bottom:.7rem;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem;">
@@ -2862,10 +3022,10 @@ function renderSoloPrep(){
   // real line to open the scene with, not just a category of allowed action.
   if(eligibleNodes.length){
     const best=eligibleNodes.slice().sort((a,b)=>(b.scores[heirKey]||0)-(a.scores[heirKey]||0))[0];
-    const codex=NPC_CODEX[best.key];
+    const dossier=NPC_DOSSIER[best.key];
     let openingLine='';
-    if(codex){
-      openingLine=`Read for the tell before they speak: ${codex.tell} Then open with: ${codex.line}`;
+    if(dossier?.codex){
+      openingLine=`Read for the tell before they speak: ${dossier.codex.tell} Then open with: ${dossier.codex.line}`;
     } else {
       openingLine=`${best.name} is the strongest standing available — open here. There's no authored codex entry for this NPC (likely a personal contact), so play their reaction off what ${heir.name} actually brings to the conversation.`;
     }
