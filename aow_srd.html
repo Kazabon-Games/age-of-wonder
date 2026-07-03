@@ -29,7 +29,7 @@
   --chrome-dark:#100d09;
   --chrome-text:rgba(245,238,223,0.85);
   --chrome-text-mid:rgba(245,238,223,0.35);
-  --chrome-text-faint:rgba(245,238,223,0.22);
+  --chrome-text-faint:rgba(245,238,223,0.55);
 }
 html[data-theme="light"]{
   /* Only the dark UI chrome toggles — the cover and chapter-header bands are
@@ -40,7 +40,7 @@ html[data-theme="light"]{
   --chrome-dark:#ded0b2;
   --chrome-text:rgba(42,31,20,0.85);
   --chrome-text-mid:rgba(42,31,20,0.45);
-  --chrome-text-faint:rgba(42,31,20,0.3);
+  --chrome-text-faint:rgba(42,31,20,0.7);
 }
 html{font-size:16px;scroll-behavior:smooth;}
 body{background:var(--night);color:var(--ink);font-family:'EB Garamond',serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;transition:background .3s;}
@@ -353,6 +353,8 @@ a.xref::after{content:'↗';font-size:.65em;margin-left:.15em;opacity:.6;}
 /* ══════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════ */
+/* Primary layout breakpoint: 860px — sidebar (260px) + min-readable content
+   forces an earlier collapse than a single-column form needs. */
 @media(max-width:860px){
   .sidebar{display:none;}
   .mobile-header{display:flex;}
@@ -2885,9 +2887,9 @@ window.addEventListener('resize',()=>{
 
 <button class="bugrep-toggle" onclick="bugrepOpen()">⚑ Report <span class="bugrep-badge" id="bugrep-badge" style="display:none;">0</span></button>
 
-<div class="bugrep-overlay" id="bugrep-overlay">
+<div class="bugrep-overlay" id="bugrep-overlay" role="dialog" aria-modal="true" aria-labelledby="bugrep-heading">
   <div class="bugrep-panel">
-    <h3>Report an Issue <span class="bugrep-close" onclick="bugrepClose()">✕</span></h3>
+    <h3 id="bugrep-heading">Report an Issue <span class="bugrep-close" role="button" tabindex="0" aria-label="Close bug report panel" onclick="bugrepClose()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bugrepClose();}">✕</span></h3>
     <div class="bugrep-tabs">
       <div class="bugrep-tab active" id="bugrep-tab-new" onclick="bugrepShowTab('new')">New Report</div>
       <div class="bugrep-tab" id="bugrep-tab-list" onclick="bugrepShowTab('list')">Saved (<span id="bugrep-count">0</span>)</div>
@@ -2921,6 +2923,30 @@ const BUGREP_DOC_ID = 'srd';
 const BUGREP_KEY = 'aow-bugreports-' + BUGREP_DOC_ID;
 let bugrepSelectedCat = 'Bug';
 
+// ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
+// Identical across all four documents — call trapFocus(overlayEl) each time
+// an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
+// keyboard focus inside the dialog and restore it to the trigger on close.
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  _aowFocusReturnEl = document.activeElement;
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
+  _aowFocusReturnEl = null;
+}
+
 function bugrepLoad(){
   try{ return JSON.parse(localStorage.getItem(BUGREP_KEY) || '[]'); }
   catch(e){ return []; }
@@ -2936,11 +2962,16 @@ function bugrepUpdateBadge(){
   if(count) count.textContent = list.length;
 }
 function bugrepOpen(){
-  document.getElementById('bugrep-overlay').classList.add('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = bugrepClose;
+  trapFocus(overlay);
   bugrepUpdateBadge();
 }
 function bugrepClose(){
-  document.getElementById('bugrep-overlay').classList.remove('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 function bugrepShowTab(tab){
   document.getElementById('bugrep-tab-new').classList.toggle('active', tab==='new');

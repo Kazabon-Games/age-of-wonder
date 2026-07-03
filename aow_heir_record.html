@@ -8,10 +8,10 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --night:#0e0c08;
+  --night:#0f0d0a;
   --vellum:#f2e8d0;
   --vellum-dark:#e8d8b8;
-  --gold:#c9a96e;
+  --gold:#8b6914;
   --gold-dim:#9e7a48;
   --gold-pale:rgba(201,169,110,0.15);
   --crimson:#8c3a1a;
@@ -19,7 +19,8 @@
   --leather:#3a2d1e;
   --leather-mid:#5a4030;
   --leather-light:#7a5840;
-  --gold-bright:#e0c08a;
+  --gold-bright:#c9a030;
+  --panel-border:rgba(139,105,20,0.18);
   --forest-bright:#3a6b50;
   --alt:#8b3a1a;--con:#1a5c8b;--neg:#3a3a6b;--div:#6b5a1a;--trn:#1a6b3a;--dom:#6b1a4a;
   --rail-w:52px;
@@ -359,6 +360,8 @@ input[type="color"]{width:100%;height:34px;border:1px solid var(--page-border);p
 /* ── MOBILE TOP PROGRESS (replaces rail on small screens) ── */
 .mobile-progress-wrap{display:none;}
 
+/* Primary layout breakpoint: 720px — single-column wizard content is
+   readable narrower than aow_srd/aow_gm_screen's wider layouts. */
 @media(max-width:720px){
   body{display:block;}
   .theme-toggle{position:fixed;top:auto;bottom:.6rem;right:.6rem;left:auto;font-size:.44rem;padding:.3rem .5rem;z-index:160;}
@@ -906,8 +909,8 @@ function applyTheme(theme){
   try{localStorage.setItem('aow-heir-theme',theme);}catch(e){}
 }
 function toggleTheme(){
-  const current=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';
-  applyTheme(current==='dark'?'light':'dark');
+  const current=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
+  applyTheme(current==='light'?'dark':'light');
 }
 (function initTheme(){
   let saved='dark';
@@ -1065,6 +1068,104 @@ let selDistrict=null;
 let sigilB64=null;
 let hectorRel='allied';
 let leverage={};
+let _aowCurrentStep=0;
+
+// ═══════════════════ DRAFT AUTOSAVE ═══════════════════
+// A long multi-section form with no crash/refresh recovery is a real UX
+// gap — this snapshots everything a click or keystroke can change and
+// offers to restore it on next load. Single-select groups are restored by
+// clicking the button at the saved index, reusing whatever handler
+// (selOpt/selMulti/selOrient) is already wired to it, so any side effects
+// (recalc(), etc.) happen exactly as they would from a real click.
+const DRAFT_KEY='aow-heir-record-draft';
+const DRAFT_SEL_GROUPS=['councillor-method','founding-grid','wound-grid','ideal-1-grid','ideal-2-grid','shadow-grid','orient-acquire','orient-hold','orient-use'];
+const DRAFT_MULTI_GROUPS=['resources-grid'];
+
+function collectDraft(){
+  const fields={};
+  document.querySelectorAll('.main input[id],.main textarea[id],.main select[id]').forEach(el=>{
+    if(el.type==='file')return;
+    fields[el.id]=el.value;
+  });
+  const sel={};
+  DRAFT_SEL_GROUPS.forEach(g=>{
+    const group=document.getElementById(g);
+    const btn=group?group.querySelector('.opt-btn.sel'):null;
+    sel[g]=btn?Array.from(group.children).indexOf(btn):null;
+  });
+  const multiSel={};
+  DRAFT_MULTI_GROUPS.forEach(g=>{
+    const group=document.getElementById(g);
+    multiSel[g]=group?Array.from(group.querySelectorAll('.opt-btn.sel')).map(b=>Array.from(group.children).indexOf(b)):[];
+  });
+  return {savedAt:Date.now(),step:_aowCurrentStep,fields,sel,multiSel,yearData,hectorRel,selDistrict,sigilB64};
+}
+function saveDraft(){
+  try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft())); }catch(e){}
+}
+function clearDraft(){
+  try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+}
+function debounce(fn,ms){
+  let t;
+  return function(...args){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args),ms); };
+}
+
+function tryOfferDraftRestore(){
+  let raw=null; try{ raw=localStorage.getItem(DRAFT_KEY); }catch(e){}
+  if(!raw) return;
+  let d; try{ d=JSON.parse(raw); }catch(e){ return; }
+  const ageMin=Math.max(0,Math.round((Date.now()-d.savedAt)/60000));
+  if(!confirm(`Resume your in-progress record from ${ageMin} minute${ageMin===1?'':'s'} ago?`)){ clearDraft(); return; }
+
+  yearData=d.yearData||yearData;
+  hectorRel=d.hectorRel||hectorRel;
+  selDistrict=d.selDistrict||selDistrict;
+  sigilB64=d.sigilB64||null;
+
+  initYears();
+  yearData.forEach((yd,y)=>{
+    if(!yd) return;
+    const aspBtn=document.getElementById(`ab-${y}-${yd.aspect}`);
+    if(aspBtn) aspBtn.click();
+  });
+
+  Object.entries(d.fields||{}).forEach(([id,val])=>{
+    const el=document.getElementById(id);
+    if(el) el.value=val;
+  });
+
+  if(sigilB64){
+    const preview=document.getElementById('sigil-preview');
+    if(preview) preview.innerHTML=`<img src="${sigilB64}" alt="Uploaded house sigil preview" style="max-height:95px;object-fit:contain;"/><span class="sz-s" style="margin-top:.3rem;">Tap to change</span>`;
+  }
+
+  DRAFT_SEL_GROUPS.forEach(g=>{
+    const idx=d.sel?.[g];
+    if(idx==null) return;
+    const group=document.getElementById(g);
+    const btn=group?group.children[idx]:null;
+    if(btn) btn.click();
+  });
+  DRAFT_MULTI_GROUPS.forEach(g=>{
+    const group=document.getElementById(g);
+    if(!group) return;
+    (d.multiSel?.[g]||[]).forEach(idx=>{ const btn=group.children[idx]; if(btn) btn.click(); });
+  });
+
+  if(hectorRel){
+    const relBtn=document.querySelector(`#hector-rel .rel-btn[onclick*="'${hectorRel}'"]`);
+    if(relBtn) relBtn.click();
+  }
+  if(selDistrict){
+    const distBtn=document.querySelector(`.dist-btn[onclick*="'${selDistrict}'"]`);
+    if(distBtn) distBtn.click();
+  }
+
+  syncAll();
+  recalc();renderBars();renderMap();checkAwaken();renderSummary();calcLeverage();
+  goTo(d.step||0);
+}
 
 // ═══════════════════ NAVIGATION ═══════════════════
 function startSheet(){
@@ -1087,6 +1188,7 @@ const SECTION_LABELS=[
   'Section 7 of 7 · Your Record',
 ];
 function goTo(n){
+  _aowCurrentStep=n;
   document.querySelectorAll('.sheet').forEach((s,i)=>s.classList.toggle('active',i===n));
   document.querySelectorAll('.rail-step').forEach((r,i)=>{r.classList.remove('active','done');if(i===n)r.classList.add('active');else if(i<n)r.classList.add('done');});
   document.querySelectorAll('.mp-step').forEach((m,i)=>{m.classList.remove('active','done');if(i===n)m.classList.add('active');else if(i<n)m.classList.add('done');});
@@ -1100,7 +1202,7 @@ function goTo(n){
 
 // ═══════════════════ HELPERS ═══════════════════
 function gv(id){const el=document.getElementById(id);return el?el.value:'';}
-function selOpt(groupId,btn){document.querySelectorAll(`#${groupId} .opt-btn`).forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');}
+function selOpt(groupId,btn){document.querySelectorAll(`#${groupId} .opt-btn`).forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');saveDraft();}
 function selMulti(groupId,btn){
   const group=document.getElementById(groupId);
   const already=btn.classList.contains('sel');
@@ -1114,20 +1216,21 @@ function selMulti(groupId,btn){
     }
     btn.classList.add('sel');
   }
+  saveDraft();
 }
-function selRel(btn,val){document.querySelectorAll('#hector-rel .rel-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');hectorRel=val;recalc();}
+function selRel(btn,val){document.querySelectorAll('#hector-rel .rel-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');hectorRel=val;recalc();saveDraft();}
 
 // ═══════════════════ HOUSE ═══════════════════
 function handleSigil(input){
   const file=input.files[0];if(!file)return;
   const r=new FileReader();
-  r.onload=e=>{sigilB64=e.target.result;document.getElementById('sigil-preview').innerHTML=`<img src="${sigilB64}" style="max-height:95px;object-fit:contain;"/><span class="sz-s" style="margin-top:.3rem;">Tap to change</span>`;};
+  r.onload=e=>{sigilB64=e.target.result;document.getElementById('sigil-preview').innerHTML=`<img src="${sigilB64}" alt="Uploaded house sigil preview" style="max-height:95px;object-fit:contain;"/><span class="sz-s" style="margin-top:.3rem;">Tap to change</span>`;saveDraft();};
   r.readAsDataURL(file);
 }
 
 function selDist(btn,type){
   document.querySelectorAll('.dist-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');selDistrict=type;calcLeverage();renderMap();
+  btn.classList.add('sel');selDistrict=type;calcLeverage();renderMap();saveDraft();
 }
 
 function selOrient(axis,btn,school){
@@ -1138,7 +1241,7 @@ function selOrient(axis,btn,school){
     const s=document.querySelector(`#orient-${ax} .opt-btn.sel`);
     if(s){const m=s.getAttribute('onclick').match(/'([A-Z]+)'\)$/);if(m)orientAff[m[1]]=(orientAff[m[1]]||0)+1;}
   });
-  recalc();
+  recalc();saveDraft();
 }
 
 // Reads only a button's own direct text, ignoring any nested span (e.g. the
@@ -1236,7 +1339,7 @@ function selAspect(year,aspectId,btn){
   }
   const prior=yearData.slice(0,year).filter(d=>d&&d.aspect===aspectId).length;
   renderSubs(year,aspectId,prior);
-  recalc();renderSummary();updateYrCheck(year);updatePrior();
+  recalc();renderSummary();updateYrCheck(year);updatePrior();saveDraft();
 }
 
 function getLockedSubs(aspectId,beforeYear){
@@ -1334,7 +1437,7 @@ function selSub(year,aspectId,pick,value,btn){
   btn.classList.add('sel');
   if(yearData[year])yearData[year].subs[pick]=value;
   if(pick==='p1'&&aspectId==='magic'&&yearData[year])yearData[year].magicSchool=value.split(' — ')[0];
-  recalc();updateYrCheck(year);renderSummary();
+  recalc();updateYrCheck(year);renderSummary();saveDraft();
 }
 
 // ═══════════════════ AFFINITIES ═══════════════════
@@ -2163,6 +2266,7 @@ function saveRecord(){
   const a=document.createElement('a');
   const name=(gv('heir-name')||'heir').replace(/\s+/g,'_').toLowerCase();
   a.href=url;a.download=`aow_heir_${name}.json`;a.click();URL.revokeObjectURL(url);
+  clearDraft();
 }
 
 // ═══════════════════ INIT ═══════════════════
@@ -2170,6 +2274,8 @@ function init(){
   document.getElementById('rail').style.display='none';
   initYears();initNPCSlots();
   renderMap();renderBars();checkAwaken();renderSummary();calcLeverage();
+  document.querySelector('.main').addEventListener('input', debounce(saveDraft, 400));
+  tryOfferDraftRestore();
 }
 init();
 </script>
@@ -2209,9 +2315,9 @@ init();
 
 <button class="bugrep-toggle" onclick="bugrepOpen()">⚑ Report <span class="bugrep-badge" id="bugrep-badge" style="display:none;">0</span></button>
 
-<div class="bugrep-overlay" id="bugrep-overlay">
+<div class="bugrep-overlay" id="bugrep-overlay" role="dialog" aria-modal="true" aria-labelledby="bugrep-heading">
   <div class="bugrep-panel">
-    <h3>Report an Issue <span class="bugrep-close" onclick="bugrepClose()">✕</span></h3>
+    <h3 id="bugrep-heading">Report an Issue <span class="bugrep-close" role="button" tabindex="0" aria-label="Close bug report panel" onclick="bugrepClose()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bugrepClose();}">✕</span></h3>
     <div class="bugrep-tabs">
       <div class="bugrep-tab active" id="bugrep-tab-new" onclick="bugrepShowTab('new')">New Report</div>
       <div class="bugrep-tab" id="bugrep-tab-list" onclick="bugrepShowTab('list')">Saved (<span id="bugrep-count">0</span>)</div>
@@ -2245,6 +2351,30 @@ const BUGREP_DOC_ID = 'heir_record';
 const BUGREP_KEY = 'aow-bugreports-' + BUGREP_DOC_ID;
 let bugrepSelectedCat = 'Bug';
 
+// ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
+// Identical across all four documents — call trapFocus(overlayEl) each time
+// an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
+// keyboard focus inside the dialog and restore it to the trigger on close.
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  _aowFocusReturnEl = document.activeElement;
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
+  _aowFocusReturnEl = null;
+}
+
 function bugrepLoad(){
   try{ return JSON.parse(localStorage.getItem(BUGREP_KEY) || '[]'); }
   catch(e){ return []; }
@@ -2260,11 +2390,16 @@ function bugrepUpdateBadge(){
   if(count) count.textContent = list.length;
 }
 function bugrepOpen(){
-  document.getElementById('bugrep-overlay').classList.add('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = bugrepClose;
+  trapFocus(overlay);
   bugrepUpdateBadge();
 }
 function bugrepClose(){
-  document.getElementById('bugrep-overlay').classList.remove('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 function bugrepShowTab(tab){
   document.getElementById('bugrep-tab-new').classList.toggle('active', tab==='new');

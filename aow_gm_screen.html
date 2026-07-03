@@ -299,9 +299,12 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .drawer-notes-area{font-family:'EB Garamond',serif;font-size:.86rem;background:rgba(255,255,255,0.02);border:1px solid var(--panel-border);color:var(--vellum-dark);padding:.3rem .4rem;width:100%;resize:none;height:70px;margin-top:.3rem;}
 .drawer-notes-area:focus{outline:none;border-color:var(--gold-dim);}
 
+/* ══════ SHARED OVERLAY BASE ══════ */
+.aow-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;}
+.aow-overlay.show{display:flex;}
+
 /* ══════ MODAL ══════ */
-.modal-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:500;display:none;align-items:center;justify-content:center;}
-.modal-overlay.show{display:flex;}
+.modal-overlay{background:rgba(10,8,5,0.88);z-index:500;}
 .modal-box{background:var(--night-mid);border:1px solid var(--gold-dim);padding:1.4rem;width:460px;max-height:82vh;overflow-y:auto;}
 .modal-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.25rem;}
 .modal-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);margin-bottom:.9rem;line-height:1.6;}
@@ -318,8 +321,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .modal-btn.primary:hover{background:var(--gold-faint);}
 
 /* confirm overlay */
-.confirm-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.92);z-index:600;display:none;align-items:center;justify-content:center;}
-.confirm-overlay.show{display:flex;}
+.confirm-overlay{background:rgba(10,8,5,0.92);z-index:600;}
 .confirm-box{background:var(--night-mid);border:1px solid var(--gold-dim);padding:1.4rem;width:340px;text-align:center;}
 .confirm-title{font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold-bright);margin-bottom:.5rem;}
 .confirm-body{font-family:'EB Garamond',serif;font-size:.92rem;color:var(--vellum-mid);line-height:1.65;margin-bottom:1rem;}
@@ -333,6 +335,9 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 /* ══════ MOBILE ══════ */
 .mobile-tab-nav{display:none;}
 
+/* Primary layout breakpoint: 768px — narrower than aow_srd's 860px because
+   the 3-panel (web/center/hook) grid needs to collapse to tabs sooner than
+   a sidebar+content layout does. */
 @media(max-width:768px){
   html,body{overflow:auto;}
   .gm-shell{grid-template-rows:auto auto 1fr;height:100dvh;}
@@ -370,8 +375,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 /* ══════ GLOBAL SEARCH ══════ */
 .search-trigger{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
 .search-trigger:hover{border-color:var(--gold);color:var(--gold);}
-.search-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:700;display:none;align-items:flex-start;justify-content:center;padding-top:8vh;}
-.search-overlay.show{display:flex;}
+.search-overlay{background:rgba(10,8,5,0.88);z-index:700;align-items:flex-start;padding-top:8vh;}
 .search-box{background:var(--night-mid);border:1px solid var(--gold-dim);width:540px;max-width:92vw;max-height:74vh;display:flex;flex-direction:column;overflow:hidden;}
 .search-input-row{padding:.8rem .9rem;border-bottom:1px solid var(--panel-border);display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
 .search-input{flex:1;background:transparent;border:none;outline:none;color:var(--vellum-dark);font-family:'EB Garamond',serif;font-size:1.05rem;}
@@ -401,8 +405,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 /* ══════ RECAP ══════ */
 .recap-trigger{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;padding:.28rem .65rem;border:1px solid var(--panel-border);background:transparent;color:var(--gold-dim);cursor:pointer;transition:all .15s;}
 .recap-trigger:hover{border-color:var(--gold);color:var(--gold);}
-.recap-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:700;display:none;align-items:center;justify-content:center;}
-.recap-overlay.show{display:flex;}
+.recap-overlay{background:rgba(10,8,5,0.88);z-index:700;}
 .recap-box{background:var(--night-mid);border:1px solid var(--gold-dim);width:480px;max-width:92vw;max-height:80vh;overflow-y:auto;padding:1.3rem 1.4rem;}
 .recap-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold-bright);margin-bottom:.3rem;}
 .recap-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);margin-bottom:1rem;}
@@ -446,11 +449,11 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 <body>
 
 <!-- SESSION CHECKLIST LANDING -->
-<div class="checklist-overlay" id="checklist-overlay">
+<div class="checklist-overlay" id="checklist-overlay" role="dialog" aria-modal="true" aria-labelledby="checklist-title">
   <div class="checklist-box">
     <div class="checklist-sigil">◈</div>
     <div class="checklist-eyebrow">Wonderland</div>
-    <div class="checklist-title">Before You Begin</div>
+    <div class="checklist-title" id="checklist-title">Before You Begin</div>
     <div class="checklist-session" id="checklist-session-label">Session 1</div>
     <div class="checklist-section">
       <div class="checklist-section-title">Primed — Ready to Fire</div>
@@ -470,7 +473,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 </div>
 
 <!-- GLOBAL SEARCH -->
-<div class="search-overlay" id="search-overlay" onclick="if(event.target===this)closeSearch()">
+<div class="search-overlay aow-overlay" id="search-overlay" onclick="if(event.target===this)closeSearch()" role="dialog" aria-modal="true" aria-label="Search NPCs, heirs, and factions">
   <div class="search-box">
     <div class="search-input-row">
       <span style="color:var(--gold-dim);">⌕</span>
@@ -485,9 +488,9 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 <div class="quick-pop" id="quick-pop"></div>
 
 <!-- RECAP -->
-<div class="recap-overlay" id="recap-overlay" onclick="if(event.target===this)closeRecap()">
+<div class="recap-overlay aow-overlay" id="recap-overlay" onclick="if(event.target===this)closeRecap()" role="dialog" aria-modal="true" aria-labelledby="recap-title">
   <div class="recap-box">
-    <div class="recap-title">What Just Happened</div>
+    <div class="recap-title" id="recap-title">What Just Happened</div>
     <div class="recap-sub" id="recap-sub">Last few events this session</div>
     <div id="recap-content"></div>
     <button class="recap-close" onclick="closeRecap()">Close</button>
@@ -987,15 +990,15 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 </div><!-- end gm-shell -->
 
 <!-- NPC DRAWER -->
-<div class="drawer" id="npc-drawer">
+<div class="drawer" id="npc-drawer" role="dialog" aria-modal="true" aria-label="NPC details">
   <span class="drawer-close" onclick="closeDrawer()">← Close</span>
   <div id="drawer-content"></div>
 </div>
 
 <!-- IMPORT MODAL -->
-<div class="modal-overlay" id="import-modal">
+<div class="modal-overlay aow-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
   <div class="modal-box">
-    <div class="modal-title">Heir Records Imported</div>
+    <div class="modal-title" id="import-modal-title">Heir Records Imported</div>
     <div class="modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
     <div id="imported-heirs-list" class="modal-heirs"></div>
     <div id="collision-notice"></div>
@@ -1006,21 +1009,21 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 </div>
 
 <!-- CONFIRM ADVANCE SESSION -->
-<div class="confirm-overlay" id="confirm-overlay">
+<div class="confirm-overlay aow-overlay" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-overlay-title">
   <div class="confirm-box">
-    <div class="confirm-title">Advance to Next Session?</div>
+    <div class="confirm-title" id="confirm-overlay-title">Advance to Next Session?</div>
     <div class="confirm-body">The session counter will increment. A snapshot of current state will be saved. This cannot be undone.</div>
     <div class="confirm-actions">
       <button class="modal-btn primary" onclick="doAdvanceSession()">Advance</button>
-      <button class="modal-btn" onclick="document.getElementById('confirm-overlay').classList.remove('show')">Cancel</button>
+      <button class="modal-btn" onclick="closeConfirmOverlay()">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- REWARD EXPORT -->
-<div class="confirm-overlay" id="reward-export-overlay">
+<div class="confirm-overlay aow-overlay" id="reward-export-overlay" role="dialog" aria-modal="true" aria-labelledby="reward-export-title">
   <div class="confirm-box">
-    <div class="confirm-title">Give This to a Player</div>
+    <div class="confirm-title" id="reward-export-title">Give This to a Player</div>
     <div class="confirm-body" id="reward-export-preview">—</div>
     <div style="margin:.8rem 0;text-align:left;">
       <span class="composer-field-label">Which heir receives this?</span>
@@ -1028,7 +1031,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     </div>
     <div class="confirm-actions">
       <button class="modal-btn primary" onclick="confirmRewardExport()">Download for This Heir</button>
-      <button class="modal-btn" onclick="document.getElementById('reward-export-overlay').classList.remove('show')">Cancel</button>
+      <button class="modal-btn" onclick="closeRewardExportOverlay()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1571,7 +1574,34 @@ let state = {
   lastGeneratedRewards:[], // transient — not persisted, regenerated each session
 };
 
-const STORAGE_KEY = 'aow-wonderland-v1';
+const STORAGE_KEY = 'aow-gm-screen-v1';
+
+// ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
+// Identical across all four documents — call trapFocus(overlayEl) each time
+// an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
+// keyboard focus inside the dialog and restore it to the trigger on close.
+// Defined here (rather than in the bugrep widget's later <script> block, as
+// in the other three documents) because showSessionChecklist() calls it
+// synchronously at load, before that later block has executed.
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  _aowFocusReturnEl = document.activeElement;
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
+  _aowFocusReturnEl = null;
+}
 
 // ═══════════════════════════════════════════
 // PERSISTENCE
@@ -1597,7 +1627,7 @@ function save() {
 
 function load() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('aow-wonderland-v1');
     if (!raw) return false;
     const saved = JSON.parse(raw);
     Object.assign(state, saved);
@@ -1646,6 +1676,18 @@ function init() {
 // ═══════════════════════════════════════════
 // IMPORT
 // ═══════════════════════════════════════════
+// Identical across aow_play_sheet.html and aow_gm_screen.html. Bump
+// SUPPORTED_S0_VERSIONS when aow_heir_record.html's export format changes
+// in a way these importers need to react to.
+const SUPPORTED_S0_VERSIONS = ['1.0','1.1'];
+function checkS0Version(data){
+  const v = data.version || '1.0'; // pre-versioning exports had no field — treat as 1.0
+  if(!SUPPORTED_S0_VERSIONS.includes(v)){
+    return confirm(`This record was exported by a newer/older version (v${v}) of the Heir's Record than this sheet recognizes. Import may be incomplete or incorrect. Continue anyway?`);
+  }
+  return true;
+}
+
 function handleHeirImport(input) {
   const files = Array.from(input.files);
   let loaded = 0;
@@ -1655,7 +1697,7 @@ function handleHeirImport(input) {
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        const col = ingestHeirRecord(data);
+        const col = checkS0Version(data) ? ingestHeirRecord(data) : [];
         collisions.push(...col);
         loaded++;
         if (loaded === files.length) {
@@ -1815,14 +1857,31 @@ function showImportModal(collisions) {
   if (collisions?.length) {
     cn.innerHTML = `<div class="modal-collision-list"><strong style="font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.1em;">Shared Nodes Detected</strong><br>${collisions.map(c=>`${c.node.name} — ${c.heirName}'s ${c.slot}`).join('<br>')}</div>`;
   } else { cn.innerHTML = ''; }
-  document.getElementById('import-modal').classList.add('show');
+  const importOverlay = document.getElementById('import-modal');
+  importOverlay.classList.add('show');
+  importOverlay._aowOnEscape = closeImportModal;
+  trapFocus(importOverlay);
 }
-function closeImportModal() { document.getElementById('import-modal').classList.remove('show'); }
+function closeImportModal() {
+  const overlay = document.getElementById('import-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+}
 
 // ═══════════════════════════════════════════
 // SESSION ADVANCE
 // ═══════════════════════════════════════════
-function confirmAdvanceSession() { document.getElementById('confirm-overlay').classList.add('show'); }
+function confirmAdvanceSession() {
+  const overlay = document.getElementById('confirm-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = closeConfirmOverlay;
+  trapFocus(overlay);
+}
+function closeConfirmOverlay() {
+  const overlay = document.getElementById('confirm-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+}
 function doAdvanceSession() {
   // snapshot current state
   state.snapshots.push({
@@ -1843,7 +1902,7 @@ function doAdvanceSession() {
     if (nb) nb.value = state.notes.between;
   }
   document.getElementById('session-display').textContent = state.session;
-  document.getElementById('confirm-overlay').classList.remove('show');
+  closeConfirmOverlay();
   save();
 }
 
@@ -2527,7 +2586,10 @@ function openDrawer(nodeKey) {
       <textarea class="drawer-notes-area" id="drawer-notes-${nodeKey}" placeholder="Private notes on this NPC. Not visible to players." oninput="saveNodeNote('${nodeKey}',this.value)">${node.gmNote||''}</textarea>
     </div>
   `;
-  document.getElementById('npc-drawer').classList.add('open');
+  const drawerEl = document.getElementById('npc-drawer');
+  drawerEl.classList.add('open');
+  drawerEl._aowOnEscape = closeDrawer;
+  trapFocus(drawerEl);
 }
 
 function runArchivistQuery() {
@@ -2544,7 +2606,12 @@ function runArchivistQuery() {
   </div>`;
 }
 
-function closeDrawer() { document.getElementById('npc-drawer').classList.remove('open'); state.drawerNode=null; }
+function closeDrawer() {
+  const drawerEl = document.getElementById('npc-drawer');
+  untrapFocus(drawerEl);
+  drawerEl.classList.remove('open');
+  state.drawerNode=null;
+}
 
 function adjustScore(nodeKey, heirKey, delta) {
   if (!state.nodes[nodeKey].scores) state.nodes[nodeKey].scores={};
@@ -3418,7 +3485,15 @@ function openRewardExport(index){
     heirSelect.innerHTML=state.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('');
   }
 
-  document.getElementById('reward-export-overlay').classList.add('show');
+  const rewardOverlay = document.getElementById('reward-export-overlay');
+  rewardOverlay.classList.add('show');
+  rewardOverlay._aowOnEscape = closeRewardExportOverlay;
+  trapFocus(rewardOverlay);
+}
+function closeRewardExportOverlay() {
+  const overlay = document.getElementById('reward-export-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 
 function confirmRewardExport(){
@@ -3463,7 +3538,7 @@ function confirmRewardExport(){
   a.href=url;a.download=`aow_reward_${safeName}_${itemName}.json`;a.click();
   URL.revokeObjectURL(url);
 
-  document.getElementById('reward-export-overlay').classList.remove('show');
+  closeRewardExportOverlay();
   rewardExportPendingIndex=null;
 }
 
@@ -3509,10 +3584,15 @@ function showSessionChecklist(){
   }
 
   overlay.classList.remove('hide');
+  overlay._aowOnEscape = dismissChecklist;
+  trapFocus(overlay);
 }
 function dismissChecklist(){
   const overlay=document.getElementById('checklist-overlay');
-  if(overlay){overlay.classList.add('hide');setTimeout(()=>{overlay.style.display='none';},400);}
+  if(overlay){
+    untrapFocus(overlay);
+    overlay.classList.add('hide');setTimeout(()=>{overlay.style.display='none';},400);
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -3521,13 +3601,17 @@ function dismissChecklist(){
 function openSearch(){
   const overlay=document.getElementById('search-overlay');
   overlay.classList.add('show');
+  overlay._aowOnEscape = closeSearch;
+  trapFocus(overlay);
   const input=document.getElementById('search-input');
   input.value='';
   setTimeout(()=>input.focus(),50);
   renderSearchResults();
 }
 function closeSearch(){
-  document.getElementById('search-overlay').classList.remove('show');
+  const overlay = document.getElementById('search-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 function renderSearchResults(){
   const q=(document.getElementById('search-input')?.value||'').trim().toLowerCase();
@@ -3571,7 +3655,7 @@ function selectSearchResult(type,key){
 }
 function searchKeyNav(e){
   const results=document.querySelectorAll('.search-result-item');
-  if(e.key==='Escape'){closeSearch();return;}
+  if(e.key==='Escape')return; // handled by the overlay's trapFocus keydown listener as it bubbles
   if(!results.length)return;
   const activeIdx=Array.from(results).findIndex(r=>r.classList.contains('kbd-active'));
   if(e.key==='ArrowDown'){
@@ -3626,9 +3710,13 @@ function openRecap(){
     }).join('');
   }
   overlay.classList.add('show');
+  overlay._aowOnEscape = closeRecap;
+  trapFocus(overlay);
 }
 function closeRecap(){
-  document.getElementById('recap-overlay').classList.remove('show');
+  const overlay = document.getElementById('recap-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 
 // ═══════════════════════════════════════════
@@ -3691,9 +3779,9 @@ showSessionChecklist();
 
 <button class="bugrep-toggle" onclick="bugrepOpen()">⚑ Report <span class="bugrep-badge" id="bugrep-badge" style="display:none;">0</span></button>
 
-<div class="bugrep-overlay" id="bugrep-overlay">
+<div class="bugrep-overlay" id="bugrep-overlay" role="dialog" aria-modal="true" aria-labelledby="bugrep-heading">
   <div class="bugrep-panel">
-    <h3>Report an Issue <span class="bugrep-close" onclick="bugrepClose()">✕</span></h3>
+    <h3 id="bugrep-heading">Report an Issue <span class="bugrep-close" role="button" tabindex="0" aria-label="Close bug report panel" onclick="bugrepClose()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bugrepClose();}">✕</span></h3>
     <div class="bugrep-tabs">
       <div class="bugrep-tab active" id="bugrep-tab-new" onclick="bugrepShowTab('new')">New Report</div>
       <div class="bugrep-tab" id="bugrep-tab-list" onclick="bugrepShowTab('list')">Saved (<span id="bugrep-count">0</span>)</div>
@@ -3742,11 +3830,16 @@ function bugrepUpdateBadge(){
   if(count) count.textContent = list.length;
 }
 function bugrepOpen(){
-  document.getElementById('bugrep-overlay').classList.add('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = bugrepClose;
+  trapFocus(overlay);
   bugrepUpdateBadge();
 }
 function bugrepClose(){
-  document.getElementById('bugrep-overlay').classList.remove('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 function bugrepShowTab(tab){
   document.getElementById('bugrep-tab-new').classList.toggle('active', tab==='new');

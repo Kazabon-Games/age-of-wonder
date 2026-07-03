@@ -4,17 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Age of Wonder — Play Sheet</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --night:#0e0c08;
+  --night:#0f0d0a;
   --night-2:#1a1510;
   --night-3:#241e17;
   --vellum:#f2e8d0;
   --vellum-dim:rgba(242,232,208,0.6);
   --vellum-faint:rgba(242,232,208,0.55);
-  --gold:#c9a96e;
+  --gold:#8b6914;
+  --gold-bright:#c9a030;
   --gold-dim:#9e7a48;
   --gold-faint:rgba(201,169,110,0.15);
   --forest:#2c4a3a;
@@ -29,6 +30,7 @@
   --danger:#8c3a1a;
   --border-soft:rgba(201,169,110,0.15);
   --border-mid:rgba(201,169,110,0.2);
+  --panel-border:rgba(139,105,20,0.18);
 }
 html[data-theme="light"]{
   --night:#f2e8d0;
@@ -40,12 +42,15 @@ html[data-theme="light"]{
   --vellum-faint:rgba(36,30,23,0.7);
   --border-soft:rgba(58,45,30,0.18);
   --border-mid:rgba(58,45,30,0.25);
+  --panel-border:rgba(58,45,30,0.22);
 }
 html{font-size:16px;height:100%;}
 body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s;}
 
 .theme-toggle{position:fixed;top:.8rem;right:.8rem;z-index:200;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;padding:.4rem .7rem;border:1px solid var(--gold-dim);background:var(--night);color:var(--gold);cursor:pointer;transition:all .2s;opacity:.92;}
 .theme-toggle:hover{background:var(--gold-dim);color:var(--night);}
+/* Primary layout breakpoint: 720px — single-column tab content is readable
+   narrower than aow_srd/aow_gm_screen's wider layouts. */
 @media(max-width:720px){
   .theme-toggle{top:auto;bottom:.6rem;right:.6rem;font-size:.44rem;padding:.3rem .5rem;z-index:160;}
 }
@@ -64,10 +69,22 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 .import-success{font-size:.82rem;color:var(--forest-bright);font-style:italic;text-align:center;padding:.5rem;background:rgba(44,74,58,0.1);border:1px solid rgba(44,74,58,0.3);display:none;}
 .import-success.show{display:block;}
 
+/* ══════ SHARED OVERLAY BASE + IMPORT MODAL ══════ */
+.aow-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:500;display:none;align-items:center;justify-content:center;}
+.aow-overlay.show{display:flex;}
+.modal-box{background:var(--night-2);border:1px solid var(--gold-dim);padding:1.4rem;width:400px;max-width:92vw;text-align:center;}
+.modal-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.4rem;}
+.modal-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.92rem;color:var(--vellum-dim);margin-bottom:1rem;line-height:1.6;}
+.modal-btn-row{display:flex;justify-content:center;margin-top:.4rem;}
+.modal-btn{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;padding:.5rem 1.4rem;border:1px solid var(--panel-border);background:transparent;color:var(--vellum-dim);cursor:pointer;transition:all .15s;}
+.modal-btn:hover{border-color:var(--gold-dim);color:var(--vellum);}
+.modal-btn.primary{border-color:var(--gold);color:var(--gold);}
+.modal-btn.primary:hover{background:var(--gold-faint);}
+
 /* ══════════════════════════════════
    PERSISTENT HEADER
 ══════════════════════════════════ */
-.header{background:var(--leather);border-bottom:1px solid rgba(201,169,110,0.2);padding:.6rem 7rem .6rem 1rem;display:none;flex-direction:column;gap:.4rem;position:sticky;top:0;z-index:100;}
+.header{background:var(--leather);border-bottom:1px solid rgba(201,169,110,0.2);padding:.7rem 7.5rem .7rem 2rem;display:none;flex-direction:column;gap:.4rem;position:sticky;top:0;z-index:100;}
 .header.show{display:flex;}
 .header-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
 .header-identity{display:flex;align-items:baseline;gap:.6rem;flex:1;min-width:0;}
@@ -91,7 +108,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 /* ══════════════════════════════════
    TAB BAR
 ══════════════════════════════════ */
-.tab-bar{background:var(--night-2);border-bottom:1px solid rgba(201,169,110,0.12);display:none;overflow-x:auto;scrollbar-width:none;}
+.tab-bar{background:var(--night-2);border-bottom:1px solid rgba(201,169,110,0.12);display:none;justify-content:center;overflow-x:auto;scrollbar-width:none;}
 .tab-bar::-webkit-scrollbar{display:none;}
 .tab-bar.show{display:flex;}
 .tab-btn{font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;padding:.65rem .9rem;color:var(--vellum-faint);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;}
@@ -103,7 +120,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 ══════════════════════════════════ */
 .tab-content{display:none;flex:1;overflow-y:auto;}
 .tab-content.active{display:block;}
-.tab-inner{max-width:680px;margin:0 auto;padding:1.2rem 1rem 3rem;}
+.tab-inner{max-width:680px;margin:0 auto;padding:2rem 2rem 3rem;}
 
 /* ══════════════════════════════════
    SHARED COMPONENTS
@@ -171,7 +188,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 /* ══════════════════════════════════
    COMBAT TAB
 ══════════════════════════════════ */
-.wound-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.wound-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;}
 .wound-btn{padding:.6rem .5rem;border:1px solid rgba(201,169,110,0.15);background:var(--night-2);cursor:pointer;text-align:left;transition:all .2s;display:flex;flex-direction:column;gap:.2rem;}
 .wound-btn:hover{border-color:rgba(201,169,110,0.3);}
 .wound-btn.active{border-color:var(--crimson);background:rgba(140,58,26,0.12);}
@@ -289,14 +306,14 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 /* ══════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════ */
-@media(min-width:600px){
+@media(max-width:899px){
   .tab-inner{padding:1.5rem 1.5rem 3rem;}
-  .wound-grid{grid-template-columns:repeat(3,1fr);}
+  .header{padding:.6rem 7rem .6rem 1rem;}
+  .tab-bar{justify-content:flex-start;}
 }
-@media(min-width:900px){
-  .tab-inner{padding:2rem 2rem 3rem;}
-  .header{padding:.7rem 7.5rem .7rem 2rem;}
-  .tab-bar{justify-content:center;}
+@media(max-width:599px){
+  .tab-inner{padding:1.2rem 1rem 3rem;}
+  .wound-grid{grid-template-columns:1fr 1fr;}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;}}
 </style>
@@ -315,6 +332,17 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importFromS0(this)"/>
     <button class="setup-import-btn" onclick="document.getElementById('import-file').click()">⬆ Import Session Zero Record</button>
     <div class="import-success" id="import-success">✦ Record imported. Opening your sheet…</div>
+  </div>
+</div>
+
+<!-- IMPORT CONFIRMATION MODAL -->
+<div class="aow-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+  <div class="modal-box">
+    <div class="modal-title" id="import-modal-title">Session Zero Record Imported</div>
+    <div class="modal-sub" id="import-modal-sub"></div>
+    <div class="modal-btn-row">
+      <button class="modal-btn primary" onclick="closeImportModal()">Enter Your Sheet</button>
+    </div>
   </div>
 </div>
 
@@ -733,15 +761,15 @@ function applyTheme(theme){
   document.documentElement.setAttribute('data-theme',theme);
   const btn=document.getElementById('theme-toggle');
   if(btn) btn.innerHTML = theme==='dark' ? '☀ Light Mode' : '☾ Dark Mode';
-  try{localStorage.setItem('aow-playsheet-theme',theme);}catch(e){}
+  try{localStorage.setItem('aow-play-sheet-theme',theme);}catch(e){}
 }
 function toggleTheme(){
   const current=document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';
-  applyTheme(current==='dark'?'light':'dark');
+  applyTheme(current==='light'?'dark':'light');
 }
 (function initTheme(){
   let saved='dark';
-  try{saved=localStorage.getItem('aow-playsheet-theme')||'dark';}catch(e){}
+  try{saved=localStorage.getItem('aow-play-sheet-theme')||localStorage.getItem('aow-playsheet-theme')||'dark';}catch(e){}
   applyTheme(saved);
 })();
 
@@ -877,23 +905,36 @@ function save(){
   state.notes.questions=document.getElementById('notes-questions')?.value||state.notes.questions;
   state.secondSchool=document.getElementById('second-school-select')?.value||'';
   state.dissolution=document.getElementById('dissolution-select')?.value||'';
-  try{localStorage.setItem('aow-play-sheet',JSON.stringify(state));}catch(e){}
+  try{localStorage.setItem('aow-play-sheet-v1',JSON.stringify(state));}catch(e){}
 }
 
 function load(){
   try{
-    const raw=localStorage.getItem('aow-play-sheet');
+    const raw=localStorage.getItem('aow-play-sheet-v1')||localStorage.getItem('aow-play-sheet');
     if(raw){state=JSON.parse(raw);}
   }catch(e){}
 }
 
 // ═══════════════════ IMPORT FROM SESSION ZERO ═══════════════════
+// Identical across aow_play_sheet.html and aow_gm_screen.html. Bump
+// SUPPORTED_S0_VERSIONS when aow_heir_record.html's export format changes
+// in a way these importers need to react to.
+const SUPPORTED_S0_VERSIONS = ['1.0','1.1'];
+function checkS0Version(data){
+  const v = data.version || '1.0'; // pre-versioning exports had no field — treat as 1.0
+  if(!SUPPORTED_S0_VERSIONS.includes(v)){
+    return confirm(`This record was exported by a newer/older version (v${v}) of the Heir's Record than this sheet recognizes. Import may be incomplete or incorrect. Continue anyway?`);
+  }
+  return true;
+}
+
 function importFromS0(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
     try{
       const data=JSON.parse(e.target.result);
+      if(!checkS0Version(data)){input.value='';return;}
 
       // Identity — required. Without a name and a revealed school, this isn't a usable record.
       const i=data.identity||{};
@@ -1038,10 +1079,11 @@ function importFromS0(input){
 
       save();
 
-      // Show success and open the sheet — there is no manual fallback, import is the only path
-      const successEl=document.getElementById('import-success');
-      if(successEl)successEl.classList.add('show');
-      setTimeout(()=>showSheet(),800);
+      // Show a confirmation modal naming the heir — the sheet only becomes
+      // interactive once the player dismisses it via "Enter Your Sheet".
+      const modalSub=document.getElementById('import-modal-sub');
+      if(modalSub)modalSub.textContent=`${heirName} of House ${state.setup.house||'—'} — ready to play.`;
+      openImportModal();
 
     }catch(err){
       alert('Could not read the file. Make sure you are importing an Age of Wonder Heir\'s Record JSON file.');
@@ -1141,6 +1183,19 @@ function showSheet(){
   document.getElementById('tab-bar').classList.add('show');
   showTab('overview');
   renderAll();
+}
+
+function openImportModal(){
+  const overlay=document.getElementById('import-modal');
+  overlay.classList.add('show');
+  overlay._aowOnEscape=closeImportModal;
+  trapFocus(overlay);
+}
+function closeImportModal(){
+  const overlay=document.getElementById('import-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+  showSheet();
 }
 
 // ═══════════════════ NAVIGATION ═══════════════════
@@ -1916,9 +1971,9 @@ init();
 
 <button class="bugrep-toggle" onclick="bugrepOpen()">⚑ Report <span class="bugrep-badge" id="bugrep-badge" style="display:none;">0</span></button>
 
-<div class="bugrep-overlay" id="bugrep-overlay">
+<div class="bugrep-overlay" id="bugrep-overlay" role="dialog" aria-modal="true" aria-labelledby="bugrep-heading">
   <div class="bugrep-panel">
-    <h3>Report an Issue <span class="bugrep-close" onclick="bugrepClose()">✕</span></h3>
+    <h3 id="bugrep-heading">Report an Issue <span class="bugrep-close" role="button" tabindex="0" aria-label="Close bug report panel" onclick="bugrepClose()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bugrepClose();}">✕</span></h3>
     <div class="bugrep-tabs">
       <div class="bugrep-tab active" id="bugrep-tab-new" onclick="bugrepShowTab('new')">New Report</div>
       <div class="bugrep-tab" id="bugrep-tab-list" onclick="bugrepShowTab('list')">Saved (<span id="bugrep-count">0</span>)</div>
@@ -1952,6 +2007,30 @@ const BUGREP_DOC_ID = 'play_sheet';
 const BUGREP_KEY = 'aow-bugreports-' + BUGREP_DOC_ID;
 let bugrepSelectedCat = 'Bug';
 
+// ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
+// Identical across all four documents — call trapFocus(overlayEl) each time
+// an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
+// keyboard focus inside the dialog and restore it to the trigger on close.
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  _aowFocusReturnEl = document.activeElement;
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
+  _aowFocusReturnEl = null;
+}
+
 function bugrepLoad(){
   try{ return JSON.parse(localStorage.getItem(BUGREP_KEY) || '[]'); }
   catch(e){ return []; }
@@ -1967,11 +2046,16 @@ function bugrepUpdateBadge(){
   if(count) count.textContent = list.length;
 }
 function bugrepOpen(){
-  document.getElementById('bugrep-overlay').classList.add('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = bugrepClose;
+  trapFocus(overlay);
   bugrepUpdateBadge();
 }
 function bugrepClose(){
-  document.getElementById('bugrep-overlay').classList.remove('show');
+  const overlay = document.getElementById('bugrep-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
 }
 function bugrepShowTab(tab){
   document.getElementById('bugrep-tab-new').classList.toggle('active', tab==='new');
