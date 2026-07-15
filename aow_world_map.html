@@ -600,10 +600,26 @@ let cityNodes = [];    // castle, 6 districts, 2 park accents, outskirts ring
 let kingdomNodes = []; // shemsara hub, 6 home cities, outskirts ring
 let pinNodes = [];     // rendered ruin pins for the current layer (kingdom only)
 
+let cityOrigin = {x:0,y:0}, kingdomOrigin = {x:0,y:0};
 function layoutNodes(){
-  const cx = W/2, cy = H/2 + 8;
+  // Real mobile audit finding (390px viewport, full 6-heir roster): the
+  // map was vertically centered on raw H/2 regardless of how much of that
+  // height the ring actually needed, leaving ~140px of dead space above
+  // the toolbar-to-ring gap. The ring itself is width-bound (it has to
+  // fit inside W either way), so the fix isn't a bigger ring — it's
+  // pulling the vertical center up to close the gap between the toolbar
+  // and where content actually starts, without ever overshooting past a
+  // simple center on wide/landscape viewports where there's no gap to
+  // close in the first place.
+  const toolbarH = document.getElementById('toolbar').getBoundingClientRect().height || 56;
+  const cx = W/2;
   const R = Math.min(W,H) * 0.30;
+  const ringR = R*1.42;
+  const centeredCy = H/2 + 8;
+  const tightCy = toolbarH + 28 + ringR;
+  const cy = Math.min(centeredCy, tightCy);
 
+  cityOrigin = {x:cx,y:cy};
   cityNodes = [];
   cityNodes.push({ type:'castle', key:'castle', label:'The Castle', sub:'King Hector · Royal Chamberlain',
     x:cx, y:cy, r:Math.max(30, R*0.32), shape:'castle', npcKeys:['kingHector','royalChamberlain'] });
@@ -612,29 +628,41 @@ function layoutNodes(){
     cityNodes.push({ type:'district', key:d.key, label:d.label, sub:d.place, npcKey:d.npcKey,
       x:cx+Math.cos(rad)*R, y:cy+Math.sin(rad)*R, r:Math.max(24,R*0.26), shape:d.key, angle:rad });
   }
-  // two park accents flanking the castle, matching the session-zero map preview
+  // two park accents flanking the castle, matching the session-zero map
+  // preview. Real mobile audit finding: at pure left/right (angle 180/0,
+  // same y as center) these sat close enough to Military/Scholarly
+  // (angles -150/150, only 30deg away) that once labels radiate outward
+  // (see drawNodeLabel) Military/Scholarly's own labels swing up/down
+  // away from center and clear the parks fine — but the parks' fixed
+  // node position was still tight at narrow widths, so nudged slightly
+  // further out (0.62->0.70) for a cleaner gap with margin to spare.
   cityNodes.push({ type:'park', key:'park1', label:'City Park', sub:'Neutral ground',
-    x:cx-R*0.62, y:cy, r:Math.max(14,R*0.13), shape:'park' });
+    x:cx-R*0.70, y:cy, r:Math.max(14,R*0.13), shape:'park' });
   cityNodes.push({ type:'park', key:'park2', label:'City Park', sub:'Neutral ground',
-    x:cx+R*0.62, y:cy, r:Math.max(14,R*0.13), shape:'park' });
+    x:cx+R*0.70, y:cy, r:Math.max(14,R*0.13), shape:'park' });
   // Outskirts renders as a broken ring around everything, not a gem node —
   // handled separately in drawCityLayer, but kept here for hit-testing.
   cityNodes.push({ type:'outskirts', key:'outskirts', label:'The Outskirts', sub:'Contested territory · "The Tallyman"',
-    x:cx, y:cy, r:R*1.42, npcKey:'outskirtsBroker', isRing:true });
+    x:cx, y:cy, r:ringR, npcKey:'outskirtsBroker', isRing:true });
 
   const kR = Math.min(W,H) * 0.36;
+  const kRingR = kR*0.55;
+  const kCenteredCy = H/2 + 8;
+  const kTightCy = toolbarH + 28 + kR; // home cities sit AT kR, the outermost ring in this layer
+  const kcy = Math.min(kCenteredCy, kTightCy);
+  kingdomOrigin = {x:cx,y:kcy};
   kingdomNodes = [];
   kingdomNodes.push({ type:'shemsara', key:'shemsara', label:'Shemsara', sub:'The Capital · Seat of the Crown',
-    x:cx, y:cy, r:Math.max(28,kR*0.24), shape:'shemsara' });
+    x:cx, y:kcy, r:Math.max(28,kR*0.24), shape:'shemsara' });
   for(const d of DISTRICTS){
     const rad = d.angle*Math.PI/180;
     const heir = heirForDistrict(d.key);
     kingdomNodes.push({ type:'homecity', key:d.key, label: heir ? (heir.raw?.house?.seat || heir.raw?.identity?.originCity || 'Unnamed City') : 'Awaiting an Heir',
       sub: heir ? `Seat of ${heir.house}` : `${d.label.replace('The ','').replace(' District','')} character`,
-      x:cx+Math.cos(rad)*kR, y:cy+Math.sin(rad)*kR, r:Math.max(22,kR*0.20), shape:d.key, angle:rad, heir, districtKey:d.key });
+      x:cx+Math.cos(rad)*kR, y:kcy+Math.sin(rad)*kR, r:Math.max(22,kR*0.20), shape:d.key, angle:rad, heir, districtKey:d.key });
   }
   kingdomNodes.push({ type:'outskirts', key:'outskirts-k', label:'The Outskirts', sub:'Beyond reliable control',
-    x:cx, y:cy, r:kR*0.55, isRing:true, npcKey:'outskirtsBroker' });
+    x:cx, y:kcy, r:kRingR, isRing:true, npcKey:'outskirtsBroker' });
 
   layoutPins();
 }
@@ -726,7 +754,15 @@ function drawCityLayer(){
   }
 }
 
-function drawCityNode(n){
+function drawCityNode(n, origin){
+  // origin defaults to cityOrigin — but drawKingdomLayer reuses this same
+  // function to draw the Shemsara hub, whose true center is kingdomOrigin
+  // (they can differ: city and kingdom layers compute independent "pull
+  // toward the toolbar" adjustments off different ring radii). Passing
+  // cityOrigin there by default would have handed Shemsara's label a
+  // stale, wrong-layer center and sent it radiating off at whatever
+  // arbitrary angle the two origins' offset happened to produce.
+  origin = origin || cityOrigin;
   const pulse = 1 + Math.sin(elapsed*1.4 + (n.x+n.y)*0.01)*0.02;
   const hovered = hoverNode===n;
   let color, heir=null, leverageBadge=null;
@@ -766,23 +802,80 @@ function drawCityNode(n){
     }
   }
 
-  drawNodeLabel(n, heir);
+  drawNodeLabel(n, heir, origin);
 }
 
-function drawNodeLabel(n, heir){
+// Real mobile audit finding (390px viewport, full 6-heir roster): labels
+// always drawn straight down meant Military/Scholarly's text — nodes
+// positioned up-left/up-right of the castle — landed pointed back IN
+// toward center, directly into the City Park nodes sitting there. Labels
+// now radiate OUTWARD along the same vector from the layer's own center
+// through the node, so every label moves away from the busy middle of
+// the map instead of always down into it. Hub nodes (castle/shemsara,
+// dx=dy=0) fall back to straight-down, which is correct for them (they
+// ARE the center, no outward direction to speak of, and nothing sits in
+// their one open lane below).
+// Clamps a text draw so its rendered bounds never cross the canvas edge,
+// regardless of textAlign or string length — a heuristic damping factor
+// (tried first) only ever approximates the actual rendered width, and a
+// long heir name at the wrong angle still clipped past a 390px viewport
+// edge even after damping. Measuring the real width and shifting x by
+// exactly however much it overflows is the only version of this that's
+// correct for every string, not just the ones tested.
+const LABEL_MARGIN = 6;
+function fillTextClamped(text, x, y, align){
+  ctx.textAlign = align;
+  const w = ctx.measureText(text).width;
+  let left, right;
+  if(align==='left'){ left = x; right = x+w; }
+  else if(align==='right'){ left = x-w; right = x; }
+  else { left = x-w/2; right = x+w/2; }
+  if(left < LABEL_MARGIN) x += (LABEL_MARGIN-left);
+  else if(right > W-LABEL_MARGIN) x -= (right-(W-LABEL_MARGIN));
+  ctx.fillText(text, x, y);
+}
+
+function drawNodeLabel(n, heir, origin){
+  origin = origin || {x:n.x, y:n.y-1}; // no origin given -> straight down, old behavior
+  const dx = n.x-origin.x, dy = n.y-origin.y;
+  const d = Math.hypot(dx,dy);
+  const ux = d < 1 ? 0 : dx/d, uy = d < 1 ? 1 : dy/d;
+  // Real mobile audit finding: labels drawn straight down for every node
+  // meant Military/Scholarly (up-left/up-right of the castle) pointed
+  // their text back IN toward center, landing on top of the City Park
+  // nodes sitting there. Labels now radiate OUTWARD along the vector from
+  // the layer's own center through the node instead, so they move away
+  // from the busy middle — and fillTextClamped (above) keeps that same
+  // outward push from then running the text off the opposite edge on a
+  // narrow viewport, by measuring the actual rendered width rather than
+  // guessing at a safe damping factor.
+  const align = ux > 0.35 ? 'left' : (ux < -0.35 ? 'right' : 'center');
+  // g1 is always the distance closer to the node, g2 further out. For a
+  // downward-pointing node that means title-then-subtitle reads correctly
+  // top to bottom (closer=higher=title, further=lower=subtitle) — but for
+  // an upward-pointing node (Trade sits almost due north of the castle,
+  // uy~-1) "further out" means smaller y, i.e. HIGHER on screen, so the
+  // naive version put the subtitle above the title. Swapping which line
+  // gets which distance when uy<0 keeps title-above-subtitle true in both
+  // directions instead of only the downward case anyone happened to test.
+  const g1 = n.r+16, g2 = n.r+32;
+  const titleDist = uy < -0.15 ? g2 : g1;
+  const subDist = uy < -0.15 ? g1 : g2;
+  const xt = n.x+ux*titleDist, yt = n.y+uy*titleDist;
+  const xs = n.x+ux*subDist, ys = n.y+uy*subDist;
+
   ctx.save();
-  ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(245,238,223,0.92)';
   ctx.font = `600 ${clamp(n.r*0.22,10,15)}px Cinzel, serif`;
-  ctx.fillText(n.label, n.x, n.y+n.r+16);
+  fillTextClamped(n.label, xt, yt, align);
   if(heir){
     ctx.fillStyle = 'rgba(212,196,168,0.8)';
     ctx.font = `italic ${clamp(n.r*0.17,9,12)}px "EB Garamond", serif`;
-    ctx.fillText(heir.name, n.x, n.y+n.r+32);
+    fillTextClamped(heir.name, xs, ys, align);
   } else if(n.sub){
     ctx.fillStyle = 'rgba(138,106,72,0.85)';
     ctx.font = `italic ${clamp(n.r*0.16,8,11)}px "EB Garamond", serif`;
-    ctx.fillText(n.sub, n.x, n.y+n.r+30);
+    fillTextClamped(n.sub, xs, ys, align);
   }
   ctx.restore();
 }
@@ -813,7 +906,7 @@ function drawKingdomLayer(){
     ctx.restore();
   }
 
-  drawCityNode(hub);
+  drawCityNode(hub, kingdomOrigin);
   for(const n of kingdomNodes){ if(n.type==='homecity') drawHomeCityNode(n); }
   for(const p of pinNodes) drawPinNode(p);
 }
@@ -840,7 +933,7 @@ function drawHomeCityNode(n){
   // "— character, awaiting an heir") so a single drawNodeLabel pass (always
   // treated as a sub-line, not a heir-name line) is correct for both states
   // — no separate manual draw needed here.
-  drawNodeLabel(n, null);
+  drawNodeLabel(n, null, kingdomOrigin);
 }
 
 function drawPinNode(p){
