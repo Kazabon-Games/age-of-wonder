@@ -314,6 +314,8 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .modal-heir-school{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);}
 .modal-heir-house{font-family:'EB Garamond',serif;font-style:italic;font-size:.8rem;color:var(--ink-light);margin-left:auto;}
 .modal-collision-list{font-family:'EB Garamond',serif;font-size:.88rem;color:#a090d0;line-height:1.65;padding:.5rem .65rem;border:1px solid rgba(58,48,96,0.4);background:rgba(58,48,96,0.06);margin-bottom:.6rem;}
+.modal-issue-list{font-family:'EB Garamond',serif;font-size:.88rem;color:#c06060;line-height:1.65;padding:.5rem .65rem;border:1px solid rgba(107,26,26,0.4);background:rgba(107,26,26,0.08);margin-bottom:.6rem;}
+.modal-issue-list strong{color:var(--crimson-bright);}
 .modal-btn-row{display:flex;gap:.5rem;margin-top:.4rem;}
 .modal-btn{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;padding:.36rem .9rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
 .modal-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
@@ -999,9 +1001,10 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 <div class="modal-overlay aow-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
   <div class="modal-box">
     <div class="modal-title" id="import-modal-title">Heir Records Imported</div>
-    <div class="modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
+    <div class="modal-sub" id="import-modal-sub">The web has been seeded. Collision hooks have been generated for any shared NPCs.</div>
     <div id="imported-heirs-list" class="modal-heirs"></div>
     <div id="collision-notice"></div>
+    <div id="import-issues"></div>
     <div class="modal-btn-row">
       <button class="modal-btn primary" onclick="closeImportModal()">Enter the Session</button>
     </div>
@@ -1688,25 +1691,53 @@ function checkS0Version(data){
   return true;
 }
 
+// Real bug, found live: `loaded` only ever incremented inside the try block,
+// after a successful JSON.parse — so one malformed/corrupt file in a batch
+// (wrong file picked, half-downloaded export, empty file) meant `loaded`
+// never reached `files.length` for the WHOLE batch. renderAll/showImportModal/
+// save() never ran for ANY file in that selection, including the ones that
+// parsed fine — no error shown, nothing saved, everything lost on refresh.
+// Now every file always reaches `finish()` exactly once (success, declined
+// version, or parse/read failure), and `results` carries enough detail for
+// showImportModal to tell the GM exactly what happened per file instead of
+// either a false "all good" or total silence.
 function handleHeirImport(input) {
   const files = Array.from(input.files);
   let loaded = 0;
   const collisions = [];
+  const results = [];
+  const finish = () => {
+    loaded++;
+    if (loaded === files.length) {
+      if (collisions.length) detectCollisions(collisions);
+      renderAll();
+      showImportModal(results, collisions);
+      save();
+    }
+  };
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const data = JSON.parse(e.target.result);
-        const col = checkS0Version(data) ? ingestHeirRecord(data) : [];
-        collisions.push(...col);
-        loaded++;
-        if (loaded === files.length) {
-          if (collisions.length) detectCollisions(collisions);
-          renderAll();
-          showImportModal(collisions);
-          save();
+        if (!checkS0Version(data)) {
+          results.push({ fileName: file.name, status: 'declined-version' });
+          finish();
+          return;
         }
-      } catch(err) { console.error('Import error:', err); }
+        const r = ingestHeirRecord(data);
+        collisions.push(...r.collisions);
+        results.push({ fileName: file.name, name: r.name, status: r.status });
+      } catch(err) {
+        console.error('Import error:', file.name, err);
+        results.push({ fileName: file.name, status: 'failed' });
+      }
+      finish();
+    };
+    reader.onerror = () => {
+      console.error('File read error:', file.name);
+      results.push({ fileName: file.name, status: 'failed' });
+      finish();
     };
     reader.readAsText(file);
   });
@@ -1729,30 +1760,50 @@ function slugifyName(name){
 
 function ingestHeirRecord(data) {
   const collisions = [];
-  // Deduplicate by name
-  const existingNames = state.heirs.map(h => h.name.toLowerCase());
   const name = data.identity?.name || 'Unknown Heir';
-  if (existingNames.includes(name.toLowerCase())) return collisions;
+  // Real bug, found live: a same-name re-import (a player sending a
+  // corrected file) used to just `return collisions` here — a total silent
+  // no-op. Worse, showImportModal always re-listed the full existing roster
+  // afterward, so the GM saw a "Heir Records Imported" success message
+  // even though nothing changed. Now a same-name import is treated as an
+  // intentional correction: the GM is told plainly what will happen and
+  // asked to confirm, rather than the tool silently guessing either way.
+  const existing = state.heirs.find(h => h.name.toLowerCase() === name.toLowerCase());
+  let heir, heirKey, isUpdate = false;
+  if (existing) {
+    const proceed = confirm(`"${name}" is already imported. Re-importing will refresh their house, NPCs, and starting leverage from this file — any leverage changes you've made for them since the original import will be reset to this file's starting values. Continue?`);
+    if (!proceed) return { collisions, status:'skipped', name };
+    isUpdate = true;
+    heir = existing;
+    heirKey = existing.key; // keep the same key so existing node scores/ownership stay valid
+    heir.house = data.house?.name||'—';
+    heir.school = data.awakening?.revealedSchool||'—';
+    heir.hectorRelation = data.identity?.hectorRelation ?? null;
+    heir.district = data.house?.district||'—';
+    heir.npcs = data.npcs||{};
+    heir.startingLeverage = data.startingLeverage||{};
+    heir.raw = data;
+  } else {
+    heirKey = slugifyName(name) + '_' + Date.now();
+    heir = {
+      key:heirKey, name,
+      house:data.house?.name||'—',
+      school:data.awakening?.revealedSchool||'—',
+      // null = field was absent from the import (data quality problem, must be
+      // distinguishable from a player who deliberately chose 'neutral').
+      // Do NOT use ||'neutral' here — that collapses missing into chosen-neutral
+      // silently. Any downstream display should check for null explicitly and
+      // show 'unstated' rather than 'neutral'.
+      hectorRelation:data.identity?.hectorRelation ?? null,
+      district:data.house?.district||'—',
+      npcs:data.npcs||{},
+      startingLeverage:data.startingLeverage||{},
+      raw:data,
+    };
+    state.heirs.push(heir);
+  }
 
-  const heirKey = slugifyName(name) + '_' + Date.now();
-  const heir = {
-    key:heirKey, name,
-    house:data.house?.name||'—',
-    school:data.awakening?.revealedSchool||'—',
-    // null = field was absent from the import (data quality problem, must be
-    // distinguishable from a player who deliberately chose 'neutral').
-    // Do NOT use ||'neutral' here — that collapses missing into chosen-neutral
-    // silently. Any downstream display should check for null explicitly and
-    // show 'unstated' rather than 'neutral'. See json-import-validation skill.
-    hectorRelation:data.identity?.hectorRelation ?? null,
-    district:data.house?.district||'—',
-    npcs:data.npcs||{},
-    startingLeverage:data.startingLeverage||{},
-    raw:data,
-  };
-  state.heirs.push(heir);
-
-  // Seed starting leverage (FACTION_KEY_MAP defined at module scope, shared
+  // Seed/refresh starting leverage (FACTION_KEY_MAP defined at module scope, shared
   // with renderBrief — the heir record exports faction-centric keys like
   // cityWatch/scholarsGuild/churchOfAxiom, the GM screen's nodes are keyed
   // by the actual NPC like watchCommander/archivistGeneral/highPriest)
@@ -1793,9 +1844,18 @@ function ingestHeirRecord(data) {
         worldLink, ownerHeir:heirKey, slot, npcData:npc,
         deployedHooks:[],
       };
+    } else if (state.nodes[npcKey].ownerHeir === heirKey) {
+      // Same heir re-confirming their own NPC on a corrected re-import —
+      // refresh the details, not a cross-heir collision with themselves.
+      state.nodes[npcKey].npcData = npc;
+      state.nodes[npcKey].role = `${capitalize(slot)} · ${heir.name}`;
     } else {
       if (!state.nodes[npcKey].sharedBy) state.nodes[npcKey].sharedBy=[];
-      state.nodes[npcKey].sharedBy.push({heirKey,slot,heirName:heir.name});
+      // guard against a duplicate entry if this exact heir+slot was already
+      // recorded as sharing this node from an earlier import (reachable now
+      // that a re-import can legitimately reprocess a real cross-heir share)
+      const alreadyShared = state.nodes[npcKey].sharedBy.some(s => s.heirKey===heirKey && s.slot===slot);
+      if (!alreadyShared) state.nodes[npcKey].sharedBy.push({heirKey,slot,heirName:heir.name});
       collisions.push({node:state.nodes[npcKey], heirKey, slot, heirName:heir.name});
     }
   });
@@ -1823,9 +1883,13 @@ function ingestHeirRecord(data) {
         npcData:{...councillorRaw, title:councillorTitle}, deployedHooks:[],
         nameUnconfirmed: !councillorRaw.name,
       };
+    } else if (state.nodes[cKey].ownerHeir === heirKey) {
+      // same heir's own councillor, refreshed on a corrected re-import
+      state.nodes[cKey].npcData = {...councillorRaw, title:councillorTitle};
+      state.nodes[cKey].nameUnconfirmed = !councillorRaw.name;
     }
   }
-  return collisions;
+  return { collisions, status: isUpdate ? 'updated' : 'new', name };
 }
 
 function resolveFactionalLink(f) {
@@ -1846,17 +1910,46 @@ function detectCollisions(collisions) {
   });
 }
 
-function showImportModal(collisions) {
+// Real bug, found live: this used to always render the FULL current
+// `state.heirs` roster and a static "The web has been seeded" message no
+// matter what actually happened in this import batch — so a re-import that
+// was silently declined (or a batch where every file failed to parse)
+// still showed a success modal listing heirs that hadn't changed at all.
+// `results` (one entry per file, from handleHeirImport) now drives what's
+// actually shown: only records this batch genuinely added or updated,
+// plus an explicit issues list for anything that failed or was skipped.
+function showImportModal(results, collisions) {
+  results = results || [];
+  const changed = results.filter(r => r.status === 'new' || r.status === 'updated');
+  const issues = results.filter(r => r.status === 'failed' || r.status === 'declined-version' || r.status === 'skipped');
+
   const list = document.getElementById('imported-heirs-list');
-  list.innerHTML = state.heirs.map(h=>`
-    <div class="modal-heir-item">
-      <div style="flex:1"><div class="modal-heir-name">${h.name}</div><div class="modal-heir-house">${h.house}</div></div>
+  list.innerHTML = changed.map(r => {
+    const h = state.heirs.find(x => x.name === r.name);
+    if (!h) return '';
+    const tag = r.status === 'updated' ? '<span class="modal-heir-school" style="margin-right:.5rem;">UPDATED</span>' : '';
+    return `<div class="modal-heir-item">
+      ${tag}<div style="flex:1"><div class="modal-heir-name">${h.name}</div><div class="modal-heir-house">${h.house}</div></div>
       <div class="modal-heir-school">${h.school||'—'}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
   const cn = document.getElementById('collision-notice');
   if (collisions?.length) {
     cn.innerHTML = `<div class="modal-collision-list"><strong style="font-family:'Cinzel',serif;font-size:.52rem;letter-spacing:.1em;">Shared Nodes Detected</strong><br>${collisions.map(c=>`${c.node.name} — ${c.heirName}'s ${c.slot}`).join('<br>')}</div>`;
   } else { cn.innerHTML = ''; }
+
+  const issuesEl = document.getElementById('import-issues');
+  if (issues.length) {
+    const issueText = { failed:'could not be read — file is missing, corrupted, or not a valid heir record', 'declined-version':'import cancelled — version mismatch not confirmed', skipped:'re-import cancelled — existing record left unchanged' };
+    issuesEl.innerHTML = `<div class="modal-issue-list"><strong>${issues.length} file${issues.length===1?'':'s'} not imported</strong><br>${issues.map(r=>`${r.name||r.fileName} — ${issueText[r.status]||'not imported'}`).join('<br>')}</div>`;
+  } else { issuesEl.innerHTML = ''; }
+
+  const sub = document.getElementById('import-modal-sub');
+  sub.textContent = changed.length
+    ? 'The web has been seeded. Collision hooks have been generated for any shared NPCs.'
+    : 'Nothing was imported this time — see below for why.';
+
   const importOverlay = document.getElementById('import-modal');
   importOverlay.classList.add('show');
   importOverlay._aowOnEscape = closeImportModal;
