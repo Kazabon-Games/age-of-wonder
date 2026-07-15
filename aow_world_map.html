@@ -300,19 +300,58 @@ function toggleTheme(){
    crystal points, Agricultural = soft organic bumps, etc.) rather than
    the same polygon recolored nine times.
    ═══════════════════════════════════════════ */
+// Redesigned after an honest zoomed side-by-side check (per the studio's
+// own faceted-gem-rendering skill's verification rule) found the first
+// pass had fallen into the exact trap the skill warns about: technique
+// correct, but every shape was an 8-vertex "alternate tall/short" template
+// with only the magnitude values tweaked — castle/Religious/shemsara/
+// architect all collapsed into the same generic "4-point star," and
+// Military/Scholarly were indistinguishable blunt pinwheels. This pass
+// varies VERTEX COUNT and alternation DEPTH per shape, not just the
+// numbers within one template, so each one is structurally different —
+// a real crown, a single spire, a blunt hexagon, a toothed gear — not
+// nine reskins of the same silhouette.
 const SHAPE_DEFS = {
-  castle: [{a:0.00,m:1.20},{a:0.09,m:0.62},{a:0.18,m:1.05},{a:0.30,m:0.58},{a:0.50,m:1.30},{a:0.68,m:0.55},{a:0.80,m:1.05},{a:0.91,m:0.60}],
-  Military: [{a:0.00,m:1.00},{a:0.12,m:1.00},{a:0.20,m:0.65},{a:0.32,m:1.05},{a:0.45,m:0.60},{a:0.55,m:1.05},{a:0.68,m:0.60},{a:0.80,m:1.00},{a:0.88,m:1.00}],
-  Trade: [{a:0.00,m:1.10},{a:0.15,m:0.70},{a:0.28,m:1.15},{a:0.42,m:0.65},{a:0.58,m:1.05},{a:0.70,m:0.72},{a:0.85,m:1.12}],
-  Religious: [{a:0.00,m:1.35},{a:0.10,m:0.55},{a:0.25,m:0.85},{a:0.40,m:0.50},{a:0.50,m:0.95},{a:0.62,m:0.50},{a:0.78,m:0.80},{a:0.90,m:0.55}],
-  Scholarly: [{a:0.00,m:1.00},{a:0.14,m:0.68},{a:0.22,m:1.08},{a:0.36,m:0.66},{a:0.50,m:1.00},{a:0.64,m:0.66},{a:0.78,m:1.08},{a:0.90,m:0.68}],
-  Agricultural: [{a:0.00,m:0.95},{a:0.16,m:1.10},{a:0.33,m:0.85},{a:0.50,m:1.15},{a:0.66,m:0.82},{a:0.83,m:1.05}],
-  Magical: [{a:0.00,m:1.25},{a:0.08,m:0.45},{a:0.22,m:1.05},{a:0.33,m:0.48},{a:0.50,m:1.30},{a:0.61,m:0.46},{a:0.75,m:1.00},{a:0.88,m:0.50}],
+  // crown — 12 points, six real spikes. Reads as an ornate crown at a
+  // glance specifically because of the point DENSITY, not just height.
+  castle: [{a:0.00,m:1.15},{a:0.07,m:0.60},{a:0.15,m:0.95},{a:0.22,m:0.55},{a:0.33,m:1.10},{a:0.40,m:0.58},{a:0.50,m:1.30},{a:0.58,m:0.55},{a:0.67,m:1.05},{a:0.75,m:0.60},{a:0.85,m:0.95},{a:0.92,m:0.62}],
+  // blunt hexagon, mild alternation — armored/blocky, deliberately NOT spiky
+  Military: [{a:0.00,m:1.00},{a:0.17,m:0.86},{a:0.33,m:1.06},{a:0.50,m:0.80},{a:0.67,m:1.04},{a:0.83,m:0.88}],
+  // coin/diamond cluster — medium alternation, 8 points
+  Trade: [{a:0.00,m:1.00},{a:0.14,m:0.76},{a:0.26,m:1.10},{a:0.40,m:0.72},{a:0.55,m:1.06},{a:0.68,m:0.78},{a:0.82,m:1.04},{a:0.92,m:0.82}],
+  // single dominant spire on a low base — only 5 points, one very tall,
+  // the rest deliberately flat. Reads as a temple roof, not a star.
+  Religious: [{a:0.00,m:1.45},{a:0.15,m:0.42},{a:0.35,m:0.62},{a:0.55,m:0.40},{a:0.78,m:0.58}],
+  // blunt block/stack — 8 points but LOW alternation (0.85-1.06), so it
+  // reads as an irregular solid mass (stacked archive shelves), not a
+  // star — structurally the opposite of Magical below despite same count.
+  Scholarly: [{a:0.00,m:0.92},{a:0.13,m:1.06},{a:0.25,m:0.86},{a:0.38,m:1.04},{a:0.50,m:0.88},{a:0.63,m:1.06},{a:0.75,m:0.84},{a:0.88,m:1.00}],
+  // soft organic bumps — 6 points, gentle range, no sharp points anywhere
+  Agricultural: [{a:0.00,m:0.92},{a:0.18,m:1.08},{a:0.36,m:0.88},{a:0.54,m:1.10},{a:0.72,m:0.85},{a:0.88,m:1.02}],
+  // sharp crystal — 8 points, EXTREME alternation (0.35-1.35), the
+  // sharpest points on the map by design, contrasting Scholarly's blunt
+  // 8-point block
+  Magical: [{a:0.00,m:1.30},{a:0.08,m:0.35},{a:0.22,m:1.10},{a:0.30,m:0.38},{a:0.50,m:1.35},{a:0.58,m:0.36},{a:0.75,m:1.05},{a:0.83,m:0.40}],
   park: [{a:0.00,m:0.90},{a:0.25,m:1.00},{a:0.50,m:0.88},{a:0.75,m:1.00}],
-  shemsara: [{a:0.00,m:1.15},{a:0.11,m:0.68},{a:0.22,m:1.10},{a:0.35,m:0.60},{a:0.50,m:1.25},{a:0.63,m:0.58},{a:0.77,m:1.10},{a:0.89,m:0.66}],
-  // ruin-pin markers — smaller, distinct per civilization
-  architect: [{a:0.00,m:1.05},{a:0.12,m:0.58},{a:0.26,m:0.98},{a:0.37,m:0.62},{a:0.52,m:1.08},{a:0.63,m:0.55},{a:0.77,m:0.95},{a:0.90,m:0.60}],
-  predecessor: [{a:0.00,m:1.00},{a:0.17,m:0.92},{a:0.33,m:1.05},{a:0.50,m:0.90},{a:0.67,m:1.08},{a:0.83,m:0.88}],
+  // Shemsara-from-a-distance — a rounder, fewer-pointed cousin of the
+  // castle's crown (same city, but this is the kingdom-scale abstraction,
+  // not the detailed city-scale crest) — the two never render side by
+  // side (different layers), so a family resemblance here is correct,
+  // not a collision, as long as it doesn't match anything else on ITS
+  // own layer (it doesn't — home cities below are all lower point-count).
+  shemsara: [{a:0.00,m:1.10},{a:0.12,m:0.65},{a:0.28,m:0.92},{a:0.42,m:0.60},{a:0.58,m:1.20},{a:0.72,m:0.62},{a:0.88,m:0.90}],
+  // ruin-pin markers — smaller UI markers that DO all appear together on
+  // the kingdom map, so these three need to read apart from each other
+  // first and foremost, not just from the districts.
+  // gear/mechanism — 16 small EVEN teeth. Deliberately the most regular
+  // shape on the map: a machine reads as mechanically precise, which is
+  // itself the distinguishing cue against every hand-irregular district/
+  // city shape around it.
+  architect: [{a:0.00,m:1.0},{a:0.06,m:0.72},{a:0.13,m:1.0},{a:0.19,m:0.72},{a:0.25,m:1.0},{a:0.31,m:0.72},{a:0.38,m:1.0},{a:0.44,m:0.72},{a:0.50,m:1.0},{a:0.56,m:0.72},{a:0.63,m:1.0},{a:0.69,m:0.72},{a:0.75,m:1.0},{a:0.81,m:0.72},{a:0.88,m:1.0},{a:0.94,m:0.72}],
+  // formal wax-seal — 7 points, tight alternation, stable and document-like
+  predecessor: [{a:0.00,m:1.02},{a:0.14,m:0.94},{a:0.29,m:1.06},{a:0.43,m:0.90},{a:0.57,m:1.08},{a:0.71,m:0.88},{a:0.86,m:1.00}],
+  // fractured/asymmetric — kept from the original pass, already reads
+  // correctly as "wrong" against everything else on the map
   void: [{a:0.00,m:1.20},{a:0.10,m:0.40},{a:0.30,m:0.90},{a:0.38,m:1.15},{a:0.55,m:0.35},{a:0.68,m:1.00},{a:0.85,m:0.55}],
 };
 
