@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Age of Wonder — Wonderland · World Map</title>
+<!-- ═══════════════════════════════════════════════════════════════════
+     Age of Wonder — World Map (Wonderland companion tool)
+     Version: 1.0.0
+     ───────────────────────────────────────────────────────────────────
+     A fifth standalone document, reading the SAME localStorage the GM
+     Screen writes to ('aow-gm-screen-v1') so it's always in sync with
+     whatever heirs are already imported into Wonderland — no separate
+     import step. Owns its own storage key ('aow-world-map-v1') for
+     ruin-pin state so it never touches GM Screen's schema; the reward
+     generator (CIVILIZATIONS/DEPTH_TABLE/generateReward) is a verbatim
+     port of GM Screen's Tools-mode generator so pins can be created
+     here even if GM Screen isn't open, and the "export to player"
+     payload shape matches GM Screen's confirmRewardExport() exactly so
+     a pinned discovery drops straight into a Play Sheet's loot/document
+     list with zero changes needed on that end.
+     ─────────────────────────────────────────────────────────────────── -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0f0d0a;
+  --night-mid:#1a1410;
+  --night-panel:#141008;
+  --vellum:#f5eedf;
+  --vellum-dark:#e8dcc8;
+  --vellum-mid:#d4c4a8;
+  --ink:#2a1f14;
+  --ink-mid:#5c3d1e;
+  --ink-light:#8a6a48;
+  --gold:#8b6914;
+  --gold-bright:#c9a030;
+  --gold-dim:rgba(139,105,20,0.4);
+  --gold-faint:rgba(139,105,20,0.08);
+  --forest:#1e3a2a;
+  --forest-bright:#2a5a3a;
+  --crimson:#6b1a1a;
+  --crimson-bright:#9b2a2a;
+  --indigo:#3a3060;
+  --panel-border:rgba(139,105,20,0.18);
+}
+html[data-theme="light"]{
+  --night:#f5eedf;
+  --night-mid:#ebe1cc;
+  --night-panel:#e0d4ba;
+  --vellum:#2a1f14;
+  --vellum-dark:#3a2d1e;
+  --vellum-mid:#5c3d1e;
+  --panel-border:rgba(58,45,30,0.22);
+  --gold-faint:rgba(139,105,20,0.14);
+}
+html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .3s,color .3s;}
+
+/* ══════ LAYOUT ══════ */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;}
+#mapCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;}
+#mapCanvas.panning{cursor:grabbing;}
+
+/* ══════ TOOLBAR ══════ */
+#toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:.7rem;padding:.65rem 1rem;background:linear-gradient(var(--night-panel),rgba(20,16,8,0.85) 80%,transparent);border-bottom:1px solid var(--panel-border);flex-wrap:wrap;pointer-events:none;}
+#toolbar>*{pointer-events:auto;}
+.tb-title{font-family:'Cinzel Decorative',serif;font-size:1.05rem;color:var(--gold-bright);letter-spacing:.03em;margin-right:.4rem;white-space:nowrap;}
+.tb-title small{display:block;font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);margin-top:.15rem;}
+.layer-toggle{display:flex;border:1px solid var(--panel-border);background:var(--night-mid);}
+.layer-btn{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;padding:.42rem .85rem;background:transparent;border:none;color:var(--ink-light);cursor:pointer;transition:all .2s;}
+.layer-btn.active{background:var(--gold-faint);color:var(--gold-bright);}
+.layer-btn:hover:not(.active){color:var(--vellum-mid);}
+.tb-btn{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.12em;text-transform:uppercase;padding:.42rem .75rem;border:1px solid var(--panel-border);background:var(--night-mid);color:var(--ink-light);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.tb-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.tb-btn.primary{border-color:var(--gold);color:var(--gold-bright);}
+.tb-btn.primary:hover{background:var(--gold-faint);}
+.tb-spacer{flex:1;min-width:.5rem;}
+.tb-icon-btn{width:30px;height:30px;border:1px solid var(--panel-border);background:var(--night-mid);color:var(--ink-light);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;transition:all .15s;}
+.tb-icon-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.sync-note{font-family:'EB Garamond',serif;font-style:italic;font-size:.72rem;color:var(--ink-light);white-space:nowrap;}
+.sync-note.warn{color:var(--crimson-bright);}
+
+/* ══════ SIDE DRAWER ══════ */
+#drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;background:var(--night-panel);border-left:1px solid var(--panel-border);box-shadow:-12px 0 30px rgba(0,0,0,0.4);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);z-index:40;overflow-y:auto;padding:1.3rem 1.2rem;}
+#drawer.show{transform:translateX(0);}
+.drawer-close{position:absolute;top:.8rem;right:.9rem;background:none;border:none;color:var(--ink-light);font-size:1.1rem;cursor:pointer;line-height:1;}
+.drawer-close:hover{color:var(--vellum-mid);}
+.drawer-eyebrow{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:.5rem;}
+.drawer-title{font-family:'Cinzel',serif;font-size:1.15rem;color:var(--gold-bright);margin-bottom:.2rem;line-height:1.25;}
+.drawer-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);margin-bottom:1rem;}
+.drawer-section{margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--panel-border);}
+.drawer-section-title{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;}
+.drawer-row{display:flex;justify-content:space-between;gap:.6rem;padding:.3rem 0;font-size:.85rem;border-bottom:1px solid rgba(139,105,20,0.08);}
+.drawer-row:last-child{border-bottom:none;}
+.drawer-row-label{color:var(--ink-light);font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.04em;}
+.drawer-row-val{color:var(--vellum-mid);text-align:right;}
+.drawer-empty{font-style:italic;color:var(--ink-light);font-size:.82rem;padding:.4rem 0;}
+.house-swatch{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:.4rem;vertical-align:-1px;border:1px solid rgba(255,255,255,0.2);}
+.sigil-thumb{width:42px;height:42px;border:1px solid var(--panel-border);object-fit:cover;float:right;margin-left:.6rem;background:var(--night-mid);}
+.lev-pip{display:inline-block;min-width:1.6em;text-align:center;padding:.05rem .3rem;font-family:'Cinzel',serif;font-size:.72rem;border:1px solid var(--panel-border);}
+.lev-pip.pos{color:var(--forest-bright);border-color:rgba(42,90,58,0.4);}
+.lev-pip.neg{color:var(--crimson-bright);border-color:rgba(155,42,42,0.4);}
+.lev-pip.zero{color:var(--ink-light);}
+
+/* ══════ RUIN GENERATOR PANEL (in-drawer) ══════ */
+.gen-field{margin-bottom:.7rem;}
+.gen-label{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:.3rem;}
+.gen-select,.gen-input{width:100%;padding:.5rem .6rem;background:var(--night-mid);border:1px solid var(--panel-border);color:var(--vellum);font-family:'EB Garamond',serif;font-size:.88rem;}
+.gen-select:focus,.gen-input:focus{outline:none;border-color:var(--gold-dim);}
+.gen-error{color:var(--crimson-bright);font-size:.8rem;font-style:italic;padding:.5rem 0;}
+.reward-card{border:1px solid var(--gold-dim);background:rgba(139,105,20,0.05);padding:.8rem .9rem;margin-top:.6rem;}
+.reward-name{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.3rem;}
+.reward-desc{font-size:.85rem;color:var(--vellum-mid);line-height:1.55;margin-bottom:.4rem;}
+.reward-danger{font-size:.78rem;color:var(--crimson-bright);font-style:italic;}
+.pin-list-item{padding:.5rem .6rem;border:1px solid var(--panel-border);margin-bottom:.4rem;cursor:pointer;transition:border-color .15s;}
+.pin-list-item:hover{border-color:var(--gold-dim);}
+.pin-list-name{font-family:'Cinzel',serif;font-size:.72rem;color:var(--vellum-dark);}
+.pin-list-meta{font-size:.72rem;color:var(--ink-light);font-style:italic;}
+
+/* ══════ MODALS (mirrors GM Screen's .aow-overlay pattern) ══════ */
+.aow-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:100;background:rgba(10,8,5,0.88);}
+.aow-overlay.show{display:flex;}
+.modal-box{background:var(--night-mid);border:1px solid var(--gold-dim);padding:1.4rem;width:420px;max-width:92vw;max-height:84vh;overflow-y:auto;}
+.modal-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.6rem;}
+.modal-sub{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);margin-bottom:.9rem;line-height:1.6;}
+.modal-btn-row{display:flex;gap:.5rem;margin-top:1rem;justify-content:flex-end;}
+.modal-btn{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;padding:.42rem .9rem;border:1px solid var(--panel-border);background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;}
+.modal-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
+.modal-btn.primary{border-color:var(--gold);color:var(--gold);}
+.modal-btn.primary:hover{background:var(--gold-faint);}
+
+/* ══════ EMPTY-STATE BANNER ══════ */
+#empty-banner{position:absolute;top:14%;left:50%;transform:translateX(-50%);text-align:center;max-width:420px;padding:1.2rem 2rem;z-index:5;display:none;pointer-events:none;background:rgba(15,13,10,0.7);border:1px solid var(--panel-border);}
+#empty-banner.show{display:block;}
+#empty-banner .eb-title{font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold-bright);margin-bottom:.6rem;}
+#empty-banner .eb-body{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);line-height:1.7;}
+
+/* ══════ MOBILE ══════ */
+@media(max-width:640px){
+  .tb-title{font-size:.85rem;}
+  .sync-note{display:none;}
+  #drawer{width:100vw;max-width:100vw;}
+}
+
+/* scrollbars */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(139,105,20,0.25);}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="toolbar">
+    <span class="tb-title">Wonderland<small>World Map · Age of Wonder</small></span>
+    <div class="layer-toggle" role="group" aria-label="Map layer">
+      <button class="layer-btn active" id="layer-btn-city" onclick="setLayer('city')">Shemsara</button>
+      <button class="layer-btn" id="layer-btn-kingdom" onclick="setLayer('kingdom')">Aetheria Nova</button>
+    </div>
+    <button class="tb-btn" onclick="refreshFromWonderland(true)">↻ Refresh from Wonderland</button>
+    <button class="tb-btn primary" onclick="openGeneratorModal()">✦ Chart a Discovery</button>
+    <span class="sync-note" id="sync-note"></span>
+    <div class="tb-spacer"></div>
+    <button class="tb-icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
+  </div>
+
+  <canvas id="mapCanvas" tabindex="0" role="img" aria-label="Interactive map"></canvas>
+
+  <div id="empty-banner">
+    <div class="eb-title">No heirs imported yet</div>
+    <div class="eb-body">Import heir records into the GM Screen first — the map reads the same world state Wonderland does. Once heirs are imported there, hit "Refresh from Wonderland" above.</div>
+  </div>
+</div>
+
+<!-- SIDE DRAWER -->
+<div id="drawer" role="dialog" aria-labelledby="drawer-title-el">
+  <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">✕</button>
+  <div id="drawer-content"></div>
+</div>
+
+<!-- GENERATOR MODAL -->
+<div class="aow-overlay" id="generator-modal" role="dialog" aria-modal="true" aria-labelledby="generator-title" onclick="if(event.target===this)closeGeneratorModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="generator-title">Chart a Discovery</div>
+    <div class="modal-sub">Generate a ruin encounter and drop a pin for it on the kingdom map — the same generator Wonderland's Tools mode uses.</div>
+    <div class="gen-field">
+      <label class="gen-label" for="gen-civ">Civilization</label>
+      <select class="gen-select" id="gen-civ">
+        <option value="architect">The Architects</option>
+        <option value="predecessor">The Predecessor Courts</option>
+        <option value="void">The Void Touched</option>
+      </select>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="gen-depth">Depth</label>
+      <select class="gen-select" id="gen-depth">
+        <option value="D1">D1</option><option value="D2">D2</option><option value="D3">D3</option>
+        <option value="D4">D4</option><option value="D5">D5</option><option value="D6">D6</option>
+      </select>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="gen-name">Site name (optional)</label>
+      <input class="gen-input" id="gen-name" type="text" placeholder="e.g. the Sunken Archive">
+    </div>
+    <button class="tb-btn primary" style="width:100%;" onclick="rollDiscovery()">Roll the Discovery</button>
+    <div id="gen-result"></div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeGeneratorModal()">Cancel</button>
+      <button class="modal-btn primary" id="gen-place-btn" onclick="beginPinPlacement()" style="display:none;">Place on Map →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT-TO-PLAYER MODAL -->
+<div class="aow-overlay" id="export-modal" role="dialog" aria-modal="true" aria-labelledby="export-title" onclick="if(event.target===this)closeExportModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="export-title">Send to Player</div>
+    <div class="modal-sub" id="export-preview"></div>
+    <div class="gen-field">
+      <label class="gen-label" for="export-heir-select">Which heir found this?</label>
+      <select class="gen-select" id="export-heir-select"></select>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" onclick="closeExportModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="confirmExport()">Download for Play Sheet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   SHARED HELPERS — ported verbatim from the rest of the toolkit
+   ═══════════════════════════════════════════ */
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function shadeHex(hex, dLight, dSat){
+  dSat = dSat || 0;
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if(max===min){ h=s=0; }
+  else {
+    const d = max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d+(g<b?6:0); break;
+      case g: h=(b-r)/d+2; break;
+      case b: h=(r-g)/d+4; break;
+    }
+    h/=6;
+  }
+  h*=360; s = clamp(s*100+dSat,0,100); l = clamp(l*100+dLight,0,100);
+  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  _aowFocusReturnEl = document.activeElement;
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
+  _aowFocusReturnEl = null;
+}
+
+/* theme — shares the exact same key GM Screen uses, so a GM's choice there carries over here */
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle-btn').textContent = theme==='light' ? '◑' : '◐';
+  try{ localStorage.setItem('aow-gm-theme', theme); }catch(e){}
+}
+function toggleTheme(){
+  const current = document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark';
+  applyTheme(current==='light' ? 'dark' : 'light');
+}
+(function initTheme(){
+  let saved = 'dark';
+  try{ saved = localStorage.getItem('aow-gm-theme') || 'dark'; }catch(e){}
+  applyTheme(saved);
+})();
+
+/* ═══════════════════════════════════════════
+   DISTRICT / CITY SHAPE DATA
+   Per the studio's own faceted-gem-rendering skill: any named, singular
+   entity a player needs to tell apart by silhouette (not just color) gets
+   a hand-authored, irregular {angle,radiusMultiplier} vertex list — never
+   a uniform ngon() generator. Nine districts/landmarks below, each with a
+   genuinely different silhouette evocative of its character (Military =
+   blocky/shielded, Religious = single dominant spire, Magical = sharp
+   crystal points, Agricultural = soft organic bumps, etc.) rather than
+   the same polygon recolored nine times.
+   ═══════════════════════════════════════════ */
+const SHAPE_DEFS = {
+  castle: [{a:0.00,m:1.20},{a:0.09,m:0.62},{a:0.18,m:1.05},{a:0.30,m:0.58},{a:0.50,m:1.30},{a:0.68,m:0.55},{a:0.80,m:1.05},{a:0.91,m:0.60}],
+  Military: [{a:0.00,m:1.00},{a:0.12,m:1.00},{a:0.20,m:0.65},{a:0.32,m:1.05},{a:0.45,m:0.60},{a:0.55,m:1.05},{a:0.68,m:0.60},{a:0.80,m:1.00},{a:0.88,m:1.00}],
+  Trade: [{a:0.00,m:1.10},{a:0.15,m:0.70},{a:0.28,m:1.15},{a:0.42,m:0.65},{a:0.58,m:1.05},{a:0.70,m:0.72},{a:0.85,m:1.12}],
+  Religious: [{a:0.00,m:1.35},{a:0.10,m:0.55},{a:0.25,m:0.85},{a:0.40,m:0.50},{a:0.50,m:0.95},{a:0.62,m:0.50},{a:0.78,m:0.80},{a:0.90,m:0.55}],
+  Scholarly: [{a:0.00,m:1.00},{a:0.14,m:0.68},{a:0.22,m:1.08},{a:0.36,m:0.66},{a:0.50,m:1.00},{a:0.64,m:0.66},{a:0.78,m:1.08},{a:0.90,m:0.68}],
+  Agricultural: [{a:0.00,m:0.95},{a:0.16,m:1.10},{a:0.33,m:0.85},{a:0.50,m:1.15},{a:0.66,m:0.82},{a:0.83,m:1.05}],
+  Magical: [{a:0.00,m:1.25},{a:0.08,m:0.45},{a:0.22,m:1.05},{a:0.33,m:0.48},{a:0.50,m:1.30},{a:0.61,m:0.46},{a:0.75,m:1.00},{a:0.88,m:0.50}],
+  park: [{a:0.00,m:0.90},{a:0.25,m:1.00},{a:0.50,m:0.88},{a:0.75,m:1.00}],
+  shemsara: [{a:0.00,m:1.15},{a:0.11,m:0.68},{a:0.22,m:1.10},{a:0.35,m:0.60},{a:0.50,m:1.25},{a:0.63,m:0.58},{a:0.77,m:1.10},{a:0.89,m:0.66}],
+  // ruin-pin markers — smaller, distinct per civilization
+  architect: [{a:0.00,m:1.05},{a:0.12,m:0.58},{a:0.26,m:0.98},{a:0.37,m:0.62},{a:0.52,m:1.08},{a:0.63,m:0.55},{a:0.77,m:0.95},{a:0.90,m:0.60}],
+  predecessor: [{a:0.00,m:1.00},{a:0.17,m:0.92},{a:0.33,m:1.05},{a:0.50,m:0.90},{a:0.67,m:1.08},{a:0.83,m:0.88}],
+  void: [{a:0.00,m:1.20},{a:0.10,m:0.40},{a:0.30,m:0.90},{a:0.38,m:1.15},{a:0.55,m:0.35},{a:0.68,m:1.00},{a:0.85,m:0.55}],
+};
+
+// District → (name shown on map, the world NPC anchored there, leverage node
+// key, house-relevant seed key) — ported from the SRD's own §1 district
+// table and the canonical layout already established in the Heir Record's
+// session-zero map preview (renderMap() there — same six districts, same
+// NPC pairings, same "Courier Master has no fixed seat" exception).
+const DISTRICTS = [
+  {key:'Military',     label:'The Military District', place:'Garrison',        npcKey:'watchCommander',   angle:-150},
+  {key:'Trade',        label:'The Trade District',    place:'Merchant Quarter',npcKey:'merchantConsortium',angle:-90},
+  {key:'Religious',    label:'The Religious District',place:'Temple District', npcKey:'highPriest',       angle:-30},
+  {key:'Scholarly',    label:'The Scholarly District',place:'Archive',         npcKey:'archivistGeneral', angle:150},
+  {key:'Agricultural', label:'The Agricultural District',place:'Granary',      npcKey:'dockworkersForeman',angle:90},
+  {key:'Magical',      label:'The Magical District',  place:'Sanctum',         npcKey:null,               angle:30},
+];
+const WORLD_NPC_NAMES = {
+  kingHector:'King Hector', royalChamberlain:'Edrin Castellane', merchantConsortium:'Mira Thessaly',
+  watchCommander:'Bren Calder', dockworkersForeman:'Otto Greave', courierMaster:'Ysolde Farrin',
+  highPriest:'Father Corwen Ashe', archivistGeneral:'Roven Maddox', outskirtsBroker:'"The Tallyman"',
+};
+const CIV_NAMES = { architect:'The Architects', predecessor:'The Predecessor Courts', void:'The Void Touched' };
+
+/* ═══════════════════════════════════════════
+   RUIN-PIN REWARD GENERATOR
+   Verbatim port of aow_gm_screen.html's CIVILIZATIONS/DEPTH_TABLE/
+   generateReward — kept as an intentional standalone copy (not a shared
+   module/import) so this tool works even with GM Screen closed and never
+   risks destabilizing it under session-week time pressure. If the SRD's
+   exploration tables ever change, both copies need the same edit — noted
+   here so that's a known, deliberate tradeoff, not an accidental drift.
+   ═══════════════════════════════════════════ */
+const CIVILIZATIONS={
+  architect:{ name:'The Architects', rewardShape:'item',
+    danger:'Physical. Mechanisms at full activation.',
+    descTemplates:['a {adj} mechanism, still humming with residual will','a {adj} construct half-sunk into the chamber floor','a {adj} apparatus built into the wall itself','a {adj} device left mid-function, as if its makers stepped away mid-thought'] },
+  predecessor:{ name:'The Predecessor Courts', rewardShape:'document',
+    danger:'Political. Other interested parties want what was found, or want it to stay lost.',
+    descTemplates:['a sealed succession record, wax still intact','an administrative ledger from a council that no longer exists','a personal correspondence between two figures history does not name','a founding-era document the current order has strong reasons to keep buried'] },
+  void:{ name:'The Void Touched', rewardShape:'item',
+    danger:'The space itself. Consequence of contact with something not of the world in the conventional sense.',
+    descTemplates:['an object that looks like {mundane} but is unmistakably not','something that should be {mundane}-sized but is heavier, or lighter, than it has any right to be','a {mundane}, ordinary in every visible way, that the Read school cannot fully explain','what appears to be a {mundane} until you look at it the second time'] },
+};
+const DEPTH_TABLE={
+  D1:{civAccess:['architect','predecessor','void'],rewardTier:1},
+  D2:{civAccess:['architect','predecessor','void'],rewardTier:1},
+  D3:{civAccess:['architect','predecessor','void'],rewardTier:2},
+  D4:{civAccess:['architect','predecessor','void'],rewardTier:3},
+  D5:{civAccess:['architect','predecessor','void'],rewardTier:4},
+  D6:{civAccess:['void'],rewardTier:5},
+};
+const REWARD_ADJ=['corroded','still-warm','silent','humming','dust-grey','unnervingly clean','half-broken','impossibly intact','scorched','frost-rimed','patient','watchful'];
+const REWARD_MUNDANE=['coin','key','ring','cup','hinge','button','tooth','lens','bell','thread-spool','door handle','candle stub'];
+const ITEM_NAME_PREFIX=['Ashveil','Hollow','Quiet','Long','Last','First','Bound','Broken','Patient','Far','Deep','Still'];
+const ITEM_NAME_NOUN=['Cogwright','Lantern','Seal','Thread','Key','Verse','Eye','Hand','Mirror','Bell','Coin','Mark'];
+const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriage never publicly recorded','a debt owed to a house that no longer exists','a vote that did not go the way the public record claims','a child removed from the line of succession','an alliance the Crown later denied existed','a treaty with terms quietly rewritten after signing'];
+const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims'];
+const SCHOOL_NAMES={ALT:'Alteration',CON:'Conjuration',NEG:'Negation',DIV:'Divination',TRN:'Transposition',DOM:'Dominion'};
+const SCHOOL_COLORS={ALT:'#c9863a',CON:'#7a9e5c',NEG:'#6b6089',DIV:'#5c9ac9',TRN:'#c95c8e',DOM:'#9b2a2a'};
+
+function generateReward(civKey,depthKey){
+  const civ=CIVILIZATIONS[civKey];
+  const depth=DEPTH_TABLE[depthKey];
+  if(!civ||!depth) return null;
+  if(!depth.civAccess.includes(civKey)) return {error:`${civ.name} does not reach ${depthKey}. ${depthKey==='D6'?'Only Void Touched spaces exist at this depth.':'Choose a different civilization or depth.'}`};
+
+  if(civ.rewardShape==='document'){
+    return { shape:'document', civ:civKey, civName:civ.name, depth:depthKey,
+      subject:pick(DOC_SUBJECTS), implicates:pick(DOC_IMPLICATES), desc:pick(civ.descTemplates),
+      danger:civ.danger, rewardTier:depth.rewardTier };
+  }
+  const schoolKeys=Object.keys(SCHOOL_NAMES);
+  const schoolKey=pick(schoolKeys);
+  const name=`The ${pick(ITEM_NAME_PREFIX)} ${pick(ITEM_NAME_NOUN)}`;
+  const tier=Math.min(6,depth.rewardTier);
+  const descTemplate=pick(civ.descTemplates);
+  const desc=descTemplate.replace('{adj}',pick(REWARD_ADJ)).replace('{mundane}',pick(REWARD_MUNDANE));
+  return { shape:'item', civ:civKey, civName:civ.name, depth:depthKey,
+    name, school:schoolKey, schoolName:SCHOOL_NAMES[schoolKey], schoolColor:SCHOOL_COLORS[schoolKey],
+    tier, desc, danger:civ.danger, rewardTier:depth.rewardTier };
+}
+
+/* ═══════════════════════════════════════════
+   STATE — Wonderland (read-only mirror) + this tool's own pin storage
+   ═══════════════════════════════════════════ */
+const WONDERLAND_KEY = 'aow-gm-screen-v1';
+const MAP_KEY = 'aow-world-map-v1';
+let wonderland = { heirs: [], nodes: {} };
+let mapState = { pins: [] };
+
+function loadWonderland(){
+  try{
+    const raw = localStorage.getItem(WONDERLAND_KEY) || localStorage.getItem('aow-wonderland-v1');
+    if(raw){ const parsed = JSON.parse(raw); wonderland = { heirs: parsed.heirs||[], nodes: parsed.nodes||{} }; }
+    else { wonderland = { heirs: [], nodes: {} }; }
+  }catch(e){ console.error('Failed to read Wonderland state:', e); wonderland = { heirs: [], nodes: {} }; }
+}
+function loadMapState(){
+  try{
+    const raw = localStorage.getItem(MAP_KEY);
+    if(raw) mapState = JSON.parse(raw);
+  }catch(e){ console.error('Failed to read map state:', e); }
+  if(!mapState.pins) mapState.pins = [];
+}
+function saveMapState(){
+  try{ localStorage.setItem(MAP_KEY, JSON.stringify(mapState)); }catch(e){ console.error('Failed to save map state:', e); }
+}
+
+function heirForDistrict(districtKey){
+  return wonderland.heirs.find(h => h.district === districtKey) || null;
+}
+function leverageFor(npcKey, heirKey){
+  const node = wonderland.nodes[npcKey];
+  if(!node || !heirKey) return null;
+  const v = node.scores ? node.scores[heirKey] : undefined;
+  return (v===undefined) ? null : v;
+}
+
+function refreshFromWonderland(userInitiated){
+  loadWonderland();
+  updateSyncNote();
+  updateEmptyBanner();
+  render();
+  if(userInitiated){
+    const note = document.getElementById('sync-note');
+    const prev = note.textContent;
+    note.textContent = 'Refreshed.';
+    setTimeout(()=>{ updateSyncNote(); }, 1400);
+  }
+}
+function updateSyncNote(){
+  const note = document.getElementById('sync-note');
+  const n = wonderland.heirs.length;
+  if(n===0){ note.textContent = 'No heirs imported into Wonderland yet.'; note.classList.add('warn'); }
+  else{ note.textContent = `${n} of 6 heirs loaded from Wonderland.`; note.classList.toggle('warn', n<6); }
+}
+function updateEmptyBanner(){
+  document.getElementById('empty-banner').classList.toggle('show', wonderland.heirs.length===0 && layer==='city');
+}
+
+/* ═══════════════════════════════════════════
+   CANVAS SETUP — dpr-aware, resize-aware, same pattern as the studio's
+   arcade titles (Math.min(devicePixelRatio,2), setTransform once, no
+   per-frame scale math)
+   ═══════════════════════════════════════════ */
+const canvas = document.getElementById('mapCanvas');
+const ctx = canvas.getContext('2d');
+let W=0, H=0, dpr=1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  layoutNodes();
+  render();
+}
+window.addEventListener('resize', resize);
+
+let layer = 'city'; // 'city' | 'kingdom'
+let elapsed = 0, lastTs = 0;
+let camScale = 1, hoverNode = null, selectedPin = null;
+
+/* ═══════════════════════════════════════════
+   FACETED-GEM POLYGON RENDERER — the studio's own signature Canvas 2D
+   technique (see .claude/skills/faceted-gem-rendering in the arcade repo):
+   one glow-backed base fill, alternating lit/dark center-to-vertex facets,
+   one bright specular facet, translucent outer stroke. Reused verbatim
+   here for every district/city/ruin node instead of a flat filled shape.
+   ═══════════════════════════════════════════ */
+function drawFacetedShape(cx, cy, r, rotation, vertDefs, baseColor, glowAmt, alpha){
+  alpha = alpha===undefined ? 1 : alpha;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation||0);
+  ctx.globalAlpha = alpha;
+  const n = vertDefs.length;
+  const vx = i => Math.cos(vertDefs[i].a*Math.PI*2)*r*vertDefs[i].m;
+  const vy = i => Math.sin(vertDefs[i].a*Math.PI*2)*r*vertDefs[i].m;
+
+  ctx.shadowColor = baseColor; ctx.shadowBlur = glowAmt!==undefined ? glowAmt : 16;
+  ctx.fillStyle = baseColor;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+  ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    ctx.fillStyle = shadeHex(baseColor, i%2===0?16:-14, i%2===0?8:-6);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(vx(i),vy(i)); ctx.lineTo(vx(j),vy(j)); ctx.closePath(); ctx.fill();
+  }
+  // specular facet
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(vx(0),vy(0)); ctx.lineTo(vx(n-1),vy(n-1)); ctx.closePath(); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+/* fallback color for a district with no house imported yet — a dim,
+   desaturated version of the gold token so an empty slot still reads as
+   "part of the city," not a rendering error */
+const GHOST_COLOR = '#5a4a30';
+
+/* ═══════════════════════════════════════════
+   AMBIENT PARTICLES — slow-drifting dust motes, matching the arcade
+   titles' idle-backdrop particle systems (kept cheap: capped count, no
+   physics beyond linear drift + wrap)
+   ═══════════════════════════════════════════ */
+const MAX_PARTICLES = 90;
+let particles = [];
+function seedParticles(){
+  particles = [];
+  for(let i=0;i<MAX_PARTICLES;i++){
+    particles.push({ x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-0.5)*6, vy:-4-Math.random()*8,
+      size:Math.random()*1.6+0.4, alpha:Math.random()*0.35+0.08, phase:Math.random()*Math.PI*2 });
+  }
+}
+function updateParticles(dt){
+  for(const p of particles){
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    if(p.y < -10){ p.y = H+10; p.x = Math.random()*W; }
+    if(p.x < -10) p.x = W+10; if(p.x > W+10) p.x = -10;
+  }
+}
+function drawParticles(){
+  ctx.save();
+  for(const p of particles){
+    const tw = 0.6+0.4*Math.sin(elapsed*1.3+p.phase);
+    ctx.globalAlpha = p.alpha*tw;
+    ctx.fillStyle = '#e8c97a';
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════
+   NODE LAYOUT — computed on resize/layer-switch so hit-testing and
+   drawing always agree, and everything scales cleanly to any viewport
+   ═══════════════════════════════════════════ */
+let cityNodes = [];    // castle, 6 districts, 2 park accents, outskirts ring
+let kingdomNodes = []; // shemsara hub, 6 home cities, outskirts ring
+let pinNodes = [];     // rendered ruin pins for the current layer (kingdom only)
+
+function layoutNodes(){
+  const cx = W/2, cy = H/2 + 8;
+  const R = Math.min(W,H) * 0.30;
+
+  cityNodes = [];
+  cityNodes.push({ type:'castle', key:'castle', label:'The Castle', sub:'King Hector · Royal Chamberlain',
+    x:cx, y:cy, r:Math.max(30, R*0.32), shape:'castle', npcKeys:['kingHector','royalChamberlain'] });
+  for(const d of DISTRICTS){
+    const rad = d.angle*Math.PI/180;
+    cityNodes.push({ type:'district', key:d.key, label:d.label, sub:d.place, npcKey:d.npcKey,
+      x:cx+Math.cos(rad)*R, y:cy+Math.sin(rad)*R, r:Math.max(24,R*0.26), shape:d.key, angle:rad });
+  }
+  // two park accents flanking the castle, matching the session-zero map preview
+  cityNodes.push({ type:'park', key:'park1', label:'City Park', sub:'Neutral ground',
+    x:cx-R*0.62, y:cy, r:Math.max(14,R*0.13), shape:'park' });
+  cityNodes.push({ type:'park', key:'park2', label:'City Park', sub:'Neutral ground',
+    x:cx+R*0.62, y:cy, r:Math.max(14,R*0.13), shape:'park' });
+  // Outskirts renders as a broken ring around everything, not a gem node —
+  // handled separately in drawCityLayer, but kept here for hit-testing.
+  cityNodes.push({ type:'outskirts', key:'outskirts', label:'The Outskirts', sub:'Contested territory · "The Tallyman"',
+    x:cx, y:cy, r:R*1.42, npcKey:'outskirtsBroker', isRing:true });
+
+  const kR = Math.min(W,H) * 0.36;
+  kingdomNodes = [];
+  kingdomNodes.push({ type:'shemsara', key:'shemsara', label:'Shemsara', sub:'The Capital · Seat of the Crown',
+    x:cx, y:cy, r:Math.max(28,kR*0.24), shape:'shemsara' });
+  for(const d of DISTRICTS){
+    const rad = d.angle*Math.PI/180;
+    const heir = heirForDistrict(d.key);
+    kingdomNodes.push({ type:'homecity', key:d.key, label: heir ? (heir.raw?.house?.seat || heir.raw?.identity?.originCity || 'Unnamed City') : 'Awaiting an Heir',
+      sub: heir ? `Seat of ${heir.house}` : `${d.label.replace('The ','').replace(' District','')} character`,
+      x:cx+Math.cos(rad)*kR, y:cy+Math.sin(rad)*kR, r:Math.max(22,kR*0.20), shape:d.key, angle:rad, heir, districtKey:d.key });
+  }
+  kingdomNodes.push({ type:'outskirts', key:'outskirts-k', label:'The Outskirts', sub:'Beyond reliable control',
+    x:cx, y:cy, r:kR*0.55, isRing:true, npcKey:'outskirtsBroker' });
+
+  layoutPins();
+}
+function layoutPins(){
+  pinNodes = mapState.pins.map(p => ({ ...p, type:'pin' }));
+}
+
+/* ═══════════════════════════════════════════
+   HOUSE COLOR / SIGIL LOOKUP — the whole point of this tool: house.
+   colorPrimary/colorSecondary and the uploaded sigil are captured in
+   every Heir Record export and, before this tool existed, never
+   rendered anywhere in the toolkit. Every district/home-city node below
+   pulls its actual color straight from the imported JSON.
+   ═══════════════════════════════════════════ */
+function houseColorFor(heir){
+  return (heir && heir.raw && heir.raw.house && heir.raw.house.colorPrimary) || GHOST_COLOR;
+}
+function sigilFor(heir){
+  return (heir && heir.raw && heir.raw.house && heir.raw.house.sigil) || null;
+}
+const sigilImgCache = {};
+function getSigilImg(dataUri){
+  if(!dataUri) return null;
+  if(sigilImgCache[dataUri]) return sigilImgCache[dataUri];
+  const img = new Image();
+  img.onload = () => render();
+  img.src = dataUri;
+  sigilImgCache[dataUri] = img;
+  return img;
+}
+
+/* ═══════════════════════════════════════════
+   RENDER — one full frame: backdrop, ambient particles, connective
+   routes, nodes (faceted, glow scaled by leverage where relevant),
+   sigils, labels, ruin pins.
+   ═══════════════════════════════════════════ */
+function render(){
+  ctx.clearRect(0,0,W,H);
+
+  // backdrop vignette
+  const grad = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,Math.max(W,H)*0.75);
+  const nightColor = getComputedStyle(document.documentElement).getPropertyValue('--night').trim() || '#0f0d0a';
+  grad.addColorStop(0, shadeHex(nightColor, 6));
+  grad.addColorStop(1, nightColor);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  drawParticles();
+
+  if(layer==='city') drawCityLayer();
+  else drawKingdomLayer();
+}
+
+function drawCityLayer(){
+  const castle = cityNodes.find(n=>n.type==='castle');
+  const ring = cityNodes.find(n=>n.type==='outskirts');
+
+  // Outskirts — a broken ring around the whole city ("beyond the wall on
+  // all sides"), rendered as a dashed jagged circle rather than a gem fill,
+  // since it's explicitly NOT a controlled, ownable space in the SRD.
+  ctx.save();
+  ctx.strokeStyle = 'rgba(107,96,137,0.5)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([14,10]);
+  ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // wall (solid ring just inside the Outskirts) — pure atmosphere
+  ctx.save();
+  ctx.strokeStyle = 'rgba(139,105,20,0.28)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(castle.x, castle.y, ring.r*0.78, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  // spoke lines from castle to each district
+  for(const n of cityNodes){
+    if(n.type!=='district') continue;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(139,105,20,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(castle.x,castle.y); ctx.lineTo(n.x,n.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  for(const n of cityNodes){
+    if(n.type==='outskirts') continue;
+    drawCityNode(n);
+  }
+}
+
+function drawCityNode(n){
+  const pulse = 1 + Math.sin(elapsed*1.4 + (n.x+n.y)*0.01)*0.02;
+  const hovered = hoverNode===n;
+  let color, heir=null, leverageBadge=null;
+  if(n.type==='castle'){ color = '#c9a030'; }
+  else if(n.type==='park'){ color = '#2a5a3a'; }
+  else{
+    heir = heirForDistrict(n.key);
+    color = houseColorFor(heir);
+    if(heir && n.npcKey){
+      const scores = wonderland.nodes[n.npcKey] ? wonderland.nodes[n.npcKey].scores : null;
+      const v = scores ? scores[heir.key] : undefined;
+      if(v!==undefined) leverageBadge = v;
+    }
+  }
+  const r = n.r * pulse * (hovered?1.08:1);
+  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[n.shape]||SHAPE_DEFS.park, color, hovered?26:16);
+
+  // leverage heat ring
+  if(leverageBadge!==null && leverageBadge!==0){
+    ctx.save();
+    ctx.strokeStyle = leverageBadge>0 ? 'rgba(42,90,58,0.55)' : 'rgba(155,42,42,0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(n.x,n.y,r+9,0,Math.PI*2*clamp(Math.abs(leverageBadge)/5,0.08,1)); ctx.stroke();
+    ctx.restore();
+  }
+
+  // sigil overlay, if the house uploaded one
+  const sigilData = sigilFor(heir);
+  if(sigilData){
+    const img = getSigilImg(sigilData);
+    if(img && img.complete && img.naturalWidth){
+      const s = r*0.62;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
+      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
+      ctx.restore();
+    }
+  }
+
+  drawNodeLabel(n, heir);
+}
+
+function drawNodeLabel(n, heir){
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(245,238,223,0.92)';
+  ctx.font = `600 ${clamp(n.r*0.22,10,15)}px Cinzel, serif`;
+  ctx.fillText(n.label, n.x, n.y+n.r+16);
+  if(heir){
+    ctx.fillStyle = 'rgba(212,196,168,0.8)';
+    ctx.font = `italic ${clamp(n.r*0.17,9,12)}px "EB Garamond", serif`;
+    ctx.fillText(heir.name, n.x, n.y+n.r+32);
+  } else if(n.sub){
+    ctx.fillStyle = 'rgba(138,106,72,0.85)';
+    ctx.font = `italic ${clamp(n.r*0.16,8,11)}px "EB Garamond", serif`;
+    ctx.fillText(n.sub, n.x, n.y+n.r+30);
+  }
+  ctx.restore();
+}
+
+function drawKingdomLayer(){
+  const hub = kingdomNodes.find(n=>n.type==='shemsara');
+  const ring = kingdomNodes.find(n=>n.type==='outskirts');
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(107,96,137,0.35)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([10,8]);
+  ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // roads — dashed glowing routes from each home city to the capital,
+  // visualizing the caravan Route system the SRD ties to district/city
+  // control (Chapter 5). Brighter where a heir is actually seated there.
+  for(const n of kingdomNodes){
+    if(n.type!=='homecity') continue;
+    ctx.save();
+    ctx.strokeStyle = n.heir ? 'rgba(201,160,48,0.4)' : 'rgba(139,105,20,0.12)';
+    ctx.lineWidth = n.heir ? 1.6 : 1;
+    ctx.setLineDash([3,7]);
+    ctx.beginPath(); ctx.moveTo(hub.x,hub.y); ctx.lineTo(n.x,n.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  drawCityNode(hub);
+  for(const n of kingdomNodes){ if(n.type==='homecity') drawHomeCityNode(n); }
+  for(const p of pinNodes) drawPinNode(p);
+}
+
+function drawHomeCityNode(n){
+  const pulse = 1 + Math.sin(elapsed*1.4 + (n.x+n.y)*0.01)*0.02;
+  const hovered = hoverNode===n;
+  const color = houseColorFor(n.heir);
+  const r = n.r * pulse * (hovered?1.08:1);
+  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[n.shape]||SHAPE_DEFS.park, color, hovered?24:14, n.heir?1:0.55);
+  const sigilData = sigilFor(n.heir);
+  if(sigilData){
+    const img = getSigilImg(sigilData);
+    if(img && img.complete && img.naturalWidth){
+      const s = r*0.6;
+      ctx.save();
+      ctx.globalAlpha = n.heir?1:0.5;
+      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
+      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
+      ctx.restore();
+    }
+  }
+  // n.sub is precomputed per-heir in layoutNodes() ("Seat of House X" or
+  // "— character, awaiting an heir") so a single drawNodeLabel pass (always
+  // treated as a sub-line, not a heir-name line) is correct for both states
+  // — no separate manual draw needed here.
+  drawNodeLabel(n, null);
+}
+
+function drawPinNode(p){
+  const pulse = 1 + Math.sin(elapsed*2.1 + (p.x+p.y)*0.02)*0.06;
+  const hovered = hoverNode===p;
+  const r = (hovered?17:13) * pulse;
+  const color = shadeHex('#c9a030', p.civ==='void'?-10:(p.civ==='predecessor'?-4:6), p.civ==='void'?10:0);
+  const shapeColor = p.civ==='void' ? '#6b6089' : (p.civ==='predecessor' ? '#8a6a48' : '#9b8340');
+  drawFacetedShape(p.x, p.y, r, elapsed*0.15, SHAPE_DEFS[p.civ]||SHAPE_DEFS.architect, shapeColor, hovered?22:12);
+  ctx.save();
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(245,238,223,0.85)';
+  ctx.font=`600 10px Cinzel, serif`;
+  ctx.fillText(p.name||CIV_NAMES[p.civ], p.x, p.y+r+14);
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════
+   MAIN LOOP
+   ═══════════════════════════════════════════ */
+function tick(ts){
+  if(!lastTs) lastTs = ts;
+  const dt = Math.min((ts-lastTs)/1000, 0.05);
+  lastTs = ts;
+  elapsed += dt;
+  updateParticles(dt);
+  render();
+  requestAnimationFrame(tick);
+}
+
+/* ═══════════════════════════════════════════
+   HIT TESTING + INTERACTION
+   ═══════════════════════════════════════════ */
+function allInteractiveNodes(){
+  const base = layer==='city' ? cityNodes.filter(n=>n.type!=='outskirts') : kingdomNodes.filter(n=>n.type!=='outskirts');
+  return layer==='kingdom' ? base.concat(pinNodes) : base;
+}
+function nodeAt(x,y){
+  const nodes = allInteractiveNodes();
+  for(let i=nodes.length-1;i>=0;i--){
+    const n = nodes[i];
+    const rr = n.type==='pin' ? 17 : n.r;
+    if(Math.hypot(x-n.x,y-n.y) < rr) return n;
+  }
+  return null;
+}
+let placingPin = false;
+canvas.addEventListener('mousemove', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX-rect.left, y = e.clientY-rect.top;
+  const n = nodeAt(x,y);
+  if(n!==hoverNode){ hoverNode = n; canvas.style.cursor = n ? 'pointer' : (placingPin?'crosshair':'grab'); }
+});
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX-rect.left, y = e.clientY-rect.top;
+  if(placingPin){ commitPinPlacement(x,y); return; }
+  const n = nodeAt(x,y);
+  if(!n) return;
+  if(n.type==='pin') openPinDrawer(n);
+  else openNodeDrawer(n);
+});
+
+function setLayer(next){
+  layer = next;
+  document.getElementById('layer-btn-city').classList.toggle('active', next==='city');
+  document.getElementById('layer-btn-kingdom').classList.toggle('active', next==='kingdom');
+  hoverNode = null;
+  updateEmptyBanner();
+  closeDrawer();
+}
+
+/* ═══════════════════════════════════════════
+   DRAWER CONTENT
+   ═══════════════════════════════════════════ */
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+}
+function openDrawerRaw(html){
+  document.getElementById('drawer-content').innerHTML = html;
+  document.getElementById('drawer').classList.add('show');
+}
+
+function leverageRowsForNpc(npcKey){
+  if(!npcKey) return '<div class="drawer-empty">No single NPC anchors this — every district transits it equally.</div>';
+  const node = wonderland.nodes[npcKey];
+  if(!wonderland.heirs.length) return '<div class="drawer-empty">No heirs imported yet.</div>';
+  return wonderland.heirs.map(h=>{
+    const v = node && node.scores ? node.scores[h.key] : undefined;
+    const val = (v===undefined||v===null) ? 0 : v;
+    const cls = val>0?'pos':(val<0?'neg':'zero');
+    return `<div class="drawer-row"><span class="drawer-row-label">${h.name}</span><span class="lev-pip ${cls}">${val>0?'+':''}${val}</span></div>`;
+  }).join('');
+}
+
+function openNodeDrawer(n){
+  if(n.type==='castle'){
+    openDrawerRaw(`
+      <span class="drawer-eyebrow">The Royal Seat</span>
+      <div class="drawer-title">${n.label}</div>
+      <div class="drawer-sub">${n.sub}</div>
+      <div class="drawer-section">
+        <div class="drawer-section-title">King Hector — Leverage</div>
+        ${leverageRowsForNpc('kingHector')}
+      </div>
+      <div class="drawer-section">
+        <div class="drawer-section-title">Royal Chamberlain — Leverage</div>
+        ${leverageRowsForNpc('royalChamberlain')}
+      </div>
+    `);
+    return;
+  }
+  if(n.type==='park'){
+    openDrawerRaw(`
+      <span class="drawer-eyebrow">Neutral Ground</span>
+      <div class="drawer-title">${n.label}</div>
+      <div class="drawer-sub">${n.sub}</div>
+      <div class="drawer-section"><div class="drawer-empty">Belongs to no house — and therefore to everyone. No leverage is tracked here.</div></div>
+    `);
+    return;
+  }
+  // district or homecity
+  const heir = n.type==='homecity' ? n.heir : heirForDistrict(n.key);
+  const npcName = n.npcKey ? (WORLD_NPC_NAMES[n.npcKey]||n.npcKey) : 'The Courier Network (no fixed seat)';
+  const sigilData = sigilFor(heir);
+  const houseBlock = heir ? `
+      <div style="overflow:hidden;">
+        ${sigilData?`<img class="sigil-thumb" src="${sigilData}" alt="${heir.house} sigil">`:''}
+        <div><span class="house-swatch" style="background:${houseColorFor(heir)};"></span>${heir.house}</div>
+        <div class="drawer-empty" style="padding-top:.3rem;">${heir.name}${heir.school&&heir.school!=='—'?` · ${heir.school}`:''}</div>
+      </div>
+    ` : `<div class="drawer-empty">No heir has claimed this district yet.</div>`;
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">${n.type==='homecity'?'Home City':'District of Shemsara'}</span>
+    <div class="drawer-title">${n.label}</div>
+    <div class="drawer-sub">${n.sub}</div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Controlling House</div>
+      ${houseBlock}
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">${npcName}</div>
+      ${leverageRowsForNpc(n.npcKey)}
+    </div>
+  `);
+}
+
+function openPinDrawer(p){
+  const r = p.reward;
+  const body = r.shape==='document'
+    ? `<div class="reward-desc">${r.desc}</div><div class="drawer-row"><span class="drawer-row-label">Concerns</span><span class="drawer-row-val">${r.subject}</span></div><div class="drawer-row"><span class="drawer-row-label">Implicates</span><span class="drawer-row-val">${r.implicates}</span></div>`
+    : `<div class="reward-name">"${r.name}"</div><div class="drawer-row"><span class="drawer-row-label">School</span><span class="drawer-row-val">${r.schoolName} · Tier ${r.tier}</span></div><div class="reward-desc">${r.desc}</div>`;
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">${CIV_NAMES[p.civ]} · ${p.depth}</span>
+    <div class="drawer-title">${p.name}</div>
+    <div class="drawer-section">
+      ${body}
+      <div class="reward-danger">Danger: ${r.danger}</div>
+    </div>
+    <div class="drawer-section" style="display:flex;gap:.5rem;">
+      <button class="tb-btn primary" style="flex:1;" onclick="openExportModalForPin('${p.id}')">Send to Player</button>
+      <button class="tb-btn" onclick="removePin('${p.id}')">Remove Pin</button>
+    </div>
+  `);
+}
+
+function removePin(id){
+  mapState.pins = mapState.pins.filter(p=>p.id!==id);
+  saveMapState();
+  layoutPins();
+  closeDrawer();
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   GENERATOR MODAL
+   ═══════════════════════════════════════════ */
+let pendingDiscovery = null;
+function openGeneratorModal(){
+  document.getElementById('gen-result').innerHTML = '';
+  document.getElementById('gen-place-btn').style.display = 'none';
+  document.getElementById('gen-name').value = '';
+  pendingDiscovery = null;
+  const overlay = document.getElementById('generator-modal');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = closeGeneratorModal;
+  trapFocus(overlay);
+}
+function closeGeneratorModal(){
+  const overlay = document.getElementById('generator-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+}
+function rollDiscovery(){
+  const civ = document.getElementById('gen-civ').value;
+  const depth = document.getElementById('gen-depth').value;
+  const reward = generateReward(civ, depth);
+  const resultEl = document.getElementById('gen-result');
+  if(!reward || reward.error){
+    resultEl.innerHTML = `<div class="gen-error">${reward ? reward.error : 'Something went wrong generating this discovery.'}</div>`;
+    document.getElementById('gen-place-btn').style.display = 'none';
+    pendingDiscovery = null;
+    return;
+  }
+  const body = reward.shape==='document'
+    ? `<div class="reward-desc">${reward.desc}</div><div class="reward-desc">Concerns ${reward.subject}, implicates ${reward.implicates}.</div>`
+    : `<div class="reward-name">"${reward.name}"</div><div class="reward-desc">${reward.schoolName} · Tier ${reward.tier}. ${reward.desc}</div>`;
+  resultEl.innerHTML = `<div class="reward-card">${body}<div class="reward-danger">Danger: ${reward.danger}</div></div>`;
+  pendingDiscovery = { civ, depth, reward, name: document.getElementById('gen-name').value.trim() };
+  document.getElementById('gen-place-btn').style.display = '';
+}
+function beginPinPlacement(){
+  if(!pendingDiscovery) return;
+  closeGeneratorModal();
+  if(layer!=='kingdom') setLayer('kingdom');
+  placingPin = true;
+  canvas.style.cursor = 'crosshair';
+  const note = document.getElementById('sync-note');
+  note.dataset.prev = note.textContent;
+  note.textContent = 'Click anywhere on the kingdom map to place this discovery…';
+}
+function commitPinPlacement(x,y){
+  if(!pendingDiscovery) return;
+  const id = 'pin_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const name = pendingDiscovery.name || `${CIV_NAMES[pendingDiscovery.civ].replace('The ','')} Site`;
+  mapState.pins.push({ id, civ: pendingDiscovery.civ, depth: pendingDiscovery.depth, name, reward: pendingDiscovery.reward, x, y });
+  saveMapState();
+  layoutPins();
+  placingPin = false;
+  pendingDiscovery = null;
+  canvas.style.cursor = 'grab';
+  updateSyncNote();
+  render();
+  const justPlaced = pinNodes[pinNodes.length-1];
+  if(justPlaced) openPinDrawer(justPlaced);
+}
+
+/* ═══════════════════════════════════════════
+   EXPORT-TO-PLAYER MODAL — payload shape matches GM Screen's own
+   confirmRewardExport() exactly (kind/forHeir/name/... for items,
+   kind/forHeir/name/subject/implicates/... for documents), so the
+   downloaded file drops straight into a Play Sheet's existing loot/
+   document importer with zero changes needed there.
+   ═══════════════════════════════════════════ */
+let exportPendingPinId = null;
+function openExportModalForPin(pinId){
+  const pin = mapState.pins.find(p=>p.id===pinId);
+  if(!pin) return;
+  exportPendingPinId = pinId;
+  const r = pin.reward;
+  document.getElementById('export-preview').textContent = r.shape==='document'
+    ? `${r.desc} — concerns ${r.subject}, implicates ${r.implicates}.`
+    : `"${r.name}" — ${r.schoolName}, Tier ${r.tier}. ${r.desc}`;
+  const sel = document.getElementById('export-heir-select');
+  sel.innerHTML = wonderland.heirs.length
+    ? wonderland.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('')
+    : `<option value="">No heirs imported yet</option>`;
+  const overlay = document.getElementById('export-modal');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = closeExportModal;
+  trapFocus(overlay);
+}
+function closeExportModal(){
+  const overlay = document.getElementById('export-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+  exportPendingPinId = null;
+}
+function confirmExport(){
+  if(!exportPendingPinId) return;
+  const pin = mapState.pins.find(p=>p.id===exportPendingPinId);
+  const heirKey = document.getElementById('export-heir-select').value;
+  if(!pin || !heirKey) return;
+  const heir = wonderland.heirs.find(h=>h.key===heirKey);
+  if(!heir) return;
+  const r = pin.reward;
+
+  let payload;
+  if(r.shape==='document'){
+    payload = { kind:'document', forHeir:heir.name, name:`${CIV_NAMES[r.civ]} record — ${r.subject}`,
+      subject:r.subject, implicates:r.implicates, desc:r.desc, danger:r.danger, source:`${CIV_NAMES[r.civ]} · ${r.depth} · ${pin.name}` };
+  } else {
+    payload = { kind:'item', forHeir:heir.name, name:r.name, type:'Artifact', encounter:'Exploration',
+      effect:`${r.schoolName} · Tier ${r.tier}. ${r.desc}`, danger:r.danger, source:`${CIV_NAMES[r.civ]} · ${r.depth} · ${pin.name}` };
+  }
+
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = heir.name.replace(/\s+/g,'_').toLowerCase();
+  const itemName = (payload.name||'reward').replace(/\s+/g,'_').toLowerCase();
+  a.href = url; a.download = `aow_reward_${safeName}_${itemName}.json`; a.click();
+  URL.revokeObjectURL(url);
+
+  closeExportModal();
+}
+
+/* ═══════════════════════════════════════════
+   BOOT
+   ═══════════════════════════════════════════ */
+loadWonderland();
+loadMapState();
+resize();
+seedParticles();
+updateSyncNote();
+updateEmptyBanner();
+requestAnimationFrame(tick);
+
+// re-sync automatically whenever the tab regains focus, in case GM Screen
+// imported new heirs in another tab in the meantime
+window.addEventListener('focus', ()=>refreshFromWonderland(false));
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape' && placingPin){ placingPin=false; pendingDiscovery=null; canvas.style.cursor='grab'; updateSyncNote(); }
+});
+</script>
+</body>
+</html>
