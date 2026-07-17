@@ -117,6 +117,32 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .pin-list-name{font-family:'Cinzel',serif;font-size:.72rem;color:var(--vellum-dark);}
 .pin-list-meta{font-size:.72rem;color:var(--ink-light);font-style:italic;}
 
+/* ══════ LANDMARKS / NPCS (drawer lists + forms) ══════ */
+.gen-textarea{width:100%;padding:.5rem .6rem;background:var(--night-mid);border:1px solid var(--panel-border);color:var(--vellum);font-family:'EB Garamond',serif;font-size:.85rem;resize:vertical;min-height:3.2em;}
+.gen-textarea:focus{outline:none;border-color:var(--gold-dim);}
+.icon-picker{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;}
+.icon-opt{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.5rem .3rem;border:1px solid var(--panel-border);background:var(--night-mid);cursor:pointer;transition:border-color .15s;}
+.icon-opt:hover{border-color:var(--gold-dim);}
+.icon-opt.selected{border-color:var(--gold);background:var(--gold-faint);}
+.icon-opt .icon-swatch{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.25);}
+.icon-opt .icon-opt-label{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-light);text-align:center;line-height:1.3;}
+.photo-upload-row{display:flex;align-items:center;gap:.6rem;}
+.photo-preview{width:52px;height:52px;object-fit:cover;border:1px solid var(--panel-border);background:var(--night-mid);flex-shrink:0;}
+.photo-preview.empty{display:flex;align-items:center;justify-content:center;font-style:italic;font-size:.6rem;color:var(--ink-light);text-align:center;}
+.entity-list-item{display:flex;align-items:center;gap:.6rem;padding:.45rem .5rem;border:1px solid var(--panel-border);margin-bottom:.4rem;cursor:pointer;transition:border-color .15s;}
+.entity-list-item:hover{border-color:var(--gold-dim);}
+.entity-thumb{width:34px;height:34px;object-fit:cover;border:1px solid var(--panel-border);flex-shrink:0;background:var(--night-mid);}
+.entity-thumb.icon-only{border-radius:50%;}
+.entity-list-name{font-family:'Cinzel',serif;font-size:.72rem;color:var(--vellum-dark);}
+.entity-list-meta{font-size:.72rem;color:var(--ink-light);font-style:italic;}
+.custom-field-row{display:flex;gap:.4rem;margin-bottom:.4rem;align-items:center;}
+.custom-field-row input{flex:1;min-width:0;}
+.field-remove-btn{background:none;border:1px solid var(--panel-border);color:var(--ink-light);width:1.8rem;height:1.8rem;flex-shrink:0;cursor:pointer;font-size:.9rem;line-height:1;}
+.field-remove-btn:hover{border-color:var(--crimson-bright);color:var(--crimson-bright);}
+.drawer-photo{width:100%;max-height:220px;object-fit:cover;border:1px solid var(--panel-border);margin-bottom:.8rem;display:block;}
+.drawer-btn-row{display:flex;gap:.5rem;margin-top:.6rem;}
+.drawer-btn-row .tb-btn{flex:1;text-align:center;}
+
 /* ══════ MODALS (mirrors GM Screen's .aow-overlay pattern) ══════ */
 .aow-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:100;background:rgba(10,8,5,0.88);}
 .aow-overlay.show{display:flex;}
@@ -223,6 +249,85 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     <div class="modal-btn-row">
       <button class="modal-btn" onclick="closeExportModal()">Cancel</button>
       <button class="modal-btn primary" onclick="confirmExport()">Download for Play Sheet</button>
+    </div>
+  </div>
+</div>
+
+<!-- LANDMARK MODAL -->
+<div class="aow-overlay" id="landmark-modal" role="dialog" aria-modal="true" aria-labelledby="landmark-modal-title" onclick="if(event.target===this)closeLandmarkModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="landmark-modal-title">Mark a Location</div>
+    <div class="modal-sub" id="landmark-modal-sub"></div>
+    <div class="gen-field">
+      <label class="gen-label">Kind</label>
+      <div class="icon-picker" id="landmark-icon-picker"></div>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="landmark-name">Name</label>
+      <input class="gen-input" id="landmark-name" type="text" placeholder="e.g. the Sanctum of Axiom">
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="landmark-note">Note</label>
+      <textarea class="gen-textarea" id="landmark-note" placeholder="What's here, who runs it, why it matters…"></textarea>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label">Photo (optional)</label>
+      <div class="photo-upload-row">
+        <img class="photo-preview" id="landmark-photo-preview" style="display:none;">
+        <div class="photo-preview empty" id="landmark-photo-empty">no photo</div>
+        <input type="file" accept="image/*" id="landmark-photo-input" onchange="handleLandmarkPhoto(event)">
+      </div>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" id="landmark-delete-btn" style="display:none;margin-right:auto;" onclick="deleteLandmarkFromModal()">Remove</button>
+      <button class="modal-btn" onclick="closeLandmarkModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveLandmarkFromModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NPC MODAL -->
+<div class="aow-overlay" id="npc-modal" role="dialog" aria-modal="true" aria-labelledby="npc-modal-title" onclick="if(event.target===this)closeNpcModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="npc-modal-title">NPC Sheet</div>
+    <div class="modal-sub" id="npc-modal-sub"></div>
+    <div class="gen-field">
+      <label class="gen-label">Photo (optional)</label>
+      <div class="photo-upload-row">
+        <img class="photo-preview" id="npc-photo-preview" style="display:none;">
+        <div class="photo-preview empty" id="npc-photo-empty">no photo</div>
+        <input type="file" accept="image/*" id="npc-photo-input" onchange="handleNpcPhoto(event)">
+      </div>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="npc-name">Name</label>
+      <input class="gen-input" id="npc-name" type="text" placeholder="e.g. Sister Adaine">
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="npc-role">Role / Title</label>
+      <input class="gen-input" id="npc-role" type="text" placeholder="e.g. Keeper of the Sanctum">
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="npc-want">Want</label>
+      <input class="gen-input" id="npc-want" type="text" placeholder="What they're after">
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="npc-fear">Fear</label>
+      <input class="gen-input" id="npc-fear" type="text" placeholder="What they're afraid of">
+    </div>
+    <div class="gen-field">
+      <label class="gen-label" for="npc-notes">Notes</label>
+      <textarea class="gen-textarea" id="npc-notes" placeholder="Anything else worth remembering at the table…"></textarea>
+    </div>
+    <div class="gen-field">
+      <label class="gen-label">Stats</label>
+      <div id="npc-custom-fields"></div>
+      <button class="tb-btn" style="width:100%;" onclick="addNpcCustomField()">+ Add Stat</button>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn" id="npc-delete-btn" style="display:none;margin-right:auto;" onclick="deleteNpcFromModal()">Remove</button>
+      <button class="modal-btn" onclick="closeNpcModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveNpcFromModal()">Save</button>
     </div>
   </div>
 </div>
@@ -353,6 +458,30 @@ const SHAPE_DEFS = {
   // fractured/asymmetric — kept from the original pass, already reads
   // correctly as "wrong" against everything else on the map
   void: [{a:0.00,m:1.20},{a:0.10,m:0.40},{a:0.30,m:0.90},{a:0.38,m:1.15},{a:0.55,m:0.35},{a:0.68,m:1.00},{a:0.85,m:0.55}],
+  // landmark markers — small satellite icons a GM drops inside a district
+  // while populating it (the church in the Religious district, etc). These
+  // render much smaller than district/city gems, so each needed a silhouette
+  // that stays legible at ~16px radius, not just at gallery size.
+  // shrine — single tall spire on a narrow base, echo of Religious's temple
+  // roof at a smaller point-count so it reads clean at marker scale
+  lm_shrine: [{a:0.00,m:1.50},{a:0.22,m:0.45},{a:0.50,m:0.65},{a:0.78,m:0.45}],
+  // market — low wide stall/awning, flat-topped rather than pointed
+  lm_market: [{a:0.00,m:0.85},{a:0.20,m:1.05},{a:0.40,m:0.80},{a:0.60,m:1.05},{a:0.80,m:0.80}],
+  // tower — tall narrow four-point, almost a blade, distinct from the shrine's
+  // single-spire-on-flat-base by being even ALL the way around instead
+  lm_tower: [{a:0.00,m:1.55},{a:0.25,m:0.55},{a:0.50,m:1.55},{a:0.75,m:0.55}],
+  // gate — twin peaks with a deep notch between them, an archway silhouette
+  lm_gate: [{a:0.00,m:1.30},{a:0.12,m:0.85},{a:0.25,m:0.30},{a:0.50,m:0.85},{a:0.75,m:0.30},{a:0.88,m:0.85}],
+  // hall/tavern — rounded blunt hexagon, warm and low, nothing pointed at all
+  lm_hall: [{a:0.00,m:0.95},{a:0.17,m:1.02},{a:0.33,m:0.90},{a:0.50,m:1.00},{a:0.67,m:0.92},{a:0.83,m:1.00}],
+  // dock/water — wavy asymmetric ripple, 6 points, alternating short/long
+  // in an irregular (not evenly-spaced) rhythm to read as water, not a gear
+  lm_dock: [{a:0.00,m:1.10},{a:0.14,m:0.55},{a:0.32,m:0.95},{a:0.50,m:0.50},{a:0.68,m:1.00},{a:0.86,m:0.48}],
+  // ruins/tomb — jagged broken outline, low and irregular, deliberately the
+  // most asymmetric marker on the map (nothing here should look intact)
+  lm_ruins: [{a:0.00,m:1.05},{a:0.09,m:0.30},{a:0.24,m:0.75},{a:0.36,m:1.20},{a:0.50,m:0.40},{a:0.64,m:0.90},{a:0.80,m:0.60},{a:0.92,m:1.00}],
+  // generic landmark — plain diamond, the deliberately "unmarked" catch-all
+  lm_generic: [{a:0.00,m:1.20},{a:0.25,m:0.75},{a:0.50,m:1.20},{a:0.75,m:0.75}],
 };
 
 // District → (name shown on map, the world NPC anchored there, leverage node
@@ -374,6 +503,25 @@ const WORLD_NPC_NAMES = {
   highPriest:'Father Corwen Ashe', archivistGeneral:'Roven Maddox', outskirtsBroker:'"The Tallyman"',
 };
 const CIV_NAMES = { architect:'The Architects', predecessor:'The Predecessor Courts', void:'The Void Touched' };
+
+// Landmark icon set — the GM's "convention for heraldry": a small, fixed
+// vocabulary of hand-shaped markers for the specific things a district
+// holds (the church in the Religious district, a dock in Agricultural,
+// etc), so the same icon always means the same kind of place across every
+// district instead of being freeform per-pin. "Other / Custom" covers
+// anything that doesn't fit — still gets its own consistent diamond mark,
+// plus an optional uploaded photo shown in its drawer regardless of icon.
+const LANDMARK_ICONS = [
+  {key:'shrine',  label:'Shrine / Temple', shape:'lm_shrine',  color:'#c9a0c9'},
+  {key:'market',  label:'Market / Stall',  shape:'lm_market',  color:'#c9a048'},
+  {key:'tower',   label:'Tower / Keep',    shape:'lm_tower',   color:'#8a96b0'},
+  {key:'gate',    label:'Gate / Archway',  shape:'lm_gate',    color:'#b08a5a'},
+  {key:'hall',    label:'Hall / Tavern',   shape:'lm_hall',    color:'#c97a4a'},
+  {key:'dock',    label:'Dock / Waterway', shape:'lm_dock',    color:'#5a9ac9'},
+  {key:'ruins',   label:'Ruin / Tomb',     shape:'lm_ruins',   color:'#7a7a6a'},
+  {key:'generic', label:'Other / Custom',  shape:'lm_generic', color:'#a0a090'},
+];
+function landmarkIcon(key){ return LANDMARK_ICONS.find(i=>i.key===key) || LANDMARK_ICONS[LANDMARK_ICONS.length-1]; }
 
 /* ═══════════════════════════════════════════
    RUIN-PIN REWARD GENERATOR
@@ -440,7 +588,7 @@ function generateReward(civKey,depthKey){
 const WONDERLAND_KEY = 'aow-gm-screen-v1';
 const MAP_KEY = 'aow-world-map-v1';
 let wonderland = { heirs: [], nodes: {} };
-let mapState = { pins: [] };
+let mapState = { pins: [], landmarks: [], npcs: [] };
 
 function loadWonderland(){
   try{
@@ -455,9 +603,53 @@ function loadMapState(){
     if(raw) mapState = JSON.parse(raw);
   }catch(e){ console.error('Failed to read map state:', e); }
   if(!mapState.pins) mapState.pins = [];
+  if(!mapState.landmarks) mapState.landmarks = [];
+  if(!mapState.npcs) mapState.npcs = [];
 }
 function saveMapState(){
-  try{ localStorage.setItem(MAP_KEY, JSON.stringify(mapState)); }catch(e){ console.error('Failed to save map state:', e); }
+  try{ localStorage.setItem(MAP_KEY, JSON.stringify(mapState)); }
+  catch(e){
+    // Real finding from an engineering review of this same toolkit's other
+    // tools: an uncapped image upload can silently blow past localStorage's
+    // quota, and a plain console.warn on failure means nobody at the table
+    // ever finds out their last change didn't actually save. Landmark/NPC
+    // photos are downscaled before storage specifically to avoid hitting
+    // this (see downscaleImage), but a save failure — for whatever reason —
+    // needs to be loud, not silent, so the GM can act on it instead of
+    // discovering it three refreshes later.
+    console.error('Failed to save map state:', e);
+    alert('The map could not save your last change (browser storage may be full). Try removing an image from a landmark or NPC, or export/back up soon — this change may be lost on refresh.');
+  }
+}
+
+// Downscales an uploaded image before it ever touches localStorage — a
+// real photo from a phone can be several MB; this toolkit can end up
+// storing many of these (one per landmark, one per NPC) on top of the six
+// house sigils GM Screen already holds, so letting them in at full
+// resolution risked the exact quota failure named above. Caps the longest
+// edge at maxDim and re-encodes as JPEG at a modest quality — a few tens
+// of KB per image instead of several MB, plenty for a small map thumbnail.
+function downscaleImage(file, maxDim){
+  maxDim = maxDim || 360;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width*scale)), h = Math.max(1, Math.round(img.height*scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const c2d = canvas.getContext('2d');
+        c2d.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function heirForDistrict(districtKey){
@@ -599,6 +791,27 @@ function drawParticles(){
 let cityNodes = [];    // castle, 6 districts, 2 park accents, outskirts ring
 let kingdomNodes = []; // shemsara hub, 6 home cities, outskirts ring
 let pinNodes = [];     // rendered ruin pins for the current layer (kingdom only)
+let landmarkNodes = [];// satellite markers orbiting their owning city node (city layer only)
+
+// Locations a landmark (or a district-level NPC) can attach to. Deliberately
+// NOT every cityNodes entry — the two City Park accents are the same
+// conceptual place shown twice for layout symmetry, so they share one
+// option, and Outskirts isn't a clickable node at all (see
+// allInteractiveNodes) so it's excluded rather than offering a dead end.
+const LANDMARK_ATTACH_POINTS = [
+  {key:'castle', label:'The Castle'},
+  {key:'Military', label:'The Military District'},
+  {key:'Trade', label:'The Trade District'},
+  {key:'Religious', label:'The Religious District'},
+  {key:'Scholarly', label:'The Scholarly District'},
+  {key:'Agricultural', label:'The Agricultural District'},
+  {key:'Magical', label:'The Magical District'},
+  {key:'park1', label:'City Park'},
+];
+function attachPointLabel(key){
+  const p = LANDMARK_ATTACH_POINTS.find(p=>p.key===key);
+  return p ? p.label : key;
+}
 
 let cityOrigin = {x:0,y:0}, kingdomOrigin = {x:0,y:0};
 function layoutNodes(){
@@ -665,9 +878,47 @@ function layoutNodes(){
     x:cx, y:kcy, r:kRingR, isRing:true, npcKey:'outskirtsBroker' });
 
   layoutPins();
+  layoutLandmarks();
 }
 function layoutPins(){
   pinNodes = mapState.pins.map(p => ({ ...p, type:'pin' }));
+}
+// Landmarks orbit their owning city node as small satellite markers rather
+// than sitting free-floating — that's what makes "the church in the
+// Religious district" a district-specific mark instead of just another pin
+// anywhere on the map. Placed on the INWARD side of the parent node (the
+// side facing the castle), the opposite direction from where drawNodeLabel
+// radiates that node's own title/heir text outward — so a satellite marker
+// can never land on top of its parent's label.
+function layoutLandmarks(){
+  landmarkNodes = [];
+  const byParent = {};
+  for(const lm of mapState.landmarks){
+    (byParent[lm.districtKey] = byParent[lm.districtKey] || []).push(lm);
+  }
+  for(const districtKey in byParent){
+    const parent = cityNodes.find(n=>n.key===districtKey);
+    if(!parent) continue;
+    const list = byParent[districtKey];
+    const dx = parent.x-cityOrigin.x, dy = parent.y-cityOrigin.y;
+    const d = Math.hypot(dx,dy);
+    // The castle sits AT cityOrigin (dx=dy=0), so it has no "inward" side —
+    // and drawNodeLabel has its own separate d<1 fallback that always sends
+    // a centered node's title/subtitle straight down. Landmarks orbiting
+    // "inward" from the same degenerate case landed in that exact downward
+    // lane and overlapped the castle's own label text. Every other node has
+    // real district neighbors on most other headings, so orbiting up (the
+    // one direction guaranteed clear of the castle's own label) is the safe
+    // choice specifically for this case — not a general-purpose angle.
+    const baseAngle = d<1 ? -Math.PI/2 : Math.atan2(dy,dx) + Math.PI; // inward-facing side
+    const orbit = parent.r + 20;
+    list.forEach((lm,i)=>{
+      const t = list.length>1 ? (i/(list.length-1) - 0.5) : 0;
+      const ang = baseAngle + t*0.85;
+      landmarkNodes.push({ ...lm, type:'landmark',
+        x: parent.x + Math.cos(ang)*orbit, y: parent.y + Math.sin(ang)*orbit, r:13 });
+    });
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -752,6 +1003,31 @@ function drawCityLayer(){
     if(n.type==='outskirts') continue;
     drawCityNode(n);
   }
+  for(const n of landmarkNodes) drawLandmarkNode(n);
+}
+
+function drawLandmarkNode(n){
+  const pulse = 1 + Math.sin(elapsed*1.6 + (n.x+n.y)*0.02)*0.05;
+  const hovered = hoverNode===n;
+  const icon = landmarkIcon(n.icon);
+  const r = n.r * pulse * (hovered?1.15:1);
+  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[icon.shape]||SHAPE_DEFS.lm_generic, icon.color, hovered?18:9);
+  if(n.image){
+    const img = getSigilImg(n.image);
+    if(img && img.complete && img.naturalWidth){
+      const s = r*0.66;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
+      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
+      ctx.restore();
+    }
+  }
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(245,238,223,0.85)';
+  ctx.font = `600 9px Cinzel, serif`;
+  fillTextClamped(n.name || icon.label, n.x, n.y+r+12, 'center');
+  ctx.restore();
 }
 
 function drawCityNode(n, origin){
@@ -969,7 +1245,8 @@ function tick(ts){
    ═══════════════════════════════════════════ */
 function allInteractiveNodes(){
   const base = layer==='city' ? cityNodes.filter(n=>n.type!=='outskirts') : kingdomNodes.filter(n=>n.type!=='outskirts');
-  return layer==='kingdom' ? base.concat(pinNodes) : base;
+  if(layer==='kingdom') return base.concat(pinNodes);
+  return base.concat(landmarkNodes);
 }
 function nodeAt(x,y){
   const nodes = allInteractiveNodes();
@@ -994,6 +1271,7 @@ canvas.addEventListener('click', (e)=>{
   const n = nodeAt(x,y);
   if(!n) return;
   if(n.type==='pin') openPinDrawer(n);
+  else if(n.type==='landmark') openLandmarkDrawer(n.id);
   else openNodeDrawer(n);
 });
 
@@ -1043,6 +1321,7 @@ function openNodeDrawer(n){
         <div class="drawer-section-title">Royal Chamberlain — Leverage</div>
         ${leverageRowsForNpc('royalChamberlain')}
       </div>
+      ${attachSectionHtml('castle','The Castle')}
     `);
     return;
   }
@@ -1052,6 +1331,7 @@ function openNodeDrawer(n){
       <div class="drawer-title">${n.label}</div>
       <div class="drawer-sub">${n.sub}</div>
       <div class="drawer-section"><div class="drawer-empty">Belongs to no house — and therefore to everyone. No leverage is tracked here.</div></div>
+      ${attachSectionHtml('park1','City Park')}
     `);
     return;
   }
@@ -1078,7 +1358,122 @@ function openNodeDrawer(n){
       <div class="drawer-section-title">${npcName}</div>
       ${leverageRowsForNpc(n.npcKey)}
     </div>
+    ${n.type==='district' ? attachSectionHtml(n.key, n.label) : ''}
   `);
+}
+
+/* ═══════════════════════════════════════════
+   LANDMARKS + NPCS — the GM's "convention for heraldry": a fixed icon
+   vocabulary for district-specific things (the church in the Religious
+   district, etc), each optionally carrying an uploaded photo, plus a
+   proper NPC sheet (photo + Want/Fear/Notes + free-form Stats) that can
+   live directly on a district or nested under one of its landmarks. All
+   of it lives in this tool's own mapState (never touches GM Screen's
+   schema) and is reachable from the district/castle/park drawer above.
+   ═══════════════════════════════════════════ */
+function landmarksForAttach(key){ return mapState.landmarks.filter(l=>l.districtKey===key); }
+function npcsForAttach(key, landmarkId){
+  return mapState.npcs.filter(n => n.districtKey===key && (landmarkId ? n.landmarkId===landmarkId : !n.landmarkId));
+}
+function landmarkListItemHtml(lm){
+  const icon = landmarkIcon(lm.icon);
+  const thumb = lm.image
+    ? `<img class="entity-thumb" src="${lm.image}">`
+    : `<span class="entity-thumb icon-only" style="background:${icon.color};"></span>`;
+  return `<div class="entity-list-item" onclick="openLandmarkDrawer('${lm.id}')">
+      ${thumb}
+      <div><div class="entity-list-name">${lm.name||icon.label}</div><div class="entity-list-meta">${icon.label}</div></div>
+    </div>`;
+}
+function npcListItemHtml(npc){
+  const thumb = npc.image
+    ? `<img class="entity-thumb icon-only" src="${npc.image}">`
+    : `<span class="entity-thumb icon-only" style="background:#5a4a30;"></span>`;
+  return `<div class="entity-list-item" onclick="openNpcDrawer('${npc.id}')">
+      ${thumb}
+      <div><div class="entity-list-name">${npc.name||'Unnamed NPC'}</div><div class="entity-list-meta">${npc.role||'&nbsp;'}</div></div>
+    </div>`;
+}
+function attachSectionHtml(attachKey, attachLabel){
+  const lms = landmarksForAttach(attachKey);
+  const npcs = npcsForAttach(attachKey, null);
+  return `
+    <div class="drawer-section">
+      <div class="drawer-section-title">Landmarks</div>
+      ${lms.length ? lms.map(landmarkListItemHtml).join('') : '<div class="drawer-empty">Nothing marked here yet.</div>'}
+      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openLandmarkModal('${attachKey}')">+ Add Landmark</button>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">NPCs</div>
+      ${npcs.length ? npcs.map(npcListItemHtml).join('') : `<div class="drawer-empty">No NPCs noted directly in ${attachLabel} yet.</div>`}
+      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openNpcModal('${attachKey}', null, null)">+ Add NPC</button>
+    </div>
+  `;
+}
+
+function openLandmarkDrawer(id){
+  const lm = mapState.landmarks.find(l=>l.id===id);
+  if(!lm) return;
+  const icon = landmarkIcon(lm.icon);
+  const npcs = npcsForAttach(lm.districtKey, lm.id);
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">${icon.label} · ${attachPointLabel(lm.districtKey)}</span>
+    <div class="drawer-title">${lm.name||icon.label}</div>
+    ${lm.image?`<img class="drawer-photo" src="${lm.image}">`:''}
+    ${lm.note?`<div class="drawer-sub" style="font-style:normal;">${lm.note}</div>`:'<div class="drawer-empty">No note yet.</div>'}
+    <div class="drawer-section">
+      <div class="drawer-section-title">NPCs Here</div>
+      ${npcs.length ? npcs.map(npcListItemHtml).join('') : '<div class="drawer-empty">No NPCs tied to this spot yet.</div>'}
+      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openNpcModal('${lm.districtKey}','${lm.id}',null)">+ Add NPC</button>
+    </div>
+    <div class="drawer-btn-row">
+      <button class="tb-btn" onclick="openLandmarkModal('${lm.districtKey}','${lm.id}')">Edit</button>
+      <button class="tb-btn" onclick="removeLandmark('${lm.id}')">Remove</button>
+    </div>
+  `);
+}
+
+function removeLandmark(id){
+  mapState.landmarks = mapState.landmarks.filter(l=>l.id!==id);
+  // orphaned NPCs move up to their district's general list rather than
+  // vanishing along with the landmark that introduced them
+  mapState.npcs.forEach(n=>{ if(n.landmarkId===id) n.landmarkId = null; });
+  saveMapState();
+  layoutLandmarks();
+  closeDrawer();
+  render();
+}
+
+function openNpcDrawer(id){
+  const npc = mapState.npcs.find(n=>n.id===id);
+  if(!npc) return;
+  const fields = (npc.customFields||[]).map(f=>
+    `<div class="drawer-row"><span class="drawer-row-label">${f.label}</span><span class="drawer-row-val">${f.value}</span></div>`
+  ).join('');
+  const parentLandmark = npc.landmarkId ? mapState.landmarks.find(l=>l.id===npc.landmarkId) : null;
+  const parentLandmarkName = parentLandmark ? (parentLandmark.name || landmarkIcon(parentLandmark.icon).label) : '';
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">${attachPointLabel(npc.districtKey)}${parentLandmarkName?' · '+parentLandmarkName:''}</span>
+    <div class="drawer-title">${npc.name||'Unnamed NPC'}</div>
+    <div class="drawer-sub">${npc.role||''}</div>
+    ${npc.image?`<img class="drawer-photo" src="${npc.image}">`:''}
+    <div class="drawer-section">
+      ${npc.want?`<div class="drawer-row"><span class="drawer-row-label">Want</span><span class="drawer-row-val">${npc.want}</span></div>`:''}
+      ${npc.fear?`<div class="drawer-row"><span class="drawer-row-label">Fear</span><span class="drawer-row-val">${npc.fear}</span></div>`:''}
+    </div>
+    ${fields ? `<div class="drawer-section"><div class="drawer-section-title">Stats</div>${fields}</div>` : ''}
+    ${npc.notes ? `<div class="drawer-section"><div class="drawer-section-title">Notes</div><div class="drawer-sub" style="font-style:normal;">${npc.notes}</div></div>` : ''}
+    <div class="drawer-btn-row">
+      <button class="tb-btn" onclick="openNpcModal('${npc.districtKey}', ${npc.landmarkId?`'${npc.landmarkId}'`:'null'}, '${npc.id}')">Edit</button>
+      <button class="tb-btn" onclick="removeNpc('${npc.id}')">Remove</button>
+    </div>
+  `);
+}
+
+function removeNpc(id){
+  mapState.npcs = mapState.npcs.filter(n=>n.id!==id);
+  saveMapState();
+  closeDrawer();
 }
 
 function openPinDrawer(p){
@@ -1229,6 +1624,191 @@ function confirmExport(){
   URL.revokeObjectURL(url);
 
   closeExportModal();
+}
+
+/* ═══════════════════════════════════════════
+   LANDMARK MODAL
+   ═══════════════════════════════════════════ */
+function setPhotoPreview(prefix, dataUri){
+  const img = document.getElementById(`${prefix}-photo-preview`);
+  const empty = document.getElementById(`${prefix}-photo-empty`);
+  if(dataUri){ img.src = dataUri; img.style.display=''; empty.style.display='none'; }
+  else { img.style.display='none'; empty.style.display='flex'; }
+}
+// Jumps back to the drawer for whatever a landmark/NPC attaches to, so
+// saving/deleting from a modal returns the GM to a sensible place instead
+// of just closing everything — 'park1' covers both City Park accents since
+// they're the same conceptual place (see LANDMARK_ATTACH_POINTS).
+function reopenAttachDrawer(districtKey){
+  const n = cityNodes.find(n=>n.key===districtKey);
+  if(n) openNodeDrawer(n);
+}
+
+let landmarkModalState = null;
+function renderIconPicker(selectedKey){
+  const el = document.getElementById('landmark-icon-picker');
+  el.innerHTML = LANDMARK_ICONS.map(icon => `
+    <div class="icon-opt ${icon.key===selectedKey?'selected':''}" onclick="selectLandmarkIcon('${icon.key}')">
+      <span class="icon-swatch" style="background:${icon.color};"></span>
+      <span class="icon-opt-label">${icon.label}</span>
+    </div>
+  `).join('');
+}
+function selectLandmarkIcon(key){
+  landmarkModalState.icon = key;
+  renderIconPicker(key);
+}
+function openLandmarkModal(districtKey, editId){
+  const existing = editId ? mapState.landmarks.find(l=>l.id===editId) : null;
+  landmarkModalState = { districtKey, editId: editId||null,
+    icon: existing ? existing.icon : LANDMARK_ICONS[0].key,
+    image: existing ? (existing.image||null) : null };
+  document.getElementById('landmark-modal-title').textContent = existing ? 'Edit Location' : 'Mark a Location';
+  document.getElementById('landmark-modal-sub').textContent = `In ${attachPointLabel(districtKey)}.`;
+  document.getElementById('landmark-name').value = existing ? (existing.name||'') : '';
+  document.getElementById('landmark-note').value = existing ? (existing.note||'') : '';
+  document.getElementById('landmark-photo-input').value = '';
+  setPhotoPreview('landmark', landmarkModalState.image);
+  renderIconPicker(landmarkModalState.icon);
+  document.getElementById('landmark-delete-btn').style.display = existing ? '' : 'none';
+  const overlay = document.getElementById('landmark-modal');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = closeLandmarkModal;
+  trapFocus(overlay);
+}
+function closeLandmarkModal(){
+  const overlay = document.getElementById('landmark-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+  landmarkModalState = null;
+}
+async function handleLandmarkPhoto(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const dataUri = await downscaleImage(file, 500);
+    landmarkModalState.image = dataUri;
+    setPhotoPreview('landmark', dataUri);
+  }catch(err){ console.error('Failed to process landmark photo:', err); alert('Could not read that image — try a different file.'); }
+}
+function saveLandmarkFromModal(){
+  if(!landmarkModalState) return;
+  const name = document.getElementById('landmark-name').value.trim();
+  const note = document.getElementById('landmark-note').value.trim();
+  const { districtKey, editId, icon, image } = landmarkModalState;
+  if(editId){
+    const lm = mapState.landmarks.find(l=>l.id===editId);
+    if(lm){ lm.name=name; lm.note=note; lm.icon=icon; lm.image=image; }
+  } else {
+    mapState.landmarks.push({ id:'lm_'+Date.now()+'_'+Math.floor(Math.random()*1000), districtKey, icon, name, note, image });
+  }
+  saveMapState();
+  layoutLandmarks();
+  closeLandmarkModal();
+  render();
+  if(editId) openLandmarkDrawer(editId);
+  else reopenAttachDrawer(districtKey);
+}
+function deleteLandmarkFromModal(){
+  if(!landmarkModalState || !landmarkModalState.editId) return;
+  const id = landmarkModalState.editId, districtKey = landmarkModalState.districtKey;
+  closeLandmarkModal();
+  removeLandmark(id);
+  reopenAttachDrawer(districtKey);
+}
+
+/* ═══════════════════════════════════════════
+   NPC MODAL
+   ═══════════════════════════════════════════ */
+let npcModalState = null;
+function renderNpcCustomFields(){
+  const el = document.getElementById('npc-custom-fields');
+  el.innerHTML = npcModalState.customFields.map((f,i) => `
+    <div class="custom-field-row">
+      <input class="gen-input" placeholder="Label" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="updateNpcCustomField(${i},'label',this.value)">
+      <input class="gen-input" placeholder="Value" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="updateNpcCustomField(${i},'value',this.value)">
+      <button type="button" class="field-remove-btn" onclick="removeNpcCustomField(${i})" aria-label="Remove stat">✕</button>
+    </div>
+  `).join('');
+}
+function addNpcCustomField(){
+  npcModalState.customFields.push({label:'',value:''});
+  renderNpcCustomFields();
+}
+function updateNpcCustomField(i, key, val){ npcModalState.customFields[i][key] = val; }
+function removeNpcCustomField(i){
+  npcModalState.customFields.splice(i,1);
+  renderNpcCustomFields();
+}
+function openNpcModal(districtKey, landmarkId, editId){
+  const existing = editId ? mapState.npcs.find(n=>n.id===editId) : null;
+  npcModalState = { districtKey, landmarkId: landmarkId||null, editId: editId||null,
+    image: existing ? (existing.image||null) : null,
+    customFields: existing ? JSON.parse(JSON.stringify(existing.customFields||[])) : [] };
+  document.getElementById('npc-modal-title').textContent = existing ? 'Edit NPC' : 'New NPC';
+  const parentLm = landmarkId ? mapState.landmarks.find(l=>l.id===landmarkId) : null;
+  document.getElementById('npc-modal-sub').textContent = parentLm
+    ? `${parentLm.name || landmarkIcon(parentLm.icon).label} · ${attachPointLabel(districtKey)}`
+    : attachPointLabel(districtKey);
+  document.getElementById('npc-name').value = existing ? (existing.name||'') : '';
+  document.getElementById('npc-role').value = existing ? (existing.role||'') : '';
+  document.getElementById('npc-want').value = existing ? (existing.want||'') : '';
+  document.getElementById('npc-fear').value = existing ? (existing.fear||'') : '';
+  document.getElementById('npc-notes').value = existing ? (existing.notes||'') : '';
+  document.getElementById('npc-photo-input').value = '';
+  setPhotoPreview('npc', npcModalState.image);
+  renderNpcCustomFields();
+  document.getElementById('npc-delete-btn').style.display = existing ? '' : 'none';
+  const overlay = document.getElementById('npc-modal');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = closeNpcModal;
+  trapFocus(overlay);
+}
+function closeNpcModal(){
+  const overlay = document.getElementById('npc-modal');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+  npcModalState = null;
+}
+async function handleNpcPhoto(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const dataUri = await downscaleImage(file, 500);
+    npcModalState.image = dataUri;
+    setPhotoPreview('npc', dataUri);
+  }catch(err){ console.error('Failed to process NPC photo:', err); alert('Could not read that image — try a different file.'); }
+}
+function saveNpcFromModal(){
+  if(!npcModalState) return;
+  const name = document.getElementById('npc-name').value.trim();
+  const role = document.getElementById('npc-role').value.trim();
+  const want = document.getElementById('npc-want').value.trim();
+  const fear = document.getElementById('npc-fear').value.trim();
+  const notes = document.getElementById('npc-notes').value.trim();
+  const customFields = npcModalState.customFields
+    .filter(f => (f.label||'').trim() || (f.value||'').trim())
+    .map(f => ({label:(f.label||'').trim(), value:(f.value||'').trim()}));
+  const { districtKey, landmarkId, editId, image } = npcModalState;
+  if(editId){
+    const npc = mapState.npcs.find(n=>n.id===editId);
+    if(npc){ npc.name=name; npc.role=role; npc.want=want; npc.fear=fear; npc.notes=notes; npc.image=image; npc.customFields=customFields; }
+  } else {
+    mapState.npcs.push({ id:'npc_'+Date.now()+'_'+Math.floor(Math.random()*1000), districtKey, landmarkId, name, role, want, fear, notes, image, customFields });
+  }
+  saveMapState();
+  closeNpcModal();
+  if(editId) openNpcDrawer(editId);
+  else if(landmarkId) openLandmarkDrawer(landmarkId);
+  else reopenAttachDrawer(districtKey);
+}
+function deleteNpcFromModal(){
+  if(!npcModalState || !npcModalState.editId) return;
+  const id = npcModalState.editId, landmarkId = npcModalState.landmarkId, districtKey = npcModalState.districtKey;
+  closeNpcModal();
+  removeNpc(id);
+  if(landmarkId) openLandmarkDrawer(landmarkId);
+  else reopenAttachDrawer(districtKey);
 }
 
 /* ═══════════════════════════════════════════
