@@ -1609,10 +1609,25 @@ function untrapFocus(overlayEl){
 // ═══════════════════════════════════════════
 // PERSISTENCE
 // ═══════════════════════════════════════════
+// SCHEMA_VERSION tags the shape of the object persisted to STORAGE_KEY.
+// Bump it whenever a top-level or node-level field is added, renamed, or
+// removed, and add the corresponding step to migrateState() below.
+// Without this, an old save's shape can't be detected and silently
+// carries forward stale data (Wonderland_Findings_and_Enhancements.md §4.3).
+const SCHEMA_VERSION = 1;
+
+function migrateState(saved, fromVersion) {
+  // No shape changes yet — this is the first versioned schema. Future
+  // migrations append steps here, e.g.:
+  // if (fromVersion < 2) { /* upgrade v1 shape -> v2 shape */ }
+  return saved;
+}
+
 function save() {
   try {
     // Don't store render-only fields, store everything meaningful
     const toStore = {
+      schemaVersion: SCHEMA_VERSION,
       session: state.session,
       sessionType: state.sessionType,
       heirs: state.heirs,
@@ -1633,7 +1648,12 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('aow-wonderland-v1');
     if (!raw) return false;
     const saved = JSON.parse(raw);
+    // Pre-schemaVersion saves — including anything under the legacy
+    // aow-wonderland-v1 key — were never tagged, so they're all shape 0.
+    const fromVersion = saved.schemaVersion || 0;
+    migrateState(saved, fromVersion);
     Object.assign(state, saved);
+    state.schemaVersion = SCHEMA_VERSION;
     return true;
   } catch(e) { return false; }
 }
@@ -1641,23 +1661,62 @@ function load() {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+// Fills in defaults for any node-level field that didn't exist yet when a
+// save was written. Object.assign(state, saved) in load() restores nodes
+// verbatim, so a field added to the shape after a save was made is simply
+// absent on that node, not defaulted — that surfaces as NaN/undefined at
+// the point of first use instead of at load time, which is much harder to
+// diagnose (Wonderland_Findings_and_Enhancements.md §4.2). Add a line here
+// whenever a new node-level field is introduced.
+function normalizeNode(node) {
+  if (!node.scores) node.scores = {};
+  if (!node._fractional) node._fractional = {};
+  if (typeof node.accumWeight !== 'number') node.accumWeight = 0;
+  if (!Array.isArray(node.deployedHooks)) node.deployedHooks = [];
+  // Nodes saved before baseThreshold existed only have the old
+  // triggerThreshold field — carry that value forward as the seed rather
+  // than silently resetting an in-progress campaign's thresholds.
+  if (typeof node.baseThreshold !== 'number') {
+    node.baseThreshold = typeof node.triggerThreshold === 'number' ? node.triggerThreshold
+      : (node.weight==='personal' ? 4 : (node.weight==='high'?8:node.weight==='special'?3:5));
+  }
+}
+
+// The effective trigger threshold for a node. baseThreshold is purely
+// derived — recomputed from static data on every load (see init()) —
+// nothing should ever assign into it at runtime. Runtime escalation
+// (fireCount, see P3) applies as an offset on top of it, so a derived
+// value and a mutated value never share one property
+// (Wonderland_Findings_and_Enhancements.md §4.1).
+function effectiveThreshold(node) {
+  return node.baseThreshold ?? node.triggerThreshold ?? 5;
+}
+
 function init() {
   // Always seed world NPCs first
   WORLD_NPCS.forEach(n => {
     if (!state.nodes[n.key]) {
       state.nodes[n.key] = {
         ...n, scores:{}, accumWeight:0,
-        triggerThreshold: n.weight==='high'?8:n.weight==='special'?3:5,
+        baseThreshold: n.weight==='high'?8:n.weight==='special'?3:5,
         deployedHooks:[],
       };
     } else {
-      // Merge static data back in case schema updated
+      // Merge static data back in case schema updated. baseThreshold is
+      // re-derived here too — it's purely a function of weight, so a
+      // node that already exists must not keep whatever value it was
+      // first seeded with (Wonderland_Findings_and_Enhancements.md §4.1).
       Object.assign(state.nodes[n.key], {
         name:n.name, role:n.role, cluster:n.cluster,
         weight:n.weight, responds:n.responds, conductors:n.conductors,
+        baseThreshold: n.weight==='high'?8:n.weight==='special'?3:5,
       });
     }
   });
+
+  // Every node, however it originated (world NPC or personal NPC seeded
+  // during heir import), gets normalized against the current shape.
+  Object.values(state.nodes).forEach(normalizeNode);
 
   document.getElementById('session-display').textContent = state.session;
 
@@ -1840,7 +1899,7 @@ function ingestHeirRecord(data) {
         cluster, weight:'personal',
         scores:{[heirKey]: slot==='rival'?-1:1},
         accumWeight: slot==='rival'?2:0,
-        triggerThreshold:4,
+        baseThreshold:4,
         worldLink, ownerHeir:heirKey, slot, npcData:npc,
         deployedHooks:[],
       };
@@ -1878,7 +1937,7 @@ function ingestHeirRecord(data) {
         key:cKey, name:councillorDisplayName,
         role:`Councillor · ${heir.name}`,
         cluster:'councillor', weight:'personal',
-        scores:{[heirKey]:1}, accumWeight:0, triggerThreshold:4,
+        scores:{[heirKey]:1}, accumWeight:0, baseThreshold:4,
         worldLink:'kingHector', ownerHeir:heirKey, slot:'councillor',
         npcData:{...councillorRaw, title:councillorTitle}, deployedHooks:[],
         nameUnconfirmed: !councillorRaw.name,
@@ -2121,7 +2180,7 @@ function applyWeightAndGenerateHooks(event) {
       push(newHooks,event,'weight-moved',generateActionHook(event,tn,sign),[getEntityName(actor),tn.name]);
 
       // Trigger check
-      if (tn.accumWeight >= tn.triggerThreshold) {
+      if (tn.accumWeight >= effectiveThreshold(tn)) {
         push(newHooks,event,'trigger-primed',generateTriggerHook(tn,event),[tn.name]);
         tn.accumWeight = 0;
       }
@@ -2245,7 +2304,7 @@ function propagateWeight(nodeKey, weight, actorKey, sign, hooks, event, depth) {
     if (weight>=0.45) {
       push(hooks,event,'weight-moved',generateRippleHook(node,cNode,actorKey,weight,sign),[node.name,cNode.name]);
     }
-    if (cNode.accumWeight>=cNode.triggerThreshold) {
+    if (cNode.accumWeight>=effectiveThreshold(cNode)) {
       push(hooks,event,'trigger-primed',generateTriggerHook(cNode,{actor:actorKey}),[cNode.name]);
       cNode.accumWeight=0;
     }
@@ -2368,9 +2427,9 @@ function renderWeb() {
 }
 
 function renderNodeCard(node) {
-  const isPrimed=node.accumWeight>=(node.triggerThreshold||5);
+  const isPrimed=node.accumWeight>=effectiveThreshold(node);
   const hasWeight=node.accumWeight>0;
-  const fillPct=Math.min(100,Math.round(((node.accumWeight||0)/(node.triggerThreshold||5))*100));
+  const fillPct=Math.min(100,Math.round(((node.accumWeight||0)/effectiveThreshold(node))*100));
   let scoreBadge='';
   if (state.activeFilter!=='all') {
     const sc=node.scores?.[state.activeFilter]??null;
@@ -2459,7 +2518,7 @@ function showQuickPop(nodeKey,evt){
   const node=state.nodes[nodeKey];
   if(!node)return;
   const pop=document.getElementById('quick-pop');
-  const thresh=node.triggerThreshold||5;
+  const thresh=effectiveThreshold(node);
   const pct=Math.min(100,Math.round(((node.accumWeight||0)/thresh)*100));
   const topScores=Object.entries(node.scores||{})
     .map(([hk,sc])=>({name:getEntityName(hk),score:sc}))
@@ -2621,7 +2680,7 @@ function renderArchivistLoreQuery(fromKey, toKey) {
 function openDrawer(nodeKey) {
   const node=state.nodes[nodeKey]; if(!node) return;
   state.drawerNode=nodeKey;
-  const thresh=node.triggerThreshold||5;
+  const thresh=effectiveThreshold(node);
   const fillPct=Math.min(100,Math.round(((node.accumWeight||0)/thresh)*100));
   const scoreRows=state.heirs.map(h=>{
     const sc=node.scores?.[h.key]??0;
@@ -3649,10 +3708,10 @@ function showSessionChecklist(){
 
   // Primed nodes — close to or at their trigger threshold
   const primedEl=document.getElementById('checklist-primed');
-  const primed=Object.values(state.nodes).filter(n=>(n.accumWeight||0)>=(n.triggerThreshold||5)*0.75);
+  const primed=Object.values(state.nodes).filter(n=>(n.accumWeight||0)>=effectiveThreshold(n)*0.75);
   if(primed.length){
     primedEl.innerHTML=primed.map(n=>{
-      const pct=Math.round(((n.accumWeight||0)/(n.triggerThreshold||5))*100);
+      const pct=Math.round(((n.accumWeight||0)/effectiveThreshold(n))*100);
       return `<div class="checklist-row"><span class="checklist-row-tag danger">●</span><span>${n.name} — ${pct}% to threshold</span></div>`;
     }).join('');
   } else {
