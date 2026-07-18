@@ -1585,7 +1585,7 @@ let state = {
 const STORAGE_KEY = 'aow-gm-screen-v1';
 
 // ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
-// Identical across all four documents — call trapFocus(overlayEl) each time
+// Identical across all five documents — call trapFocus(overlayEl) each time
 // an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
 // keyboard focus inside the dialog and restore it to the trigger on close.
 // Defined here (rather than in the bugrep widget's later <script> block, as
@@ -3961,7 +3961,7 @@ if (window.innerWidth<=768) document.querySelector('.web-panel')?.classList.add(
 showSessionChecklist();
 </script>
 <!-- ═══════════════════════════════════════════
-     BUG REPORTER WIDGET — identical across all four documents.
+     BUG REPORTER WIDGET — identical across all five documents.
      Each document saves to its own localStorage key (DOC_ID below is the
      only thing that changes per file). Reports export as a single JSON
      file formatted for direct handoff.

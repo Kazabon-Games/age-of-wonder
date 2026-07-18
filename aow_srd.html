@@ -2852,7 +2852,7 @@ window.addEventListener('resize',()=>{
 });
 </script>
 <!-- ═══════════════════════════════════════════
-     BUG REPORTER WIDGET — identical across all four documents.
+     BUG REPORTER WIDGET — identical across all five documents.
      Each document saves to its own localStorage key (DOC_ID below is the
      only thing that changes per file). Reports export as a single JSON
      file formatted for direct handoff.
@@ -2924,7 +2924,7 @@ const BUGREP_KEY = 'aow-bugreports-' + BUGREP_DOC_ID;
 let bugrepSelectedCat = 'Bug';
 
 // ═══════════════════ ACCESSIBILITY: FOCUS TRAP ═══════════════════
-// Identical across all four documents — call trapFocus(overlayEl) each time
+// Identical across all five documents — call trapFocus(overlayEl) each time
 // an overlay is opened, and untrapFocus(overlayEl) when it closes, to keep
 // keyboard focus inside the dialog and restore it to the trigger on close.
 let _aowFocusReturnEl = null;
