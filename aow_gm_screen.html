@@ -1678,6 +1678,7 @@ function normalizeNode(node) {
   if (!node._fractional) node._fractional = {};
   if (typeof node.accumWeight !== 'number') node.accumWeight = 0;
   if (!Array.isArray(node.deployedHooks)) node.deployedHooks = [];
+  if (typeof node.fireCount !== 'number') node.fireCount = 0;
   // Nodes saved before baseThreshold existed only have the old
   // triggerThreshold field — carry that value forward as the seed rather
   // than silently resetting an in-progress campaign's thresholds.
@@ -1694,7 +1695,13 @@ function normalizeNode(node) {
 // value and a mutated value never share one property
 // (Wonderland_Findings_and_Enhancements.md §4.1).
 function effectiveThreshold(node) {
-  return node.baseThreshold ?? node.triggerThreshold ?? 5;
+  const base = node.baseThreshold ?? node.triggerThreshold ?? 5;
+  // Escalation: a node that keeps firing gets measurably twitchier —
+  // the fifth crisis at a node shouldn't take exactly as much
+  // accumulated weight as the first. Floor keeps it from degenerating
+  // into firing on any weight at all (Findings §P3). fireCount is the
+  // mutated half of this; base is the derived half — see §4.1.
+  return Math.max(2, base - (node.fireCount||0));
 }
 
 function init() {
@@ -2186,6 +2193,7 @@ function applyWeightAndGenerateHooks(event) {
 
       // Trigger check
       if (tn.accumWeight >= effectiveThreshold(tn)) {
+        tn.fireCount = (tn.fireCount||0)+1;
         push(newHooks,event,'trigger-primed',generateTriggerHook(tn,event),[tn.name]);
         tn.accumWeight = 0;
       }
@@ -2355,6 +2363,7 @@ function propagateWeight(nodeKey, weight, actorKey, sign, hooks, event, depth) {
       }
     }
     if (cNode.accumWeight>=effectiveThreshold(cNode)) {
+      cNode.fireCount = (cNode.fireCount||0)+1;
       push(hooks,event,'trigger-primed',generateTriggerHook(cNode,{actor:actorKey}),[cNode.name]);
       cNode.accumWeight=0;
     }
@@ -2400,7 +2409,13 @@ function generateRippleHook(src, cond, actorKey, weight, sign) {
 
 function generateTriggerHook(node, event) {
   const a=event?.actor?getEntityName(event.actor):'accumulated events';
-  return `${node.name} has reached a threshold. Weight from ${a} and prior events has accumulated enough to move them. This is a world event, not a score adjustment. ${node.responds?`They respond to ${node.responds.split('.')[0].toLowerCase()}.`:''} Consider what form their response takes.`;
+  const count = node.fireCount||1;
+  const escalation = count>=5
+    ? ` This node has now fired ${count} times — it is no longer reacting, it is escalating. Treat this as a turning point, not another beat.`
+    : count===2 ? ` This is the second time this node has fired. It should read as building on the first, not repeating it.`
+    : count>=3 ? ` This is the ${count===3?'third':count+'th'} time this node has fired — a pattern is forming, and it should be getting harder to ignore.`
+    : '';
+  return `${node.name} has reached a threshold. Weight from ${a} and prior events has accumulated enough to move them. This is a world event, not a score adjustment. ${node.responds?`They respond to ${node.responds.split('.')[0].toLowerCase()}.`:''} Consider what form their response takes.${escalation}`;
 }
 
 function generateRevelationHook(event, affected) {
