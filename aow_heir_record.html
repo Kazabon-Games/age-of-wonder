@@ -2018,12 +2018,21 @@ function initNPCSlots(){
   updateContactFaction();
 }
 
-function updateContactFaction(){
+// Single source of truth for the Contact's auto-derived faction. Used to
+// both paint the read-only display and to populate the export — export
+// used to re-read the DOM element's textContent instead of this value,
+// which broke the moment anything changed how the faction renders
+// (Wonderland_Findings_and_Enhancements.md §P7.3).
+function computeContactFaction(){
   const aspectCounts={};
   yearData.forEach(d=>{if(d)aspectCounts[d.aspect]=(aspectCounts[d.aspect]||0)+1;});
   const dominant=Object.entries(aspectCounts).sort((a,b)=>b[1]-a[1])[0];
   const factionMap={combat:'The Military Order',magic:'The Scholar Assembly',politics:"The Crown's Circle",statecraft:"The Crown's Circle",lore:'The Scholar Assembly',commerce:'The Merchant Bloc',command:'The Military Order',diplomacy:'The Courier Network'};
-  const faction=dominant?factionMap[dominant[0]]:'—';
+  return {faction:dominant?factionMap[dominant[0]]:'—', dominant};
+}
+
+function updateContactFaction(){
+  const {faction,dominant}=computeContactFaction();
   const el=document.getElementById('contact-faction-display');
   const note=document.getElementById('contact-auto');
   if(el)el.textContent=faction;
@@ -2147,7 +2156,6 @@ function buildPrintSummary(){
 
 // ═══════════════════ SAVE ═══════════════════
 function saveRecord(){
-  const awakeningReaction=gv('awakening-reaction');
   const done=yearData.every(d=>d!==null);
   const revealedSchool=done?Object.entries(affinities).reduce((a,b)=>b[1]>a[1]?b:a)[0]:null;
   const heirName=gv('heir-name')||'';
@@ -2186,11 +2194,13 @@ function saveRecord(){
       givenName:gv('heir-name'),
       houseName:gv('house-name'),
       succession:gv('succession'),originCity:gv('origin-city'),
-      councillorName:gv('councillor-name'),councillorTitle:gv('councillor-title'),
-      councillorRep:gv('npc-c-rep'),
+      // Only councillorTitle and councillorMethod live here — name,
+      // reputation, goal, fear, and expectation all have their one
+      // canonical home in npcs.councillor below; keeping them here too
+      // was a second, never-read source of truth for the same values
+      // (Wonderland_Findings_and_Enhancements.md §P7.2).
+      councillorTitle:gv('councillor-title'),
       councillorMethod:document.querySelector('#councillor-method .opt-btn.sel')?.textContent.trim()||'',
-      councillorGoal:gv('npc-c-goal'),councillorFear:gv('npc-c-fear'),
-      councillorExpectation:gv('npc-c-expect'),
       hectorRelation:hectorRel,
     },
     house:{
@@ -2255,10 +2265,13 @@ function saveRecord(){
       councillor:{name:gv('councillor-name'),reputation:gv('npc-c-rep'),goal:gv('npc-c-goal'),fear:gv('npc-c-fear'),expects:gv('npc-c-expect')},
       ally:{name:gv('npc-ally-name'),faction:gv('npc-ally-faction'),type:gv('npc-ally-type'),want:gv('npc-ally-want'),knows:gv('npc-ally-know')},
       rival:{name:gv('npc-rival-name'),faction:gv('npc-rival-faction'),type:gv('npc-rival-type'),want:gv('npc-rival-want'),leverage:gv('npc-rival-has')},
-      contact:{name:gv('npc-contact-name'),faction:document.getElementById('contact-faction-display')?.textContent||'',expects:gv('npc-contact-expect')},
+      contact:{name:gv('npc-contact-name'),faction:computeContactFaction().faction,expects:gv('npc-contact-expect')},
       wildCard:{name:gv('npc-wild-name'),category:gv('npc-wild-cat'),significance:gv('npc-wild-sig'),status:gv('npc-wild-status')},
     },
-    awakeningReaction,
+    // awakeningReaction lives only in awakening.awakeningReaction above —
+    // it was also being spread in here at the record root under the same
+    // name, a second source of truth for the same value
+    // (Wonderland_Findings_and_Enhancements.md §P7.1).
   };
 
   const blob=new Blob([JSON.stringify(record,null,2)],{type:'application/json'});
