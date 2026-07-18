@@ -1256,15 +1256,20 @@ const FACTION_KEY_MAP = {
   outskirtsBroker:  'outskirtsBroker',
 };
 
+// conductors entries are {key, type} — type is 'allied'|'rival'|'neutral',
+// drawn from each pair's own relations prose in NPC_DOSSIER below (not
+// invented separately). 'all' (the Tallyman) stays untyped: pressure
+// fans out to everyone, but nothing about how he operates implies a
+// genuine alignment with anyone, so it never carries sentiment (P2).
 const WORLD_NPCS = [
-  {key:'kingHector',      name:'King Hector',                    role:'The Monarch · Crown of Legitimacy',  cluster:'crown',    weight:'high',   responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:['royalChamberlain']},
-  {key:'royalChamberlain',name:'Edrin Castellane',               role:'Royal Chamberlain · Keeper of Access',cluster:'crown',   weight:'high',   responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:['kingHector']},
-  {key:'merchantConsortium',name:'Mira Thessaly',                role:'Merchant Guildmaster · Trade & Commerce',cluster:'factions',weight:'medium',responds:'Commercial advantage. Competitor intelligence. Harbor protection.',conductors:['dockworkersForeman','outskirtsBroker']},
-  {key:'watchCommander',  name:'Bren Calder',                    role:'Watch Commander · City Watch',        cluster:'factions', weight:'medium', responds:'Order. Resources. Actionable threat intelligence.',conductors:['royalChamberlain','merchantConsortium']},
-  {key:'dockworkersForeman',name:'Otto Greave',                  role:'Dockworkers Foreman · Harbor Labor',  cluster:'factions', weight:'medium', responds:'Fair coin. Worker protection. Predictable dealing.',conductors:['merchantConsortium','outskirtsBroker']},
-  {key:'courierMaster',   name:'Ysolde Farrin',                  role:'Courier Master · Information Flow',   cluster:'factions', weight:'medium', responds:'Coin and information trades. Sells to all parties equally.',conductors:['outskirtsBroker','archivistGeneral']},
-  {key:'highPriest',      name:'Father Corwen Ashe',             role:'High Priest of the Axiom · Religious Legitimacy',cluster:'factions',weight:'medium',responds:'Theological alignment. Generosity. Moral consistency.',conductors:['royalChamberlain','archivistGeneral']},
-  {key:'archivistGeneral',name:'Roven Maddox',                   role:'Archivist General · Historical Records',cluster:'factions',weight:'medium',responds:'Truth. Knowledge preservation. The long view.',conductors:['highPriest','courierMaster']},
+  {key:'kingHector',      name:'King Hector',                    role:'The Monarch · Crown of Legitimacy',  cluster:'crown',    weight:'high',   responds:'Demonstrated capability. Political stability. Usefulness to the Crown.',conductors:[{key:'royalChamberlain',type:'allied'}]},
+  {key:'royalChamberlain',name:'Edrin Castellane',               role:'Royal Chamberlain · Keeper of Access',cluster:'crown',   weight:'high',   responds:'Order. Discretion. Loyalty to Hector above all factions.',conductors:[{key:'kingHector',type:'allied'}]},
+  {key:'merchantConsortium',name:'Mira Thessaly',                role:'Merchant Guildmaster · Trade & Commerce',cluster:'factions',weight:'medium',responds:'Commercial advantage. Competitor intelligence. Harbor protection.',conductors:[{key:'dockworkersForeman',type:'allied'},{key:'outskirtsBroker',type:'neutral'}]},
+  {key:'watchCommander',  name:'Bren Calder',                    role:'Watch Commander · City Watch',        cluster:'factions', weight:'medium', responds:'Order. Resources. Actionable threat intelligence.',conductors:[{key:'royalChamberlain',type:'neutral'},{key:'merchantConsortium',type:'neutral'}]},
+  {key:'dockworkersForeman',name:'Otto Greave',                  role:'Dockworkers Foreman · Harbor Labor',  cluster:'factions', weight:'medium', responds:'Fair coin. Worker protection. Predictable dealing.',conductors:[{key:'merchantConsortium',type:'allied'},{key:'outskirtsBroker',type:'neutral'}]},
+  {key:'courierMaster',   name:'Ysolde Farrin',                  role:'Courier Master · Information Flow',   cluster:'factions', weight:'medium', responds:'Coin and information trades. Sells to all parties equally.',conductors:[{key:'outskirtsBroker',type:'allied'},{key:'archivistGeneral',type:'rival'}]},
+  {key:'highPriest',      name:'Father Corwen Ashe',             role:'High Priest of the Axiom · Religious Legitimacy',cluster:'factions',weight:'medium',responds:'Theological alignment. Generosity. Moral consistency.',conductors:[{key:'royalChamberlain',type:'allied'},{key:'archivistGeneral',type:'allied'}]},
+  {key:'archivistGeneral',name:'Roven Maddox',                   role:'Archivist General · Historical Records',cluster:'factions',weight:'medium',responds:'Truth. Knowledge preservation. The long view.',conductors:[{key:'highPriest',type:'allied'},{key:'courierMaster',type:'rival'}]},
   {key:'outskirtsBroker', name:'"The Tallyman"',                 role:'Outskirts Broker · Black Market',     cluster:'outskirts',weight:'special',responds:'Coin. Favors. Willingness to operate outside the law.',conductors:'all'},
 ];
 
@@ -2221,7 +2226,7 @@ function applyWeightAndGenerateHooks(event) {
     witnesses.forEach(wKey=>{
       const wNode = state.nodes[wKey];
       if (!wNode) return;
-      getNodeConductors(wNode).slice(0,2).forEach(cKey=>{
+      getNodeConductors(wNode).slice(0,2).forEach(({key:cKey})=>{
         if (!state.nodes[cKey]||witnesses.includes(cKey)) return;
         state.nodes[cKey].accumWeight += 0.5;
         push(newHooks,event,'weight-moved',
@@ -2244,7 +2249,7 @@ function applyWeightAndGenerateHooks(event) {
     push(newHooks,event,'weight-moved',generateExchangeHook(event),[getEntityName(from),getEntityName(to)]);
     [from,to].forEach(key=>{
       if (!key||!state.nodes[key]) return;
-      getNodeConductors(state.nodes[key]).slice(0,1).forEach(cKey=>{
+      getNodeConductors(state.nodes[key]).slice(0,1).forEach(({key:cKey})=>{
         if (!state.nodes[cKey]) return;
         state.nodes[cKey].accumWeight+=1;
         push(newHooks,event,'weight-moved',
@@ -2287,22 +2292,67 @@ function push(arr, event, type, text, entities) {
   arr.push({id,type,text,entities,session:state.session,deployed:false,dismissed:false,eventId:event?.id});
 }
 
+// Each entry is {key, type}. type is 'allied'|'rival'|'neutral' where
+// declared; 'all' and the worldLink fallback have no genuine-alignment
+// data to draw on, so they come back untyped ('neutral') — pressure
+// still fans out through them, sentiment (P2) never does. Legacy plain-
+// string entries are normalized the same way for backward compatibility.
 function getNodeConductors(node) {
-  if (node.conductors==='all') return Object.keys(state.nodes).filter(k=>k!==node.key);
-  if (Array.isArray(node.conductors)&&node.conductors.length>0) return node.conductors;
-  if (node.worldLink) return [node.worldLink];
+  if (node.conductors==='all') {
+    return Object.keys(state.nodes).filter(k=>k!==node.key).map(key=>({key,type:'neutral'}));
+  }
+  if (Array.isArray(node.conductors)&&node.conductors.length>0) {
+    return node.conductors.map(c => typeof c==='string' ? {key:c,type:'neutral'} : c);
+  }
+  if (node.worldLink) return [{key:node.worldLink,type:'neutral'}];
   return [];
+}
+
+// Ranks conductors by how "in play" they currently are, rather than
+// declaration order — a node already accumulating weight, or one with
+// existing standing (positive or negative) with the acting heir, is
+// more likely to actually be affected by a ripple than whichever
+// conductor happened to be listed first. Fixes the dead-edge problem
+// where only the first N declared conductors ever fired, forever
+// (Wonderland_Findings_and_Enhancements.md §P1).
+function rankConductors(conductors, actorKey) {
+  return conductors
+    .map(c => {
+      const cNode = state.nodes[c.key];
+      if (!cNode) return null;
+      const attention = cNode.accumWeight || 0;
+      const standing = Math.abs(cNode.scores?.[actorKey] || 0);
+      return { ...c, _rank: attention + standing };
+    })
+    .filter(Boolean)
+    .sort((a,b) => b._rank - a._rank);
 }
 
 function propagateWeight(nodeKey, weight, actorKey, sign, hooks, event, depth) {
   if (depth>2||weight<0.3) return;
   const node = state.nodes[nodeKey];
   if (!node) return;
-  getNodeConductors(node).slice(0,2).forEach(cKey=>{
+  rankConductors(getNodeConductors(node), actorKey).slice(0,3).forEach(({key:cKey, type})=>{
     const cNode=state.nodes[cKey]; if(!cNode) return;
     cNode.accumWeight=(cNode.accumWeight||0)+weight;
     if (weight>=0.45) {
       push(hooks,event,'weight-moved',generateRippleHook(node,cNode,actorKey,weight,sign),[node.name,cNode.name]);
+    }
+    // Sentiment ripple (P2): first hop only, heavily damped, and only
+    // across an edge that represents genuine alignment. Attention isn't
+    // approval — a rival or a merely-transactional contact doesn't warm
+    // toward someone just because their ally did well — but an actual
+    // ally genuinely reads a favour done for their ally as a small
+    // favour to them too.
+    if (depth===1 && type==='allied') {
+      if (!cNode._fractional) cNode._fractional = {};
+      cNode._fractional[actorKey] = (cNode._fractional[actorKey]||0) + (sign*0.25);
+      if (Math.abs(cNode._fractional[actorKey])>=1) {
+        if (!cNode.scores) cNode.scores = {};
+        const carry = Math.sign(cNode._fractional[actorKey]);
+        cNode.scores[actorKey] = Math.min(5,Math.max(-5,(cNode.scores[actorKey]||0)+carry));
+        cNode._fractional[actorKey] = 0;
+      }
     }
     if (cNode.accumWeight>=effectiveThreshold(cNode)) {
       push(hooks,event,'trigger-primed',generateTriggerHook(cNode,{actor:actorKey}),[cNode.name]);
@@ -3488,7 +3538,7 @@ function renderRelations(){
   let worldHtml=worldNodes.map(n=>{
     const conductorKeys=getNodeConductors(n);
     const isUniversal=n.conductors==='all';
-    const conductorNames=conductorKeys.map(k=>state.nodes[k]?.name).filter(Boolean);
+    const conductorNames=conductorKeys.map(c=>state.nodes[c.key]?.name).filter(Boolean);
     const conductorDisplay=isUniversal
       ? `<em style="color:var(--crimson-bright);">everything — the Broker conducts weight to any node in the web, by design</em>`
       : (conductorNames.length?conductorNames.join(', '):'<em style="color:var(--ink-light);">nothing tracked</em>');
