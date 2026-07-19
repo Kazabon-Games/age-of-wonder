@@ -58,7 +58,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 
 /* ══════ LAYOUT ══════ */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
-#mapCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;}
+#mapCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;}
 #mapCanvas.panning{cursor:grabbing;}
 
 /* ══════ TOOLBAR ══════ */
@@ -187,6 +187,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     <button class="tb-btn primary" onclick="openGeneratorModal()">✦ Chart a Discovery</button>
     <span class="sync-note" id="sync-note"></span>
     <div class="tb-spacer"></div>
+    <button class="tb-icon-btn" id="reset-view-btn" onclick="resetView()" title="Reset pan/zoom" aria-label="Reset pan and zoom">⊙</button>
     <button class="tb-icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
   </div>
 
@@ -686,6 +687,13 @@ function leverageFor(npcKey, heirKey){
 
 function refreshFromWonderland(userInitiated){
   loadWonderland();
+  // layoutNodes() bakes heir/house/sigil data into kingdomNodes at layout
+  // time (drawKingdomLayer doesn't re-derive it per frame), and used to
+  // only get called from resize(). A refresh that pulled in new or
+  // changed heirs rendered as stale "Awaiting an Heir" placeholders —
+  // correct data in `wonderland`, wrong data on screen — until something
+  // else happened to trigger a resize.
+  layoutNodes();
   updateSyncNote();
   updateEmptyBanner();
   render();
@@ -720,6 +728,7 @@ function resize(){
   canvas.width = W*dpr; canvas.height = H*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   layoutNodes();
+  resetCamera();
   render();
 }
 window.addEventListener('resize', resize);
@@ -727,6 +736,56 @@ window.addEventListener('resize', resize);
 let layer = 'city'; // 'city' | 'kingdom'
 let elapsed = 0, lastTs = 0;
 let camScale = 1, hoverNode = null, selectedPin = null;
+
+/* ═══════════════════════════════════════════
+   CAMERA — pan/zoom applied on top of the existing screen-space layout.
+   layoutNodes() still bakes node x/y as absolute pixels at camScale=1;
+   camPanX/camPanY/camScale are a transform applied once per frame in
+   render() on top of that, not a change to the layout model itself.
+   Reset on layer switch and resize so stale pan/zoom never persists
+   across a context where the underlying layout just changed anyway.
+   ═══════════════════════════════════════════ */
+let camPanX = 0, camPanY = 0;
+const CAM_ZOOM_MIN = 1, CAM_ZOOM_MAX = 3;
+function resetCamera(){
+  camScale = 1; camPanX = 0; camPanY = 0;
+}
+// Converts a canvas-relative screen point (as mousemove/click already
+// compute via getBoundingClientRect) into the world-space coordinates
+// layoutNodes() actually assigned to nodes, by inverting the same
+// translate-then-scale transform render() applies.
+function screenToWorld(sx, sy){
+  return { x:(sx-camPanX)/camScale, y:(sy-camPanY)/camScale };
+}
+// Adjusts pan so the given screen point stays visually fixed across a
+// scale change — the standard "zoom toward cursor" behavior, rather
+// than always zooming toward the canvas center.
+function zoomAt(sx, sy, newScale){
+  newScale = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, newScale));
+  const world = screenToWorld(sx, sy);
+  camScale = newScale;
+  camPanX = sx - world.x*camScale;
+  camPanY = sy - world.y*camScale;
+}
+// Keeps the current layer's own center roughly reachable on screen —
+// generous enough to freely explore while zoomed in on the outer ring,
+// but stops a long drag from panning the whole map away with no visual
+// landmark left to navigate back by (resetView() is the deliberate,
+// explicit way back; this is just a guard rail against getting lost
+// by accident).
+function clampPan(){
+  const origin = layer==='city' ? cityOrigin : kingdomOrigin;
+  const screenOX = origin.x*camScale + camPanX, screenOY = origin.y*camScale + camPanY;
+  const maxDrift = Math.max(W,H) * 0.9;
+  if(screenOX < -maxDrift) camPanX += (-maxDrift - screenOX);
+  else if(screenOX > W+maxDrift) camPanX -= (screenOX - (W+maxDrift));
+  if(screenOY < -maxDrift) camPanY += (-maxDrift - screenOY);
+  else if(screenOY > H+maxDrift) camPanY -= (screenOY - (H+maxDrift));
+}
+function resetView(){
+  resetCamera();
+  render();
+}
 
 /* ═══════════════════════════════════════════
    FACETED-GEM POLYGON RENDERER — the studio's own signature Canvas 2D
@@ -933,10 +992,25 @@ function layoutLandmarks(){
     // one direction guaranteed clear of the castle's own label) is the safe
     // choice specifically for this case — not a general-purpose angle.
     const baseAngle = d<1 ? -Math.PI/2 : Math.atan2(dy,dx) + Math.PI; // inward-facing side
-    const orbit = parent.r + 20;
+    // Orbit radius and arc span used to be fixed regardless of how many
+    // landmarks a district held — fine for the 1-3 that were validated by
+    // hand, but past that the fixed 0.85rad arc at a fixed radius packs
+    // markers closer together than their own diameter, so a district
+    // populated over a real session (4-5+ landmarks isn't unusual) stacks
+    // icons and labels directly on top of each other. Grow the orbit
+    // radius modestly per extra landmark, then derive however much arc is
+    // actually needed to keep consecutive markers at least one diameter
+    // apart at that radius — floored at the original tuned 0.85rad so the
+    // small-N case is essentially untouched, capped short of a full
+    // circle so a heavily-populated district fans out rather than
+    // wrapping into a closed, self-overlapping ring.
+    const orbit = parent.r + 20 + Math.max(0, list.length-3)*8;
+    const MIN_MARKER_SPACING = 30; // marker diameter (2*r=26) plus a small gap
+    const neededArc = list.length>1 ? (list.length-1)*MIN_MARKER_SPACING/orbit : 0;
+    const arcSpan = Math.min(5.5, Math.max(0.85, neededArc));
     list.forEach((lm,i)=>{
       const t = list.length>1 ? (i/(list.length-1) - 0.5) : 0;
-      const ang = baseAngle + t*0.85;
+      const ang = baseAngle + t*arcSpan;
       landmarkNodes.push({ ...lm, type:'landmark',
         x: parent.x + Math.cos(ang)*orbit, y: parent.y + Math.sin(ang)*orbit, r:13 });
     });
@@ -985,8 +1059,15 @@ function render(){
 
   drawParticles();
 
+  // Camera transform wraps content only — the vignette and particles
+  // above stay screen-fixed ambient effects, not map content, so they
+  // must not pan/zoom with everything else.
+  ctx.save();
+  ctx.translate(camPanX, camPanY);
+  ctx.scale(camScale, camScale);
   if(layer==='city') drawCityLayer();
   else drawKingdomLayer();
+  ctx.restore();
 }
 
 function drawCityLayer(){
@@ -1128,8 +1209,17 @@ function fillTextClamped(text, x, y, align){
   if(align==='left'){ left = x; right = x+w; }
   else if(align==='right'){ left = x-w; right = x; }
   else { left = x-w/2; right = x+w/2; }
-  if(left < LABEL_MARGIN) x += (LABEL_MARGIN-left);
-  else if(right > W-LABEL_MARGIN) x -= (right-(W-LABEL_MARGIN));
+  // x/y arrive in world-space (this runs inside the camera-transformed
+  // draw path) but the safe-edge margin is a screen-space concept — the
+  // visible screen edges (0 and W) and the margin itself both need to be
+  // converted into world-space units via the current pan/zoom before
+  // clamping, or this clamps against the wrong bounds the moment
+  // pan/zoom are non-identity (e.g. clamping too early while zoomed in,
+  // or not at all against the true visible edge while panned).
+  const worldLeftEdge = (0-camPanX)/camScale, worldRightEdge = (W-camPanX)/camScale;
+  const worldMargin = LABEL_MARGIN/camScale;
+  if(left < worldLeftEdge+worldMargin) x += (worldLeftEdge+worldMargin-left);
+  else if(right > worldRightEdge-worldMargin) x -= (right-(worldRightEdge-worldMargin));
   ctx.fillText(text, x, y);
 }
 
@@ -1157,10 +1247,21 @@ function drawNodeLabel(n, heir, origin){
   // gets which distance when uy<0 keeps title-above-subtitle true in both
   // directions instead of only the downward case anyone happened to test.
   const g1 = n.r+16, g2 = n.r+32;
-  const titleDist = uy < -0.15 ? g2 : g1;
-  const subDist = uy < -0.15 ? g1 : g2;
-  const xt = n.x+ux*titleDist, yt = n.y+uy*titleDist;
-  const xs = n.x+ux*subDist, ys = n.y+uy*subDist;
+  let xt, yt, xs, ys;
+  if (Math.abs(uy) < 0.15) {
+    // Purely horizontal nodes (the City Park accents sit dead level with
+    // the castle, uy≈0) have no vertical component in the outward vector
+    // to separate title from subtitle — both landed on the same row and
+    // interleaved character-by-character. Stack them vertically below
+    // the node instead of pushing both further out along the same row.
+    xt = xs = n.x + ux*(n.r+10);
+    yt = n.y + g1; ys = n.y + g2;
+  } else {
+    const titleDist = uy < -0.15 ? g2 : g1;
+    const subDist = uy < -0.15 ? g1 : g2;
+    xt = n.x+ux*titleDist; yt = n.y+uy*titleDist;
+    xs = n.x+ux*subDist; ys = n.y+uy*subDist;
+  }
 
   ctx.save();
   ctx.fillStyle = 'rgba(245,238,223,0.92)';
@@ -1282,13 +1383,17 @@ function nodeAt(x,y){
 let placingPin = false;
 canvas.addEventListener('mousemove', (e)=>{
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX-rect.left, y = e.clientY-rect.top;
+  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
+  if(isPanning && panMoved) return; // drag-in-progress owns hover/cursor state below
+  const {x,y} = screenToWorld(sx,sy);
   const n = nodeAt(x,y);
   if(n!==hoverNode){ hoverNode = n; canvas.style.cursor = n ? 'pointer' : (placingPin?'crosshair':'grab'); }
 });
 canvas.addEventListener('click', (e)=>{
+  if(suppressNextClick){ suppressNextClick = false; return; }
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX-rect.left, y = e.clientY-rect.top;
+  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
+  const {x,y} = screenToWorld(sx,sy);
   if(placingPin){ commitPinPlacement(x,y); return; }
   const n = nodeAt(x,y);
   if(!n) return;
@@ -1297,11 +1402,124 @@ canvas.addEventListener('click', (e)=>{
   else openNodeDrawer(n);
 });
 
+/* ═══════════════════════════════════════════
+   PAN (drag) + ZOOM (wheel / pinch) — the .panning CSS class and
+   #mapCanvas's default cursor:grab already existed before this; nothing
+   ever actually dragged. `isPanning`/`panMoved` are tracked separately:
+   a mousedown that never moves past PAN_DRAG_THRESHOLD still resolves as
+   a normal click (opening a node's drawer), and only a genuine drag
+   suppresses the click that mouseup would otherwise still fire.
+   ═══════════════════════════════════════════ */
+let isPanning = false, panMoved = false, suppressNextClick = false;
+let panStartSX=0, panStartSY=0, panStartCamX=0, panStartCamY=0;
+const PAN_DRAG_THRESHOLD = 4;
+
+canvas.addEventListener('mousedown', (e)=>{
+  if(placingPin) return; // pin placement owns the click in that mode — don't also start a pan
+  const rect = canvas.getBoundingClientRect();
+  isPanning = true; panMoved = false;
+  panStartSX = e.clientX-rect.left; panStartSY = e.clientY-rect.top;
+  panStartCamX = camPanX; panStartCamY = camPanY;
+});
+// Tracked on window, not the canvas, so a fast drag that briefly leaves
+// the canvas's bounding rect doesn't drop the gesture mid-pan.
+window.addEventListener('mousemove', (e)=>{
+  if(!isPanning) return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
+  const dx = sx-panStartSX, dy = sy-panStartSY;
+  if(!panMoved && Math.hypot(dx,dy) > PAN_DRAG_THRESHOLD){ panMoved = true; canvas.classList.add('panning'); }
+  if(panMoved){ camPanX = panStartCamX+dx; camPanY = panStartCamY+dy; clampPan(); render(); }
+});
+window.addEventListener('mouseup', ()=>{
+  if(!isPanning) return;
+  isPanning = false;
+  canvas.classList.remove('panning');
+  if(panMoved) suppressNextClick = true; // a real drag happened — the click that follows mouseup isn't a node click
+});
+
+canvas.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
+  const factor = Math.pow(1.0015, -e.deltaY); // scroll up / pinch-out zooms in, matches natural trackpad direction
+  zoomAt(sx, sy, camScale*factor);
+  render();
+}, {passive:false});
+
+// Touch — no touch handling existed on this canvas before pan/zoom (tap-
+// to-open worked only because browsers synthesize a mouse click after an
+// untouched tap). Real single-finger pan and two-finger pinch-zoom both
+// need genuine touch events, and once this calls preventDefault() on
+// touchstart that synthetic click stops firing — so the tap-to-open path
+// is reimplemented here in touchend rather than continuing to rely on
+// the mouse click handler for touch input. While placingPin is active,
+// every handler below bails out immediately without preventDefault,
+// leaving that synthetic click exactly as it was for the pin-placement
+// flow, unchanged.
+let touchMode = null; // null | 'pan' | 'pinch'
+let touchStartSX=0, touchStartSY=0, touchStartCamX=0, touchStartCamY=0, touchMoved=false;
+let pinchStartDist=1, pinchStartScale=1;
+
+canvas.addEventListener('touchstart', (e)=>{
+  if(placingPin) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  if(e.touches.length===1){
+    touchMode = 'pan'; touchMoved = false;
+    touchStartSX = e.touches[0].clientX-rect.left; touchStartSY = e.touches[0].clientY-rect.top;
+    touchStartCamX = camPanX; touchStartCamY = camPanY;
+  } else if(e.touches.length===2){
+    touchMode = 'pinch'; touchMoved = true;
+    const t0=e.touches[0], t1=e.touches[1];
+    pinchStartDist = Math.max(1, Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY));
+    pinchStartScale = camScale;
+  }
+}, {passive:false});
+
+canvas.addEventListener('touchmove', (e)=>{
+  if(placingPin || !touchMode) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  if(touchMode==='pan' && e.touches.length===1){
+    const sx = e.touches[0].clientX-rect.left, sy = e.touches[0].clientY-rect.top;
+    const dx = sx-touchStartSX, dy = sy-touchStartSY;
+    if(!touchMoved && Math.hypot(dx,dy) > PAN_DRAG_THRESHOLD){ touchMoved = true; canvas.classList.add('panning'); }
+    if(touchMoved){ camPanX = touchStartCamX+dx; camPanY = touchStartCamY+dy; clampPan(); render(); }
+  } else if(touchMode==='pinch' && e.touches.length===2){
+    const t0=e.touches[0], t1=e.touches[1];
+    const dist = Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
+    const mx = (t0.clientX+t1.clientX)/2-rect.left, my = (t0.clientY+t1.clientY)/2-rect.top;
+    zoomAt(mx, my, pinchStartScale*(dist/pinchStartDist));
+    render();
+  }
+}, {passive:false});
+
+canvas.addEventListener('touchend', (e)=>{
+  if(placingPin) return;
+  e.preventDefault();
+  const wasTap = touchMode==='pan' && !touchMoved;
+  canvas.classList.remove('panning');
+  if(wasTap && e.changedTouches.length){
+    const rect = canvas.getBoundingClientRect();
+    const t = e.changedTouches[0];
+    const {x,y} = screenToWorld(t.clientX-rect.left, t.clientY-rect.top);
+    const n = nodeAt(x,y);
+    if(n){
+      if(n.type==='pin') openPinDrawer(n);
+      else if(n.type==='landmark') openLandmarkDrawer(n.id);
+      else openNodeDrawer(n);
+    }
+  }
+  if(e.touches.length===0){ touchMode = null; touchMoved = false; }
+}, {passive:false});
+
 function setLayer(next){
   layer = next;
   document.getElementById('layer-btn-city').classList.toggle('active', next==='city');
   document.getElementById('layer-btn-kingdom').classList.toggle('active', next==='kingdom');
   hoverNode = null;
+  resetCamera();
   updateEmptyBanner();
   closeDrawer();
 }
