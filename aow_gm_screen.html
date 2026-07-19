@@ -1591,9 +1591,21 @@ const STORAGE_KEY = 'aow-gm-screen-v1';
 // Defined here (rather than in the bugrep widget's later <script> block, as
 // in the other three documents) because showSessionChecklist() calls it
 // synchronously at load, before that later block has executed.
+// _aowOverlayStack tracks nested open overlays so opening one modal
+// while another is already open (e.g. the bug-report widget over the
+// GM Screen's own session checklist) can't clobber a single global
+// "return focus here" slot — that was a real regression: closing the
+// inner overlay nulled the slot, stranding focus outside the outer
+// overlay's trapped subtree and silently breaking Escape/Tab on it for
+// the rest of the session (found via QA playtest). Only the outermost
+// overlay's pre-overlay focus is remembered; closing an inner overlay
+// while an outer one is still open returns focus into the outer overlay
+// instead, keeping its own trap intact.
+let _aowOverlayStack = [];
 let _aowFocusReturnEl = null;
 function trapFocus(overlayEl){
-  _aowFocusReturnEl = document.activeElement;
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = document.activeElement;
+  _aowOverlayStack.push(overlayEl);
   const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
   if(focusables.length) focusables[0].focus();
   overlayEl._aowKeyHandler = function(e){
@@ -1607,8 +1619,16 @@ function trapFocus(overlayEl){
 }
 function untrapFocus(overlayEl){
   if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
-  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
-  _aowFocusReturnEl = null;
+  const idx = _aowOverlayStack.indexOf(overlayEl);
+  if(idx!==-1) _aowOverlayStack.splice(idx,1);
+  if (_aowOverlayStack.length > 0) {
+    const parent = _aowOverlayStack[_aowOverlayStack.length-1];
+    const parentFocusables = parent.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (parentFocusables.length) parentFocusables[0].focus();
+  } else if (_aowFocusReturnEl && _aowFocusReturnEl.focus) {
+    _aowFocusReturnEl.focus();
+  }
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = null;
 }
 
 // ═══════════════════════════════════════════
@@ -1686,6 +1706,11 @@ function normalizeNode(node) {
     node.baseThreshold = typeof node.triggerThreshold === 'number' ? node.triggerThreshold
       : (node.weight==='personal' ? 4 : (node.weight==='high'?8:node.weight==='special'?3:5));
   }
+  // Nodes saved before nameSlug existed need it derived from their
+  // display name so the Rival cross-check and cross-heir same-name
+  // detection keep working on a save made before this fix, without
+  // requiring a re-import first.
+  if (typeof node.nameSlug !== 'string') node.nameSlug = slugifyName(node.name);
 }
 
 // The effective trigger threshold for a node. baseThreshold is purely
@@ -1896,39 +1921,78 @@ function ingestHeirRecord(data) {
   // reintroduce a second Hector-scoring path here.
 
   // Personal NPCs
+  //
+  // Node storage keys are heir+slot (`ownKey` below), not the NPC's name.
+  // A name-derived key meant that correcting a typo — or filling in a
+  // name that had been left blank — changed the key on re-import, so the
+  // "same heir, same slot" match never found the earlier node and a
+  // second, orphaned duplicate got created instead of the existing one
+  // being updated. Found via QA playtest of exactly the "corrected
+  // re-import" scenario these blocks already claimed to support.
+  // `nameSlug` is still tracked on the node (separately from its storage
+  // key) because the cross-heir same-name check below, and the Rival
+  // cross-check in applyWeightAndGenerateHooks, both need to keep
+  // matching NPCs by name.
   ['ally','rival','contact','wildCard'].forEach(slot => {
     const npc = heir.npcs[slot];
     if (!npc?.name) return;
-    const npcKey = slugifyName(npc.name);
-    if (!state.nodes[npcKey]) {
-      const factionStr = (npc.faction||'').toLowerCase();
-      const isPositioned = factionStr && !factionStr.includes('independent') && !factionStr.includes('none');
-      const cluster = isPositioned ? 'positioned' : 'satellite';
-      const worldLink = resolveFactionalLink(factionStr);
-      state.nodes[npcKey] = {
-        key:npcKey, name:npc.name,
-        role:`${capitalize(slot)} · ${heir.name}`,
-        cluster, weight:'personal',
-        scores:{[heirKey]: slot==='rival'?-1:1},
-        accumWeight: slot==='rival'?2:0,
-        baseThreshold:4,
-        worldLink, ownerHeir:heirKey, slot, npcData:npc,
-        deployedHooks:[],
-      };
-    } else if (state.nodes[npcKey].ownerHeir === heirKey) {
+    const ownKey = `${heirKey}__${slot}`;
+    const nameSlug = slugifyName(npc.name);
+    // A save from before this fix may still have this heir's node filed
+    // under its old name-derived key — find and re-key it rather than
+    // minting a duplicate on the first re-import after the fix ships.
+    let ownNode = state.nodes[ownKey];
+    if (!ownNode) {
+      const oldKey = Object.keys(state.nodes).find(k =>
+        state.nodes[k].ownerHeir===heirKey && state.nodes[k].slot===slot);
+      if (oldKey) {
+        ownNode = state.nodes[oldKey];
+        if (oldKey !== ownKey) {
+          delete state.nodes[oldKey];
+          state.nodes[ownKey] = ownNode;
+          ownNode.key = ownKey;
+        }
+      }
+    }
+    if (ownNode) {
       // Same heir re-confirming their own NPC on a corrected re-import —
-      // refresh the details, not a cross-heir collision with themselves.
-      state.nodes[npcKey].npcData = npc;
-      state.nodes[npcKey].role = `${capitalize(slot)} · ${heir.name}`;
-    } else {
-      if (!state.nodes[npcKey].sharedBy) state.nodes[npcKey].sharedBy=[];
+      // always matches now, even if the name itself is what changed.
+      ownNode.npcData = npc;
+      ownNode.name = npc.name;
+      ownNode.nameSlug = nameSlug;
+      ownNode.role = `${capitalize(slot)} · ${heir.name}`;
+      return;
+    }
+    // First time this heir+slot has been imported. If another heir's
+    // personal NPC already has this exact name, treat it as the same
+    // in-world person — record the share on their node — rather than
+    // minting a second, disconnected node for someone already tracked.
+    const sameName = Object.values(state.nodes).find(n =>
+      n.ownerHeir && n.ownerHeir!==heirKey && n.nameSlug===nameSlug);
+    if (sameName) {
+      if (!sameName.sharedBy) sameName.sharedBy=[];
       // guard against a duplicate entry if this exact heir+slot was already
       // recorded as sharing this node from an earlier import (reachable now
       // that a re-import can legitimately reprocess a real cross-heir share)
-      const alreadyShared = state.nodes[npcKey].sharedBy.some(s => s.heirKey===heirKey && s.slot===slot);
-      if (!alreadyShared) state.nodes[npcKey].sharedBy.push({heirKey,slot,heirName:heir.name});
-      collisions.push({node:state.nodes[npcKey], heirKey, slot, heirName:heir.name});
+      const alreadyShared = sameName.sharedBy.some(s => s.heirKey===heirKey && s.slot===slot);
+      if (!alreadyShared) sameName.sharedBy.push({heirKey,slot,heirName:heir.name});
+      collisions.push({node:sameName, heirKey, slot, heirName:heir.name});
+      return;
     }
+    const factionStr = (npc.faction||'').toLowerCase();
+    const isPositioned = factionStr && !factionStr.includes('independent') && !factionStr.includes('none');
+    const cluster = isPositioned ? 'positioned' : 'satellite';
+    const worldLink = resolveFactionalLink(factionStr);
+    state.nodes[ownKey] = {
+      key:ownKey, nameSlug, name:npc.name,
+      role:`${capitalize(slot)} · ${heir.name}`,
+      cluster, weight:'personal',
+      scores:{[heirKey]: slot==='rival'?-1:1},
+      accumWeight: slot==='rival'?2:0,
+      baseThreshold:4,
+      worldLink, ownerHeir:heirKey, slot, npcData:npc,
+      deployedHooks:[],
+    };
   });
 
   // Councillor — fall back gracefully rather than dropping the NPC
@@ -1943,10 +2007,33 @@ function ingestHeirRecord(data) {
   const councillorTitle = heir.raw?.identity?.councillorTitle;
   if (councillorRaw && (councillorRaw.name || councillorTitle || councillorRaw.reputation || councillorRaw.goal)) {
     const councillorDisplayName = councillorRaw.name || (councillorTitle ? `${councillorTitle} (name not recorded)` : 'Unnamed Councillor');
-    const cKey = slugifyName(councillorDisplayName);
-    if (!state.nodes[cKey]) {
+    // Same heir+slot stable-key treatment as the personal NPCs above —
+    // the councillor's key used to be its own name slug, so filling in
+    // a previously-blank name on a corrected re-import silently orphaned
+    // the placeholder node instead of promoting it.
+    const cKey = `${heirKey}__councillor`;
+    const nameSlug = slugifyName(councillorDisplayName);
+    let councillorNode = state.nodes[cKey];
+    if (!councillorNode) {
+      const oldKey = Object.keys(state.nodes).find(k =>
+        state.nodes[k].ownerHeir===heirKey && state.nodes[k].slot==='councillor');
+      if (oldKey) {
+        councillorNode = state.nodes[oldKey];
+        if (oldKey !== cKey) {
+          delete state.nodes[oldKey];
+          state.nodes[cKey] = councillorNode;
+          councillorNode.key = cKey;
+        }
+      }
+    }
+    if (councillorNode) {
+      councillorNode.npcData = {...councillorRaw, title:councillorTitle};
+      councillorNode.name = councillorDisplayName;
+      councillorNode.nameSlug = nameSlug;
+      councillorNode.nameUnconfirmed = !councillorRaw.name;
+    } else {
       state.nodes[cKey] = {
-        key:cKey, name:councillorDisplayName,
+        key:cKey, nameSlug, name:councillorDisplayName,
         role:`Councillor · ${heir.name}`,
         cluster:'councillor', weight:'personal',
         scores:{[heirKey]:1}, accumWeight:0, baseThreshold:4,
@@ -1954,10 +2041,6 @@ function ingestHeirRecord(data) {
         npcData:{...councillorRaw, title:councillorTitle}, deployedHooks:[],
         nameUnconfirmed: !councillorRaw.name,
       };
-    } else if (state.nodes[cKey].ownerHeir === heirKey) {
-      // same heir's own councillor, refreshed on a corrected re-import
-      state.nodes[cKey].npcData = {...councillorRaw, title:councillorTitle};
-      state.nodes[cKey].nameUnconfirmed = !councillorRaw.name;
     }
   }
   return { collisions, status: isUpdate ? 'updated' : 'new', name };
@@ -2201,13 +2284,19 @@ function applyWeightAndGenerateHooks(event) {
       // Ripple
       propagateWeight(target, baseWeight*0.6, actor, sign, newHooks, event, 1);
 
-      // Rival cross-check
+      // Rival cross-check. Personal-NPC node keys are heir+slot, not
+      // name slugs (see the rename-bug fix in ingestHeirRecord), so this
+      // matches by the target node's own nameSlug field instead of
+      // assuming `target` itself is the slug. World NPC keys were never
+      // name slugs to begin with (e.g. 'kingHector' vs.
+      // slugifyName('King Hector')==='king_hector'), so this only ever
+      // matched personal-NPC nodes before and still only does.
       state.heirs.forEach(h=>{
         if (h.key===actor) return;
         const rivalNpc = h.npcs?.rival;
         if (!rivalNpc?.name) return;
-        const rKey = slugifyName(rivalNpc.name);
-        if (rKey===target) {
+        const rSlug = slugifyName(rivalNpc.name);
+        if (tn.nameSlug===rSlug) {
           push(newHooks,event,'opportunity',
             `This action touched ${tn.name}, who is ${h.name}'s Rival. ${h.name} will hear about it — direction and what the Rival does next determines whether this helps or hurts.`,
             [getEntityName(actor),tn.name,h.name]);
