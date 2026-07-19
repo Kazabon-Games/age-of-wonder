@@ -358,9 +358,23 @@ function shadeHex(hex, dLight, dSat){
 }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+// _aowOverlayStack tracks nested open overlays so opening one modal
+// while another is already open (e.g. the bug-report widget over the
+// Generator/Export/Landmark/NPC modal) can't clobber a single global
+// "return focus here" slot — that was a real regression: closing the
+// inner overlay nulled the slot, stranding focus outside the outer
+// overlay's trapped subtree and silently breaking Escape/Tab on it for
+// the rest of the session (found via QA playtest, since the bug-report
+// toggle's z-index sits above every modal and stays clickable while one
+// is open). Only the outermost overlay's pre-overlay focus is
+// remembered; closing an inner overlay while an outer one is still open
+// returns focus into the outer overlay instead, keeping its own trap
+// intact.
+let _aowOverlayStack = [];
 let _aowFocusReturnEl = null;
 function trapFocus(overlayEl){
-  _aowFocusReturnEl = document.activeElement;
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = document.activeElement;
+  _aowOverlayStack.push(overlayEl);
   const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
   if(focusables.length) focusables[0].focus();
   overlayEl._aowKeyHandler = function(e){
@@ -374,8 +388,16 @@ function trapFocus(overlayEl){
 }
 function untrapFocus(overlayEl){
   if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
-  if(_aowFocusReturnEl && _aowFocusReturnEl.focus) _aowFocusReturnEl.focus();
-  _aowFocusReturnEl = null;
+  const idx = _aowOverlayStack.indexOf(overlayEl);
+  if(idx!==-1) _aowOverlayStack.splice(idx,1);
+  if (_aowOverlayStack.length > 0) {
+    const parent = _aowOverlayStack[_aowOverlayStack.length-1];
+    const parentFocusables = parent.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (parentFocusables.length) parentFocusables[0].focus();
+  } else if (_aowFocusReturnEl && _aowFocusReturnEl.focus) {
+    _aowFocusReturnEl.focus();
+  }
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = null;
 }
 
 /* theme — shares the exact same key GM Screen uses, so a GM's choice there carries over here */
