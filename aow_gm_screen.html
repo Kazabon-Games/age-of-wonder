@@ -2546,6 +2546,12 @@ function filterWeb(key, btn) {
   document.querySelectorAll('.heir-pill').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   renderWeb();
+  // Selecting a specific heir mid-narration is exactly when a GM wants
+  // everything about them in one place — connections, spells, capstone —
+  // without hunting through node drawers one at a time. Surface the full
+  // profile in the same tap that narrows the web, rather than requiring
+  // a second action to get there.
+  if(key!=='all') openHeirProfile(key);
 }
 
 function filterHooks(type, btn) {
@@ -2558,13 +2564,29 @@ function filterHooks(type, btn) {
 function renderWeb() {
   const c=document.getElementById('web-scroll'); if(!c) return;
   const clusters={crown:{label:'Crown · High Weight',nodes:[]},factions:{label:'Factions',nodes:[]},outskirts:{label:'Outskirts',nodes:[]},councillor:{label:'Councillors',nodes:[]},positioned:{label:'Positioned NPCs',nodes:[]},satellite:{label:'Satellite NPCs',nodes:[]}};
-  Object.values(state.nodes).forEach(n=>{ const cl=clusters[n.cluster]; if(cl) cl.nodes.push(n); });
+  // Personal-NPC clusters (an heir's own councillor/ally/rival/contact/
+  // wild card) are what actually balloon this list once several heirs
+  // are imported — up to 5 nodes per heir, versus a fixed 9 world nodes
+  // total. Selecting a specific heir used to only badge scores onto an
+  // unfiltered list, so the GM still had to scroll past every OTHER
+  // heir's personal NPCs to reach their own. Now it narrows personal
+  // clusters down to just that heir's nodes; the small, shared
+  // crown/factions/outskirts set stays visible regardless, since it can
+  // matter to any heir's scene even before they've touched it.
+  const personalClusters=['councillor','positioned','satellite'];
+  Object.values(state.nodes).forEach(n=>{
+    const cl=clusters[n.cluster]; if(!cl) return;
+    if(state.activeFilter!=='all' && personalClusters.includes(n.cluster) && n.ownerHeir!==state.activeFilter) return;
+    cl.nodes.push(n);
+  });
   c.innerHTML=Object.entries(clusters).map(([ck,cl])=>{
     if(!cl.nodes.length) return '';
     // Personal-NPC clusters get sub-grouped by owning heir once more than
-    // one heir is imported — with one heir there's nothing to disambiguate,
-    // so skip the extra visual layer and render flat, same as before.
-    if((ck==='positioned'||ck==='satellite')&&state.heirs.length>1){
+    // one heir is imported — with one heir imported, or with a specific
+    // heir's filter already narrowing the cluster to just their own
+    // nodes, there's nothing left to disambiguate, so skip the extra
+    // visual layer and render flat.
+    if((ck==='positioned'||ck==='satellite')&&state.heirs.length>1&&state.activeFilter==='all'){
       const byHeir={};
       cl.nodes.forEach(n=>{
         const owner=state.heirs.find(h=>h.key===n.ownerHeir);
@@ -2917,6 +2939,92 @@ function closeDrawer() {
   untrapFocus(drawerEl);
   drawerEl.classList.remove('open');
   state.drawerNode=null;
+}
+
+// Everything about one heir in a single view — identity, capstone,
+// magic, combat, exploration, every personal NPC's current standing,
+// and recent hooks naming them — so narrating for an heir mid-session
+// doesn't mean scrolling the web and clicking through several separate
+// node drawers to reassemble the picture. Reuses the same #npc-drawer
+// element as openDrawer() (one drawer, swapped content) rather than a
+// second dialog, so Escape/close/focus-trap behavior is identical.
+function openHeirProfile(heirKey) {
+  const heir = state.heirs.find(h=>h.key===heirKey); if(!heir) return;
+  const raw = heir.raw || {};
+  const identity = raw.identity || {};
+  const awakening = raw.awakening || {};
+  const combat = raw.combatProfile || {};
+  const capstone = raw.capstone;
+  const exploration = raw.explorationProfile || {};
+  const school = awakening.revealedSchool ? SCHOOLS[awakening.revealedSchool] : null;
+
+  const nodesBySlot = {};
+  Object.values(state.nodes).forEach(n=>{ if(n.ownerHeir===heirKey && n.slot) nodesBySlot[n.slot]=n; });
+  const npcRow = (label, node) => {
+    if(!node) return '';
+    const sc = node.scores?.[heirKey] ?? 0;
+    const cls = sc>0?'pos':sc<0?'neg':'zero';
+    return `<div class="drawer-score-row" style="cursor:pointer;" onclick="closeDrawer();openDrawer('${node.key}')">
+      <span class="drawer-heir-name">${label} — ${node.name}${node.nameUnconfirmed?' <em>(unconfirmed)</em>':''}</span>
+      <span class="drawer-score ${cls}">${sc>0?'+':''}${sc}</span>
+    </div>`;
+  };
+  const connectionsHtml = ['councillor','ally','rival','contact','wildCard']
+    .map(slot=>npcRow(capitalize(slot), nodesBySlot[slot])).join('');
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="drawer-name">${heir.name}</div>
+    <span class="drawer-role">${identity.succession||'Succession unstated'} · House ${heir.house} · ${heir.district} District</span>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Standing With Hector</span>
+      <div class="drawer-text">${heir.hectorRelation||'Unstated'}</div>
+    </div>
+    ${capstone?`<div class="drawer-section">
+      <span class="drawer-section-label">Capstone — ${capstone.aspectName}</span>
+      <div class="drawer-text"><strong>${capstone.title}</strong></div>
+      <div class="drawer-text">${capstone.description}</div>
+      <div class="drawer-text" style="opacity:.8;font-style:italic;">${capstone.usage}</div>
+      ${(capstone.leverageBonus||capstone.leveragePenalty)?`<div class="drawer-text">${capstone.leverageBonus?`+${capstone.leverageBonus} leverage bonus`:''}${capstone.leveragePenalty?` · -${capstone.leveragePenalty} leverage penalty`:''}</div>`:''}
+    </div>`:''}
+    <div class="drawer-section">
+      <span class="drawer-section-label">Magic — ${school?school.name:'No school revealed'}</span>
+      ${school?`<div class="drawer-text" style="opacity:.8;font-style:italic;">${school.axiom}</div>`:''}
+      <div class="drawer-text">Study years: ${awakening.magicStudyYears||0} of 5</div>
+      ${awakening.startingSpells?.length?`<div class="drawer-text">Starting spells: ${awakening.startingSpells.join(', ')}</div>`:''}
+      ${awakening.tier2Available?`<div class="drawer-text">Tier Two access available.</div>`:''}
+      ${awakening.secondSchoolAvailable?`<div class="drawer-text">Second school available.</div>`:''}
+      ${awakening.philosophicalOrientation?`<div class="drawer-text">Philosophical orientation: ${awakening.philosophicalOrientation}</div>`:''}
+    </div>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Combat</span>
+      <div class="drawer-text">${[combat.weaponSpecialty,combat.fightingStyle,combat.signatureTechnique].filter(Boolean).join(' · ')||'Untrained'}</div>
+      ${combat.hybridCapable?`<div class="drawer-text">Hybrid capable.</div>`:''}
+      ${combat.presenceLevel?`<div class="drawer-text">Presence: ${combat.presenceLevel}</div>`:''}
+    </div>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Exploration</span>
+      <div class="drawer-text">${exploration.civilizationSpecialty?`Specialty: ${exploration.civilizationSpecialty}`:'No specialty'} · Solo depth capability D${exploration.soloDepthCapability||1}</div>
+    </div>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Connections</span>
+      ${connectionsHtml || `<div class="drawer-text" style="opacity:.4">No personal NPCs recorded.</div>`}
+    </div>
+    <div class="drawer-section">
+      <span class="drawer-section-label">Recent Hooks</span>
+      ${renderRecentHooksForHeir(heir.name)}
+    </div>
+  `;
+  state.drawerNode = null;
+  const drawerEl = document.getElementById('npc-drawer');
+  drawerEl.classList.add('open');
+  drawerEl._aowOnEscape = closeDrawer;
+  trapFocus(drawerEl);
+}
+
+function renderRecentHooksForHeir(heirName) {
+  const relevant = state.hooks.filter(h=>!h.dismissed && (h.entities||[]).includes(heirName)).slice(0,8);
+  if(!relevant.length) return `<div class="drawer-text" style="opacity:.4">No hooks yet.</div>`;
+  return relevant.map(h=>`<div class="drawer-text" style="margin-bottom:.4rem;">${h.text}</div>`).join('');
 }
 
 function adjustScore(nodeKey, heirKey, delta) {
