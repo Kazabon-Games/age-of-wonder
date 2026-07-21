@@ -6,9 +6,52 @@
 <title>Age of Wonder — Wonderland · World Map</title>
 <!-- ═══════════════════════════════════════════════════════════════════
      Age of Wonder — World Map (Wonderland companion tool)
-     Version: 2.0.0
+     Version: 2.1.0
      ───────────────────────────────────────────────────────────────────
      CHANGELOG
+     v2.1.0 — Main Map back on Canvas, Mini Map kept as a second view.
+       Producer feedback on v2.0.0, reacting to a v1.0.0 screenshot: "I
+       still don't like how the heir pins are all different shapes, I
+       want symmetry so they must all have convention" — then, clarifying
+       after a follow-up question: "I still wanted the main map to be
+       rendered beautifully but with less inconsistent shapes. A mini map
+       view in css is okay." Read together: the complaint was v1.0.0's
+       PER-TYPE shape variety (hexagon districts, six-point-star castle,
+       diamond parks, etc — SHAPE_DEFS in git history), not Canvas itself
+       or richness in general — and the CSS grid is welcome to stay, just
+       as a secondary view rather than the only one.
+       v2.0.0's renderCityGrid()/renderKingdomGrid()/.map-grid/.mc/legend
+       are kept verbatim and now live behind a "Mini Map" toggle. A new
+       "Main Map" Canvas 2D view sits alongside it (default view), reusing
+       the studio's faceted-gem-rendering technique (shadeHex + alternating
+       lit/dark center-to-vertex facets + specular facet + outer stroke)
+       — but with exactly one shared GEM_SHAPE vertex list for every node
+       type (district, landmark, castle/home city, exploration pin), not
+       a SHAPE_DEFS table. Color (house / landmark-type / civilization —
+       the same fixed, legend-documented palette) is the only thing that
+       identifies a node; glow/size vary only for emphasis (hover,
+       leverage), never for identity. This is a deliberate, named
+       exception to the faceted-gem-rendering skill's usual "hand-author
+       a distinct silhouette per entity" rule — the skill itself carves
+       out exactly this case for an interchangeable entity with nothing
+       else it needs to be told apart from by shape.
+       Deliberately NOT brought back from v1.0.0: the requestAnimationFrame
+       loop, ambient particles, and camera pan/zoom. Node count is still
+       fixed and small (≤9 per layer); none of the three earned their
+       complexity budget on a GM reference tool a second time. The canvas
+       redraws once per state change instead of continuously, so it costs
+       nothing while idle at the table. Hit-testing is a plain circle-
+       radius test against each node's own r (every node shares one
+       silhouette, so this is exact, not an approximation) rather than the
+       polygon-precise testing variable shapes required.
+       Every canvas click calls the SAME openXDrawer()/openLandmarkDrawer()/
+       openPinDrawer() functions the Mini Map's grid cells already call;
+       the Legend is the one shared panel both views read.
+       Known, stated tradeoff: canvas nodes are mouse/touch-first, not
+       individually keyboard-focusable or screen-reader-labeled. The Mini
+       Map (unchanged, DOM-based) is the fully keyboard/screen-reader
+       accessible path to the same data — a visible caption under the
+       canvas and the view toggle both point there.
      v2.0.0 — Cartography redesign: gems out, grid-and-legend in.
        Producer feedback on v1.0.0 verbatim: "the gem thing is a waste, I
        just need a legend, simpler is better... I had liked the map on the
@@ -127,6 +170,13 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .mc-chip:hover{border-color:var(--gold-dim);}
 .mc-chip:focus-visible{outline:2px solid var(--gold-bright);outline-offset:1px;}
 
+/* ══════ MAIN MAP — Canvas 2D, the studio's faceted-gem-rendering
+   technique. Every node (district/landmark/city/pin) shares one hexagon
+   silhouette; only color and glow/size vary. See CHANGELOG v2.1.0. ══════ */
+.view-canvas-wrap{position:relative;width:100%;min-height:380px;border:1px solid var(--panel-border);background:radial-gradient(ellipse at center, var(--night-mid) 0%, var(--night) 78%);overflow:hidden;}
+#map-canvas{display:block;width:100%;}
+.canvas-a11y-note{font-family:'EB Garamond',serif;font-style:italic;font-size:.72rem;color:var(--ink-light);text-align:center;padding:.5rem .2rem 0;}
+
 /* ══════ LEGEND — permanent, visible, never a tooltip/modal ══════ */
 .legend-panel{width:250px;flex-shrink:0;background:var(--night-panel);border:1px solid var(--panel-border);padding:1.1rem;position:sticky;top:0;}
 .legend-title{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-bright);margin-bottom:.9rem;}
@@ -244,6 +294,10 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
       <button class="layer-btn active" id="layer-btn-city" onclick="setLayer('city')">Shemsara</button>
       <button class="layer-btn" id="layer-btn-kingdom" onclick="setLayer('kingdom')">Aetheria Nova</button>
     </div>
+    <div class="layer-toggle" role="group" aria-label="Map view">
+      <button class="layer-btn active" id="view-btn-map" onclick="setView('map')">Main Map</button>
+      <button class="layer-btn" id="view-btn-mini" onclick="setView('mini')">Mini Map</button>
+    </div>
     <button class="tb-btn" onclick="refreshFromWonderland(true)">↻ Refresh from Wonderland</button>
     <button class="tb-btn primary" onclick="openGeneratorModal()">✦ Chart a Discovery</button>
     <span class="sync-note" id="sync-note"></span>
@@ -258,7 +312,14 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     </div>
 
     <div class="map-region">
-      <div class="map-panel">
+      <div class="map-panel" id="panel-canvas">
+        <div class="map-title" id="map-panel-title-canvas">Shemsara · Plan of the City · Faceted Gem Map</div>
+        <div class="view-canvas-wrap" id="canvas-wrap">
+          <canvas id="map-canvas" aria-hidden="true"></canvas>
+        </div>
+        <div class="canvas-a11y-note">Every marker on this map — district, landmark, home city, or exploration pin — shares one silhouette by design; only its color says what it is. See the Legend. The dashed ring is the Outskirts — click anywhere on it to inspect. For a keyboard- and screen-reader-friendly version of the same data, switch to Mini Map above.</div>
+      </div>
+      <div class="map-panel" id="panel-grid" style="display:none;">
         <div class="map-title" id="map-panel-title">Shemsara · Plan of the City · Districts Colored by House</div>
         <div class="map-grid" id="map-grid"></div>
       </div>
@@ -275,6 +336,10 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
         <div class="legend-section">
           <div class="legend-section-title">Exploration Pins</div>
           <div id="legend-pins"></div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-section-title">Shape Convention</div>
+          <div class="legend-row" style="opacity:.85;">Every node on the Main Map — district, landmark, home city, exploration pin — is the same faceted gem. Color is the only thing that changes what it means; size/glow only ever signal emphasis (hover, leverage), never identity.</div>
         </div>
       </aside>
     </div>
@@ -488,6 +553,14 @@ function applyTheme(theme){
 function toggleTheme(){
   const current = document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark';
   applyTheme(current==='light' ? 'dark' : 'light');
+  // The Main Map's label/backdrop colors are read once per render from the
+  // CSS custom properties (cvTheme()), not live CSS — a theme flip left
+  // them stale (dark-theme ivory text drawn straight onto the new light
+  // background, unreadable) until the next unrelated redraw. `view` and
+  // `renderCanvasMap` are declared further down the same script but exist
+  // by the time this ever actually runs (a click), so the forward
+  // reference is safe.
+  if(typeof view!=='undefined' && view==='map' && typeof renderCanvasMap==='function') renderCanvasMap();
 }
 (function initTheme(){
   let saved = 'dark';
@@ -501,13 +574,17 @@ function toggleTheme(){
    established in the Heir Record's session-zero map preview (renderMap()
    there) — this map reads that same shape, not a reinvented one.
    ═══════════════════════════════════════════ */
+// `angle` (degrees, standard canvas math convention) is only consumed by
+// the Main Map's circular canvas layout below — `pos` (grid cell) is the
+// Mini Map's placement, kept side by side on the same records rather than
+// duplicating the district list a second time for the canvas view.
 const DISTRICTS = [
-  {key:'Military',     label:'The Military District', place:'Garrison',        npcKey:'watchCommander',   pos:'tl'},
-  {key:'Trade',        label:'The Trade District',    place:'Merchant Quarter',npcKey:'merchantConsortium',pos:'t'},
-  {key:'Religious',    label:'The Religious District',place:'Temple District', npcKey:'highPriest',       pos:'tr'},
-  {key:'Scholarly',    label:'The Scholarly District',place:'Archive',         npcKey:'archivistGeneral', pos:'bl'},
-  {key:'Agricultural', label:'The Agricultural District',place:'Granary',      npcKey:'dockworkersForeman',pos:'b'},
-  {key:'Magical',      label:'The Magical District',  place:'Sanctum',         npcKey:null,               pos:'br'},
+  {key:'Military',     label:'The Military District', place:'Garrison',        npcKey:'watchCommander',   pos:'tl', angle:-150},
+  {key:'Trade',        label:'The Trade District',    place:'Merchant Quarter',npcKey:'merchantConsortium',pos:'t',  angle:-90},
+  {key:'Religious',    label:'The Religious District',place:'Temple District', npcKey:'highPriest',       pos:'tr', angle:-30},
+  {key:'Scholarly',    label:'The Scholarly District',place:'Archive',         npcKey:'archivistGeneral', pos:'bl', angle:150},
+  {key:'Agricultural', label:'The Agricultural District',place:'Granary',      npcKey:'dockworkersForeman',pos:'b', angle:90},
+  {key:'Magical',      label:'The Magical District',  place:'Sanctum',         npcKey:null,               pos:'br', angle:30},
 ];
 const WORLD_NPC_NAMES = {
   kingHector:'King Hector', royalChamberlain:'Edrin Castellane', merchantConsortium:'Mira Thessaly',
@@ -745,6 +822,7 @@ function cellKeydown(e){
 
 function renderCityGrid(){
   document.getElementById('map-panel-title').textContent = 'Shemsara · Plan of the City · Districts Colored by House';
+  document.getElementById('map-panel-title-canvas').textContent = 'Shemsara · Plan of the City · Faceted Gem Map';
   const grid = document.getElementById('map-grid');
   const byPos = {}; DISTRICTS.forEach(d=>byPos[d.pos]=d);
   const cellHtml = (d) => {
@@ -792,6 +870,7 @@ function renderCityGrid(){
 
 function renderKingdomGrid(){
   document.getElementById('map-panel-title').textContent = 'Aetheria Nova · The Six Home Cities';
+  document.getElementById('map-panel-title-canvas').textContent = 'Aetheria Nova · The Six Home Cities · Faceted Gem Map';
   const grid = document.getElementById('map-grid');
   const byPos = {}; DISTRICTS.forEach(d=>byPos[d.pos]=d);
   const cellHtml = (d) => {
@@ -847,8 +926,494 @@ function renderLegend(){
     + '<div class="legend-row" style="opacity:.65;font-style:italic;">Depth D1 (shallow) → D6 (deepest, Void Touched only)</div>';
 }
 
+/* ═══════════════════════════════════════════
+   MAIN MAP — Canvas 2D, the studio's faceted-gem-rendering technique
+   (see .claude/skills/faceted-gem-rendering): one glow-backed base fill,
+   alternating lit/dark center-to-vertex facets, one specular facet, a
+   translucent outer stroke. Reused verbatim from the arcade titles.
+
+   The ONE deliberate departure from v1.0.0 (and from the skill's usual
+   guidance to hand-author a distinct silhouette per entity): every node
+   here — castle, district, park, home city, landmark, exploration pin —
+   is built from the exact same GEM_SHAPE vertex list. Producer feedback
+   on v1.0.0's per-type shapes (hexagon districts, six-point star castle,
+   diamond parks, etc), reacting to a screenshot of that build: "I still
+   don't like how the heir pins are all different shapes, I want symmetry
+   so they must all have convention." Read literally: one silhouette,
+   color is the only differentiator (house color / landmark-type color /
+   civilization color — the same fixed palette the Legend documents),
+   with glow/size reserved for emphasis (hover, leverage) rather than
+   identity. This is a deliberate, in-scope exception to the skill's
+   general "hand-author a distinct shape when two things must be told
+   apart by silhouette" rule — nothing on this map needs to be told apart
+   by silhouette, since color already carries that job and is
+   legend-documented; the skill itself carves out exactly this case
+   ("Any... entity where a player must tell it apart... by shape... gets
+   a hand-authored... list — never a uniform regular-polygon generator...
+   A mass-produced/interchangeable entity can still use a parametric
+   generator if there's nothing else it needs to be distinguished from").
+
+   No animation loop, no ambient particles, no camera pan/zoom — all three
+   existed in v1.0.0 and are deliberately NOT brought back here. With the
+   node count still fixed and small (≤9 per layer, landmarks/pins orbiting
+   as small satellites), none of the three earn their complexity budget on
+   a GM reference tool a second time; see the report delivered alongside
+   this build for the full reasoning. The map redraws once per state
+   change (data refresh, hover, layer/view switch, resize) instead of on
+   a requestAnimationFrame loop, which also means it costs nothing while
+   idle at the table.
+
+   Hit-testing is deliberately simple (circle-radius against each node's
+   own r, since every node shares one silhouette) rather than the
+   polygon-precise testing v1.0.0 needed once shapes varied — one of the
+   "hit-testing complexity" costs the original changelog named is gone
+   as a direct result of the symmetry the producer asked for, not a
+   separate fix.
+
+   Every click here calls the SAME openXDrawer()/openLandmarkDrawer()/
+   openPinDrawer() functions the Mini Map's grid cells already call —
+   this module only renders and hit-tests; it never re-implements drawer
+   content, house-color lookup, or leverage math a second time.
+
+   Known, stated tradeoff: canvas nodes are mouse/touch-first and are not
+   individually keyboard-focusable or screen-reader-labeled. The Mini Map
+   (kept, unchanged, DOM-based) is the fully keyboard/screen-reader
+   accessible path to the exact same data — a visible caption under the
+   canvas and the view toggle both point there.
+   ═══════════════════════════════════════════ */
+const canvas = document.getElementById('map-canvas');
+const cctx = canvas.getContext('2d');
+let cw = 0, ch = 0, cdpr = 1;
+
+function shadeHex(hex, dLight, dSat){
+  dSat = dSat || 0;
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if(max===min){ h=s=0; }
+  else {
+    const d = max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d+(g<b?6:0); break;
+      case g: h=(b-r)/d+2; break;
+      case b: h=(r-g)/d+4; break;
+    }
+    h/=6;
+  }
+  h*=360; s = clamp(s*100+dSat,0,100); l = clamp(l*100+dLight,0,100);
+  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
+}
+
+// THE one shared silhouette — a regular (perfectly symmetric) hexagon.
+// Every node on the map, of every type, is built from this exact list.
+// Oriented so a flat facet sits on top (angle offset of -0.25 turns)
+// purely so the "gem" reads consistently the same way up everywhere.
+const GEM_SHAPE = [0,1,2,3,4,5].map(i => ({ a: -0.25 + i/6, m: 1 }));
+
+function drawGem(cx, cy, r, baseColor, glowAmt, alpha){
+  alpha = alpha===undefined ? 1 : alpha;
+  cctx.save();
+  cctx.translate(cx, cy);
+  cctx.globalAlpha = alpha;
+  const n = GEM_SHAPE.length;
+  const vx = i => Math.cos(GEM_SHAPE[i].a*Math.PI*2)*r*GEM_SHAPE[i].m;
+  const vy = i => Math.sin(GEM_SHAPE[i].a*Math.PI*2)*r*GEM_SHAPE[i].m;
+
+  cctx.shadowColor = baseColor; cctx.shadowBlur = glowAmt===undefined ? 14 : glowAmt;
+  cctx.fillStyle = baseColor;
+  cctx.beginPath();
+  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?cctx.moveTo(px,py):cctx.lineTo(px,py); }
+  cctx.closePath(); cctx.fill();
+  cctx.shadowBlur = 0;
+
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    cctx.fillStyle = shadeHex(baseColor, i%2===0?16:-14, i%2===0?8:-6);
+    cctx.beginPath(); cctx.moveTo(0,0); cctx.lineTo(vx(i),vy(i)); cctx.lineTo(vx(j),vy(j)); cctx.closePath(); cctx.fill();
+  }
+  cctx.fillStyle = 'rgba(255,255,255,0.35)';
+  cctx.beginPath(); cctx.moveTo(0,0); cctx.lineTo(vx(0),vy(0)); cctx.lineTo(vx(n-1),vy(n-1)); cctx.closePath(); cctx.fill();
+
+  cctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  cctx.lineWidth = 1.5;
+  cctx.beginPath();
+  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?cctx.moveTo(px,py):cctx.lineTo(px,py); }
+  cctx.closePath(); cctx.stroke();
+  cctx.restore();
+}
+
+const cvSigilImgCache = {};
+function getSigilImg(dataUri){
+  if(!dataUri) return null;
+  if(cvSigilImgCache[dataUri]) return cvSigilImgCache[dataUri];
+  const img = new Image();
+  img.onload = () => { if(view==='map') renderCanvasMap(); };
+  img.src = dataUri;
+  cvSigilImgCache[dataUri] = img;
+  return img;
+}
+
+function sizeCanvas(){
+  const wrap = document.getElementById('canvas-wrap');
+  cdpr = Math.min(window.devicePixelRatio||1, 2);
+  cw = Math.max(280, Math.round(wrap.clientWidth || 640));
+  ch = Math.max(360, Math.min(560, Math.round(cw*0.68)));
+  canvas.width = Math.round(cw*cdpr); canvas.height = Math.round(ch*cdpr);
+  canvas.style.width = cw+'px'; canvas.style.height = ch+'px';
+  cctx.setTransform(cdpr,0,0,cdpr,0,0);
+}
+
+function cvTheme(){
+  const s = getComputedStyle(document.documentElement);
+  return {
+    title: (s.getPropertyValue('--vellum')||'#f5eedf').trim(),
+    sub: (s.getPropertyValue('--vellum-mid')||'#d4c4a8').trim(),
+    faint: (s.getPropertyValue('--ink-light')||'#8a6a48').trim(),
+  };
+}
+let CVT = cvTheme();
+
+/* ── layout: same district/home-city ring positions as the Mini Map's
+   data, just placed on a circle instead of a 5-column grid — landmarks
+   orbit their owning district/city node, pins orbit their owning zone
+   node, both using one shared orbitSatellites() helper. ── */
+let cvCityNodes=[], cvKingdomNodes=[], cvLandmarks=[], cvPins=[];
+let cvCityOrigin={x:0,y:0}, cvKingdomOrigin={x:0,y:0};
+
+function orbitSatellites(parent, items, origin, r){
+  if(!items.length) return [];
+  const dx = parent.x-origin.x, dy = parent.y-origin.y;
+  const d = Math.hypot(dx,dy);
+  // The castle/hub sits AT the origin (dx=dy=0), so it has no "inward"
+  // side the way every other node does — it needs its own fallback angle.
+  // -90° (straight up) was the first instinct, but Trade sits at exactly
+  // -90° too (see DISTRICTS), so the castle's own landmarks and Trade's
+  // inward-orbiting ones stacked on the same radial line and collided.
+  // District angles are all multiples of 60° offset by 30° (30/90/150/
+  // 210/270/330); -60° falls exactly in the gap between Trade (-90°/270°)
+  // and Religious (-30°/330°) and isn't used by anything else, so it's a
+  // safe, collision-free fallback specifically for the origin-node case.
+  const baseAngle = d<1 ? -Math.PI/3 : Math.atan2(dy,dx)+Math.PI; // orbit on the inward-facing side
+  const orbit = parent.r + 30 + Math.max(0, items.length-2)*10;
+  const arcSpan = Math.min(5.4, Math.max(0.9, (items.length-1)*0.55));
+  return items.map((it,i)=>{
+    const t = items.length>1 ? (i/(items.length-1)-0.5) : 0;
+    const ang = baseAngle + t*arcSpan;
+    return { ...it, x: parent.x+Math.cos(ang)*orbit, y: parent.y+Math.sin(ang)*orbit, r };
+  });
+}
+
+function layoutCanvasNodes(){
+  const cx = cw/2, cy = ch/2 + 6;
+  const R = Math.min(cw,ch) * 0.32;
+  const ringR = R*1.42;
+  cvCityOrigin = {x:cx,y:cy};
+  cvCityNodes = [];
+  cvCityNodes.push({ type:'castle', key:'castle', label:'The Castle', sub:'King Hector · Royal Chamberlain',
+    x:cx, y:cy, r:Math.max(32,R*0.34), color:'#c9a030', npcKey:null });
+  DISTRICTS.forEach(d=>{
+    const rad = d.angle*Math.PI/180;
+    const heir = heirForDistrict(d.key);
+    cvCityNodes.push({ type:'district', key:d.key, label:d.label, sub:d.place, npcKey:d.npcKey, heir,
+      x:cx+Math.cos(rad)*R, y:cy+Math.sin(rad)*R, r:Math.max(24,R*0.27), color: houseColorFor(heir)||GHOST_COLOR });
+  });
+  cvCityNodes.push({ type:'park', key:'park1', label:'City Park', sub:'Neutral ground', x:cx-R*0.72, y:cy, r:Math.max(15,R*0.15), color:'#2a5a3a' });
+  cvCityNodes.push({ type:'park', key:'park2', label:'City Park', sub:'Neutral ground', x:cx+R*0.72, y:cy, r:Math.max(15,R*0.15), color:'#2a5a3a' });
+  cvCityNodes.push({ type:'outskirts', key:'outskirts', label:'The Outskirts', x:cx, y:cy, r:ringR, isRing:true });
+
+  const kR = Math.min(cw,ch)*0.38;
+  const kRingR = kR*0.55;
+  cvKingdomOrigin = {x:cx,y:cy};
+  cvKingdomNodes = [];
+  cvKingdomNodes.push({ type:'shemsara', key:'shemsara', label:'Shemsara', sub:'The Capital · Seat of the Crown',
+    x:cx, y:cy, r:Math.max(28,kR*0.26), color:'#c9a030' });
+  DISTRICTS.forEach(d=>{
+    const rad = d.angle*Math.PI/180;
+    const heir = heirForDistrict(d.key);
+    cvKingdomNodes.push({ type:'homecity', key:d.key, label:kingdomCityLabel(d), sub:kingdomCitySub(d), heir, districtKey:d.key,
+      x:cx+Math.cos(rad)*kR, y:cy+Math.sin(rad)*kR, r:Math.max(22,kR*0.22), color: houseColorFor(heir)||GHOST_COLOR });
+  });
+  cvKingdomNodes.push({ type:'outskirts', key:'outskirts-k', label:'The Outskirts', x:cx, y:cy, r:kRingR, isRing:true });
+
+  layoutCanvasSatellites();
+}
+
+function layoutCanvasSatellites(){
+  cvLandmarks = [];
+  const byDistrict = {};
+  mapState.landmarks.forEach(lm=>{ (byDistrict[lm.districtKey] = byDistrict[lm.districtKey]||[]).push(lm); });
+  Object.keys(byDistrict).forEach(key=>{
+    const parent = cvCityNodes.find(n=>n.key===key);
+    if(!parent) return;
+    cvLandmarks.push(...orbitSatellites(parent, byDistrict[key], cvCityOrigin, 13)
+      .map(n=>({ ...n, type:'landmark', color: landmarkIcon(n.icon).color })));
+  });
+
+  cvPins = [];
+  const byZone = {};
+  mapState.pins.forEach(p=>{ (byZone[p.zone]=byZone[p.zone]||[]).push(p); });
+  Object.keys(byZone).forEach(zone=>{
+    const key = zone==='outskirts' ? 'outskirts-k' : zone;
+    const parent = cvKingdomNodes.find(n=>n.key===key);
+    if(!parent) return;
+    cvPins.push(...orbitSatellites(parent, byZone[zone], cvKingdomOrigin, 15)
+      .map(n=>({ ...n, type:'pin', color: CIV_COLORS[n.civ]||CIV_COLORS.architect })));
+  });
+}
+
+function nodeHitKey(n){ return n.type+':'+(n.id||n.key); }
+
+function clipLabel(text, maxW){
+  text = String(text==null?'':text);
+  if(cctx.measureText(text).width <= maxW) return text;
+  while(text.length>1 && cctx.measureText(text+'…').width>maxW) text = text.slice(0,-1);
+  return text+'…';
+}
+
+// Real narrow-viewport finding (390px): outward-radiating labels for the
+// upper-left/upper-right districts pushed text far enough toward the edge
+// that it clipped past the canvas boundary on a phone-width map. Measures
+// the actual rendered width (current font must already be set) and shifts
+// x by exactly however much it overflows — a fixed damping factor only
+// ever approximates the real width for one string length.
+const CANVAS_LABEL_MARGIN = 6;
+function clampTextX(x, text, align){
+  const w = cctx.measureText(text).width;
+  let left, right;
+  if(align==='left'){ left=x; right=x+w; }
+  else if(align==='right'){ left=x-w; right=x; }
+  else { left=x-w/2; right=x+w/2; }
+  if(left < CANVAS_LABEL_MARGIN) x += (CANVAS_LABEL_MARGIN-left);
+  else if(right > cw-CANVAS_LABEL_MARGIN) x -= (right-(cw-CANVAS_LABEL_MARGIN));
+  return x;
+}
+
+function drawCanvasLabel(n, origin){
+  const dx=n.x-origin.x, dy=n.y-origin.y, d=Math.hypot(dx,dy);
+  const ux = d<1?0:dx/d, uy = d<1?1:dy/d;
+  const align = ux>0.35?'left':(ux<-0.35?'right':'center');
+  const g1=n.r+14, g2=n.r+30;
+  let xt,yt,xs,ys;
+  if(Math.abs(uy)<0.15){
+    xt=xs=n.x+ux*(n.r+8); yt=n.y+g1; ys=n.y+g2;
+  } else {
+    const titleDist = uy<-0.15?g2:g1, subDist = uy<-0.15?g1:g2;
+    xt=n.x+ux*titleDist; yt=n.y+uy*titleDist;
+    xs=n.x+ux*subDist; ys=n.y+uy*subDist;
+  }
+  cctx.save();
+  cctx.textAlign = align;
+  cctx.fillStyle = CVT.title;
+  cctx.font = `600 ${clamp(n.r*0.24,11,15)}px Cinzel, serif`;
+  const titleText = clipLabel(n.label,150);
+  cctx.fillText(titleText, clampTextX(xt,titleText,align), yt);
+  const subText = n.heir ? n.heir.name : n.sub;
+  if(subText){
+    cctx.fillStyle = CVT.sub;
+    cctx.font = `italic ${clamp(n.r*0.18,9,12)}px "EB Garamond", serif`;
+    const subClipped = clipLabel(subText,160);
+    cctx.fillText(subClipped, clampTextX(xs,subClipped,align), ys);
+  }
+  cctx.restore();
+}
+
+function drawCanvasNode(n, origin){
+  const hovered = cvHoverKey===nodeHitKey(n);
+  const r = n.r * (hovered?1.08:1);
+  const alpha = (n.type==='homecity' && !n.heir) ? 0.55 : 1;
+  drawGem(n.x, n.y, r, n.color, hovered?26:15, alpha);
+
+  if(n.npcKey && n.heir){
+    const scores = wonderland.nodes[n.npcKey] ? wonderland.nodes[n.npcKey].scores : null;
+    const v = scores ? scores[n.heir.key] : undefined;
+    if(v!==undefined && v!==0){
+      cctx.save();
+      cctx.strokeStyle = v>0 ? 'rgba(42,90,58,0.55)' : 'rgba(155,42,42,0.55)';
+      cctx.lineWidth = 3;
+      cctx.beginPath(); cctx.arc(n.x,n.y,r+9,0,Math.PI*2*clamp(Math.abs(v)/5,0.08,1)); cctx.stroke();
+      cctx.restore();
+    }
+  }
+  const sigilData = n.heir ? sigilFor(n.heir) : null;
+  if(sigilData){
+    const img = getSigilImg(sigilData);
+    if(img && img.complete && img.naturalWidth){
+      const s = r*0.58;
+      cctx.save(); cctx.beginPath(); cctx.arc(n.x,n.y,s,0,Math.PI*2); cctx.clip();
+      cctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
+      cctx.restore();
+    }
+  }
+  drawCanvasLabel(n, origin);
+}
+
+function drawCanvasSatellite(n){
+  const hovered = cvHoverKey===nodeHitKey(n);
+  const r = n.r * (hovered?1.2:1);
+  drawGem(n.x, n.y, r, n.color, hovered?18:8);
+  const image = n.image;
+  if(image){
+    const img = getSigilImg(image);
+    if(img && img.complete && img.naturalWidth){
+      const s = r*0.62;
+      cctx.save(); cctx.beginPath(); cctx.arc(n.x,n.y,s,0,Math.PI*2); cctx.clip();
+      cctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
+      cctx.restore();
+    }
+  }
+  cctx.save();
+  cctx.textAlign = 'center';
+  cctx.fillStyle = CVT.sub;
+  cctx.font = `600 9px Cinzel, serif`;
+  const text = n.type==='pin' ? (n.name||CIV_NAMES[n.civ]) : (n.name||landmarkIcon(n.icon).label);
+  const clipped = clipLabel(text,90);
+  cctx.fillText(clipped, clampTextX(n.x,clipped,'center'), n.y+r+13);
+  cctx.restore();
+}
+
+// The Outskirts' own hint label used to be drawn directly on the ring
+// (top of the circle) — for the city layer that's exactly where the Trade
+// District sits (angle -90, straight up), so its title/subtitle text and
+// the ring's own hint text collided. The ring is annular and has no single
+// "safe" side across both layers (kingdom-layer home cities ring the same
+// point too), so the hint lives in the static caption below the canvas
+// instead of being drawn in-scene; the ring itself still highlights on
+// hover/click exactly like every other node.
+function drawRing(ring, normalColor, hoverColor){
+  const hovered = cvHoverKey===nodeHitKey(ring);
+  cctx.save();
+  cctx.strokeStyle = hovered ? hoverColor : normalColor;
+  cctx.lineWidth = hovered ? 4 : 3;
+  cctx.setLineDash([14,10]);
+  cctx.beginPath(); cctx.arc(ring.x,ring.y,ring.r,0,Math.PI*2); cctx.stroke();
+  cctx.setLineDash([]);
+  cctx.restore();
+}
+
+function drawCanvasCityLayer(){
+  const castle = cvCityNodes.find(n=>n.type==='castle');
+  const ring = cvCityNodes.find(n=>n.type==='outskirts');
+  drawRing(ring, 'rgba(107,96,137,0.5)', 'rgba(160,150,200,0.9)');
+  cctx.save();
+  cctx.strokeStyle = 'rgba(139,105,20,0.28)'; cctx.lineWidth = 2;
+  cctx.beginPath(); cctx.arc(castle.x,castle.y,ring.r*0.78,0,Math.PI*2); cctx.stroke();
+  cctx.restore();
+  cvCityNodes.forEach(n=>{
+    if(n.type!=='district') return;
+    cctx.save();
+    cctx.strokeStyle = 'rgba(139,105,20,0.18)'; cctx.lineWidth = 1;
+    cctx.beginPath(); cctx.moveTo(castle.x,castle.y); cctx.lineTo(n.x,n.y); cctx.stroke();
+    cctx.restore();
+  });
+  cvCityNodes.forEach(n=>{ if(n.type!=='outskirts') drawCanvasNode(n, cvCityOrigin); });
+  cvLandmarks.forEach(n=>drawCanvasSatellite(n));
+}
+
+function drawCanvasKingdomLayer(){
+  const hub = cvKingdomNodes.find(n=>n.type==='shemsara');
+  const ring = cvKingdomNodes.find(n=>n.type==='outskirts');
+  drawRing(ring, 'rgba(107,96,137,0.35)', 'rgba(160,150,200,0.75)');
+  cvKingdomNodes.forEach(n=>{
+    if(n.type!=='homecity') return;
+    cctx.save();
+    cctx.strokeStyle = n.heir ? 'rgba(201,160,48,0.4)' : 'rgba(139,105,20,0.12)';
+    cctx.lineWidth = n.heir?1.6:1; cctx.setLineDash([3,7]);
+    cctx.beginPath(); cctx.moveTo(hub.x,hub.y); cctx.lineTo(n.x,n.y); cctx.stroke();
+    cctx.setLineDash([]);
+    cctx.restore();
+  });
+  drawCanvasNode(hub, cvKingdomOrigin);
+  cvKingdomNodes.forEach(n=>{ if(n.type==='homecity') drawCanvasNode(n, cvKingdomOrigin); });
+  cvPins.forEach(n=>drawCanvasSatellite(n));
+}
+
+function renderCanvasMap(){
+  CVT = cvTheme();
+  sizeCanvas();
+  layoutCanvasNodes();
+  cctx.clearRect(0,0,cw,ch);
+  if(layer==='city') drawCanvasCityLayer(); else drawCanvasKingdomLayer();
+}
+
+function allCanvasNodes(){
+  if(layer==='city') return cvCityNodes.filter(n=>n.type!=='outskirts').concat(cvLandmarks);
+  return cvKingdomNodes.filter(n=>n.type!=='outskirts').concat(cvPins);
+}
+function canvasNodeAt(x,y){
+  const nodes = allCanvasNodes();
+  for(let i=nodes.length-1;i>=0;i--){
+    const n = nodes[i];
+    if(Math.hypot(x-n.x,y-n.y) < n.r*1.05) return n;
+  }
+  const ring = layer==='city' ? cvCityNodes.find(n=>n.type==='outskirts') : cvKingdomNodes.find(n=>n.type==='outskirts');
+  if(ring && Math.abs(Math.hypot(x-ring.x,y-ring.y)-ring.r) < 16) return ring;
+  return null;
+}
+function openCanvasNode(n){
+  if(n.type==='castle') return openCastleDrawer();
+  if(n.type==='park') return openParkDrawer();
+  if(n.type==='district') return openDistrictDrawer(n.key);
+  if(n.type==='shemsara') return openShemsaraDrawer();
+  if(n.type==='homecity') return openHomeCityDrawer(n.key);
+  if(n.type==='outskirts') return openOutskirtsDrawer();
+  if(n.type==='landmark') return openLandmarkDrawer(n.id);
+  if(n.type==='pin') return openPinDrawer(n.id);
+}
+
+let cvHoverKey = null;
+canvas.addEventListener('mousemove', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const n = canvasNodeAt(e.clientX-rect.left, e.clientY-rect.top);
+  const key = n ? nodeHitKey(n) : null;
+  if(key!==cvHoverKey){ cvHoverKey = key; canvas.style.cursor = n ? 'pointer' : 'default'; renderCanvasMap(); }
+});
+canvas.addEventListener('mouseleave', ()=>{ if(cvHoverKey){ cvHoverKey = null; renderCanvasMap(); } });
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  const n = canvasNodeAt(e.clientX-rect.left, e.clientY-rect.top);
+  if(n) openCanvasNode(n);
+});
+canvas.addEventListener('touchend', (e)=>{
+  if(!e.changedTouches.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const t = e.changedTouches[0];
+  const n = canvasNodeAt(t.clientX-rect.left, t.clientY-rect.top);
+  if(n){ e.preventDefault(); openCanvasNode(n); }
+}, {passive:false});
+window.addEventListener('resize', ()=>{ if(view==='map') renderCanvasMap(); });
+
+/* ═══════════════════════════════════════════
+   VIEW TOGGLE — Main Map (canvas, above) vs Mini Map (the CSS grid this
+   file rebuilt to in v2.0.0, kept verbatim as the compact/accessible
+   alternative). Both panels' underlying data stay in sync at all times
+   (renderMap() always renders both); toggling is purely a display swap,
+   plus a fresh canvas size/layout pass since a display:none container
+   reports zero width while hidden.
+   ═══════════════════════════════════════════ */
+let view = 'map'; // 'map' | 'mini'
+function setView(next){
+  view = next;
+  document.getElementById('view-btn-map').classList.toggle('active', next==='map');
+  document.getElementById('view-btn-mini').classList.toggle('active', next==='mini');
+  document.getElementById('panel-canvas').style.display = next==='map' ? '' : 'none';
+  document.getElementById('panel-grid').style.display = next==='mini' ? '' : 'none';
+  try{ localStorage.setItem('aow-world-map-view', next); }catch(e){}
+  if(next==='map') renderCanvasMap();
+}
+function initView(){
+  let v = 'map';
+  try{ v = localStorage.getItem('aow-world-map-view') || 'map'; }catch(e){}
+  view = v;
+  document.getElementById('view-btn-map').classList.toggle('active', v==='map');
+  document.getElementById('view-btn-mini').classList.toggle('active', v==='mini');
+  document.getElementById('panel-canvas').style.display = v==='map' ? '' : 'none';
+  document.getElementById('panel-grid').style.display = v==='mini' ? '' : 'none';
+}
+
 function renderMap(){
   if(layer==='city') renderCityGrid(); else renderKingdomGrid();
+  renderCanvasMap();
   renderLegend();
 }
 
@@ -1478,6 +2043,7 @@ function deleteNpcFromModal(){
    ═══════════════════════════════════════════ */
 loadWonderland();
 loadMapState();
+initView();
 renderMap();
 updateSyncNote();
 updateEmptyBanner();
