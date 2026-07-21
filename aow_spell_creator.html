@@ -340,8 +340,11 @@ const CONSENT_WORDS=['willing','consent','consenting','self','self_only','caster
 const PERSON_LIKE_WORDS=['target','person','will','mind','memory','emotion','behavior','intent','identity','presence_of','target_will','present_person'];
 
 function hasWord(haystack,words){
-  const normalized=(haystack||'').replace(/\|/g,' ');
+  const normalized=(haystack||'').replace(/[\|\-]/g,' ');
   return words.some(w=>new RegExp(`(^|[_\\s])${w.replace(/_/g,'[_\\s]')}([_\\s]|$)`).test(normalized));
+}
+function scEsc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // Derives the moral flag the same way the shipped library itself is
@@ -395,15 +398,33 @@ function scLibTarget(spell){
 function scTargetsOverlap(a,b){
   return !!a&&!!b&&(a===b||a.includes(b)||b.includes(a));
 }
-function scCheckDuplicate(school,name,target){
+function scLibDuration(spell){
+  return (spell.syntax.match(/~([a-z]+)~/)||[])[1]||'';
+}
+function scCheckDuplicate(school,name,target,tierNum,duration){
   const nName=normName(name), nTarget=normTarget(target);
   const sameSchool=SPELL_LIBRARY.filter(s=>s.school===school);
   const exactName=sameSchool.find(s=>nName&&normName(s.name)===nName);
   if(exactName){
-    if(scTargetsOverlap(scLibTarget(exactName),nTarget)){
+    const targetsMatch=scTargetsOverlap(scLibTarget(exactName),nTarget);
+    const libTier=parseInt(exactName.tier.replace('T',''));
+    const libDuration=scLibDuration(exactName);
+    const mechanicsMatch=libTier===tierNum&&(!libDuration||libDuration===duration);
+    if(targetsMatch&&mechanicsMatch){
       return {status:'exact',match:exactName,note:`Already in the library as ${exactName.name} (${exactName.tier}) — nothing new to submit.`};
     }
+    if(targetsMatch){
+      return {status:'renamed_or_retargeted',match:exactName,note:`Same name and target as "${exactName.name}" in the library (${exactName.tier}), but a different tier or duration here — likely a variant, not an identical resubmission. Worth a note to your GM either way.`};
+    }
     return {status:'renamed_or_retargeted',match:exactName,note:`A spell named "${exactName.name}" already exists in the library with a different target — this reads as the same spell retargeted, not a new one.`};
+  }
+  // Same name claimed under a DIFFERENT school than the library spell — not
+  // a hard block (a different school genuinely produces a different
+  // spell), but a GM reviewing submissions should still be told the name
+  // is already taken so it doesn't read as a fresh addition to the library.
+  const crossSchoolName=nName?SPELL_LIBRARY.find(s=>s.school!==school&&normName(s.name)===nName):null;
+  if(crossSchoolName){
+    return {status:'renamed_or_retargeted',match:crossSchoolName,note:`"${crossSchoolName.name}" already exists in the library under ${crossSchoolName.school} — using the same name under a different school will likely read as a duplicate submission to your GM.`};
   }
   const sameTarget=sameSchool.find(s=>scTargetsOverlap(scLibTarget(s),nTarget));
   if(sameTarget&&nName){
@@ -427,12 +448,10 @@ function scUpdateSchool2Lock(){
   const tier=parseInt(document.getElementById('sc-tier').value);
   const school2=document.getElementById('sc-school2');
   const hint=document.getElementById('sc-school2-hint');
-  if(tier<3){
-    if(school2.value){ /* keep the user's pick but it will error until they act — surfaced below */ }
-    hint.textContent='Cross-school casting requires tier three or above.';
-  } else {
-    hint.textContent='';
-  }
+  const locked=tier<3;
+  school2.disabled=locked;
+  if(locked&&school2.value)school2.value='';
+  hint.textContent=locked?'Cross-school casting requires tier three or above.':'';
 }
 
 function scBuild(){
@@ -489,11 +508,11 @@ function scBuild(){
   const targetAndMods=(targetFormatted+' '+modsFormatted);
   const hitScope=BIG_SCOPE_WORDS.find(w=>hasWord(targetAndMods,[w]));
   if(hitScope&&tierNum<=2) errors.push(`Target/modifiers mention "${hitScope}", a far larger scope than tier ${tierNum} covers — raise the tier or narrow the scope.`);
-  if(duration==='permanent'&&tierNum<=2&&!targetAndMods.includes('small')&&!targetAndMods.includes('minor')) errors.push('Permanent effects at tier one or two are only legal when the target is explicitly small/minor — add that or raise the tier.');
+  if(duration==='permanent'&&tierNum<=2&&!hasWord(targetAndMods,['small','minor'])) errors.push('Permanent effects at tier one or two are only legal when the target is explicitly small/minor — add that or raise the tier.');
 
   let dup={status:'clear',match:null,note:''};
   if(name&&target){
-    dup=scCheckDuplicate(school1,name,target);
+    dup=scCheckDuplicate(school1,name,target,tierNum,duration);
     if(dup.status==='exact') errors.push(dup.note);
     else if(dup.status==='renamed_or_retargeted') warnings.push(dup.note);
   }
@@ -554,6 +573,8 @@ function scLoadAuthor(){ try{ return localStorage.getItem(SC_AUTHOR_KEY)||''; }c
 function scAddToMySpells(){
   if(!scCurrent||document.getElementById('sc-add-btn').disabled)return;
   const list=scLoadMine();
+  const alreadySaved=list.some(s=>normName(s.name)===normName(scCurrent.name)&&s.school===scCurrent.school&&s.school2===scCurrent.school2&&normTarget(s.target)===normTarget(scCurrent.target)&&s.tier===scCurrent.tier&&s.duration===scCurrent.duration);
+  if(alreadySaved)return;
   list.push(Object.assign({},scCurrent,{addedAt:new Date().toISOString()}));
   scStoreMine(list);
   scRenderMine();
@@ -568,13 +589,13 @@ function scRenderMine(){
     return;
   }
   box.innerHTML=list.map((s,i)=>{
-    const dupNote=s.duplicateCheck&&s.duplicateCheck.status==='renamed_or_retargeted'?`<div class="field-hint" style="color:var(--crimson-bright);">◆ ${s.duplicateCheck.note}</div>`:'';
+    const dupNote=s.duplicateCheck&&s.duplicateCheck.status==='renamed_or_retargeted'?`<div class="field-hint" style="color:var(--crimson-bright);">◆ ${scEsc(s.duplicateCheck.note)}</div>`:'';
     return `<div class="spell-card">
       <div class="spell-card-top">
-        <span class="spell-card-name">${s.name}</span>
-        <span class="spell-card-tag">${s.school}${s.school2?'+'+s.school2:''} · T${s.tier}${s.flags?' · '+(s.flags===2?'!!':'!'):''}</span>
+        <span class="spell-card-name">${scEsc(s.name)}</span>
+        <span class="spell-card-tag">${scEsc(s.school)}${s.school2?'+'+scEsc(s.school2):''} · T${scEsc(s.tier)}${s.flags?' · '+(s.flags===2?'!!':'!'):''}</span>
       </div>
-      <div class="spell-card-syntax">${s.syntax}</div>
+      <div class="spell-card-syntax">${scEsc(s.syntax)}</div>
       ${dupNote}
       <div class="spell-card-actions">
         <span onclick="scExportOne(${i})">export</span>
