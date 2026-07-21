@@ -368,6 +368,7 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 <!-- TAB BAR -->
 <div class="tab-bar" id="tab-bar">
   <div class="tab-btn active" onclick="showTab('overview')">Overview</div>
+  <div class="tab-btn" onclick="showTab('background')">Background</div>
   <div class="tab-btn" onclick="showTab('combat')">Combat</div>
   <div class="tab-btn" onclick="showTab('magic')">Magic</div>
   <div class="tab-btn" onclick="showTab('leverage')">Leverage</div>
@@ -418,6 +419,35 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
   <div class="section">
     <div class="section-title">Recent Loot</div>
     <div id="ov-loot-snap"></div>
+  </div>
+</div>
+</div>
+
+<!-- TAB: BACKGROUND -->
+<div class="tab-content" id="tab-background">
+<div class="tab-inner">
+  <div class="section">
+    <div class="section-title">Identity</div>
+    <div class="ov-row"><span class="ov-label">Succession</span><span class="ov-val" id="bg-succession">—</span></div>
+    <div class="ov-row"><span class="ov-label">Origin City</span><span class="ov-val" id="bg-origin">—</span></div>
+    <div class="ov-row"><span class="ov-label">Standing With Hector</span><span class="ov-val" id="bg-hector">—</span></div>
+    <div class="ov-row"><span class="ov-label">Standing As Heir</span><span class="ov-val" id="bg-standing">—</span></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Story Hooks</div>
+    <div id="bg-hooks"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Ideals &amp; Orientation</div>
+    <div id="bg-ideals"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Five-Year History</div>
+    <div id="bg-years"></div>
+  </div>
+  <div class="section">
+    <div class="section-title">Exploration</div>
+    <div id="bg-exploration"></div>
   </div>
 </div>
 </div>
@@ -875,6 +905,18 @@ const NPC_LIST=[
 // ═══════════════════ STATE ═══════════════════
 let state={
   setup:{name:'',house:'',succession:'',school:'',tier:1,weapon:'',presence:'Baseline',style:'',technique:''},
+  // Identity/backstory data from the Heir Record export — previously
+  // imported nowhere on the Play Sheet at all (succession made it as
+  // far as state.setup but was never actually displayed; everything
+  // else here didn't even get that far). Found via GM feedback: the
+  // player's own sheet showed the mechanical layer (combat/magic/
+  // leverage/contacts) but none of "who is this character."
+  background:{
+    originCity:'', heirStanding:'', hectorRelation:null,
+    ideal1:'', ideal2:'', orientation:{acquire:'',hold:'',use:''},
+    founding:'', foundingDetail:'', shadow:'', shadowDetail:'', wound:'', woundDetail:'',
+    studyYears:[], civilizationSpecialty:'', soloDepthCapability:1, caravanProfile:[],
+  },
   strain:0,       // 0-4
   stamina:0,      // 0-3
   wounds:[],      // array of wound keys
@@ -960,6 +1002,12 @@ function importFromS0(input){
       if(state.setup.name&&state.setup.name!==heirName){
         state={
           setup:{name:'',house:'',succession:'',school:'',tier:1,weapon:'',presence:'Baseline',style:'',technique:''},
+          background:{
+            originCity:'', heirStanding:'', hectorRelation:null,
+            ideal1:'', ideal2:'', orientation:{acquire:'',hold:'',use:''},
+            founding:'', foundingDetail:'', shadow:'', shadowDetail:'', wound:'', woundDetail:'',
+            studyYears:[], civilizationSpecialty:'', soloDepthCapability:1, caravanProfile:[],
+          },
           strain:0,stamina:0,wounds:[],phase:'Effort',dissolution:'',secondSchool:'',
           magicCount:0,tier2Available:false,tier2Picked:false,secondSchoolAvailable:false,secondSchoolPicked:false,
           leverage:{kingHector:0,royalChamberlain:0,merchantConsortium:0,cityWatch:0,dockworkersUnion:0,courierNetwork:0,churchOfAxiom:0,scholarsGuild:0,outskirtsBroker:0},
@@ -979,6 +1027,25 @@ function importFromS0(input){
         presence:cp.presenceLevel||'Baseline',
         style:cp.fightingStyle||'',
         technique:cp.signatureTechnique||'',
+      };
+
+      // Identity/backstory — see state.background's own comment for why
+      // this wasn't here at all before.
+      const hse=data.house||{};
+      const expl=data.explorationProfile||{};
+      state.background={
+        originCity:i.originCity||'',
+        heirStanding:hse.heirStanding||'',
+        hectorRelation:i.hectorRelation??null,
+        ideal1:hse.ideal1||'', ideal2:hse.ideal2||'',
+        orientation:hse.orientation||{acquire:'',hold:'',use:''},
+        founding:hse.founding||'', foundingDetail:hse.foundingDetail||'',
+        shadow:hse.shadow||'', shadowDetail:hse.shadowDetail||'',
+        wound:hse.wound||'', woundDetail:hse.woundDetail||'',
+        studyYears:data.study?.years||[],
+        civilizationSpecialty:expl.civilizationSpecialty||'',
+        soloDepthCapability:expl.soloDepthCapability||1,
+        caravanProfile:data.caravanProfile||[],
       };
 
       // Pre-load signature technique from session zero if provided
@@ -1060,6 +1127,25 @@ function importFromS0(input){
       // Pre-populate NPCs as contacts
       if(data.npcs){
         const npcs=data.npcs;
+        // Councillor was previously excluded from this loop entirely —
+        // arguably the player's most mechanically important personal
+        // relationship never showed up as a contact on their own sheet.
+        // Handled as its own branch rather than folded into the generic
+        // mapping below, since its actual fields (reputation/goal/fear/
+        // expects) don't match the ally/rival shape (faction/type/want/
+        // knows) that mapping assumes.
+        const councillor=npcs.councillor;
+        if(councillor?.name&&!state.contacts.find(c=>c.name===councillor.name)){
+          state.contacts.push({
+            name:councillor.name,
+            faction:i.councillorTitle||'Councillor',
+            want:councillor.goal||'—',
+            know:[councillor.reputation?`Reputation: ${councillor.reputation}`:'',councillor.fear?`Fears: ${councillor.fear}`:'',councillor.expects?`Expects: ${councillor.expects}`:''].filter(Boolean).join(' · ')||'—',
+            available:'Check with GM',
+            type:'ally',
+            activated:false,
+          });
+        }
         ['ally','rival','contact','wildCard'].forEach(key=>{
           const npc=npcs[key];
           if(npc?.name&&!state.contacts.find(c=>c.name===npc.name)){
@@ -1898,10 +1984,69 @@ function addDebt(){
 }
 function removeDebt(i){state.debts.splice(i,1);save();renderLeverage();}
 
+// ═══════════════════ BACKGROUND TAB ═══════════════════
+function renderBackground(){
+  const b=state.background||{};
+  const se=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  se('bg-succession',state.setup.succession||'Unstated');
+  se('bg-origin',b.originCity||'Unstated');
+  se('bg-hector',b.hectorRelation||'Unstated');
+  se('bg-standing',b.heirStanding||'Unstated');
+
+  const hooksEl=document.getElementById('bg-hooks');
+  if(hooksEl){
+    const rows=[
+      b.founding?{label:'Founding',text:b.founding,detail:b.foundingDetail}:null,
+      b.shadow?{label:'Shadow',text:b.shadow,detail:b.shadowDetail}:null,
+      b.wound?{label:'Wound',text:b.wound,detail:b.woundDetail}:null,
+    ].filter(Boolean);
+    hooksEl.innerHTML=rows.length
+      ?rows.map(r=>`<div style="margin-bottom:.5rem;font-size:.85rem;color:var(--vellum-dim);line-height:1.5;"><strong style="color:var(--gold-dim);">${r.label} —</strong> ${r.text}${r.detail?` — ${r.detail}`:''}</div>`).join('')
+      :`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">No story hooks recorded.</div>`;
+  }
+
+  const idealsEl=document.getElementById('bg-ideals');
+  if(idealsEl){
+    const ideals=[b.ideal1,b.ideal2].filter(Boolean).join(', ');
+    const orient=b.orientation||{};
+    const orientBits=[orient.acquire,orient.hold,orient.use].filter(Boolean).join(' · ');
+    const lines=[];
+    if(ideals)lines.push(`<div class="ov-row"><span class="ov-label">Ideals</span><span class="ov-val">${ideals}</span></div>`);
+    if(orientBits)lines.push(`<div class="ov-row"><span class="ov-label">Acquire · Hold · Use</span><span class="ov-val">${orientBits}</span></div>`);
+    idealsEl.innerHTML=lines.length?lines.join(''):`<div style="font-size:.78rem;color:var(--vellum-faint);font-style:italic;">Not recorded.</div>`;
+  }
+
+  const yearsEl=document.getElementById('bg-years');
+  if(yearsEl){
+    // Same roman-numeral-plus-age labeling the Heir Record's own summary
+    // strip uses, so a year here means the same thing it did there.
+    const labels=['I·13','II·14','III·15','IV·16','V·17'];
+    const years=b.studyYears||[];
+    yearsEl.innerHTML=labels.map((lbl,i)=>{
+      const d=years[i];
+      if(!d||!d.aspect)return `<div style="font-size:.82rem;color:var(--vellum-faint);font-style:italic;padding:.15rem 0;">Year ${lbl} — unrecorded</div>`;
+      const picks=[d.subs?.p1,d.subs?.p2,d.subs?.p3].filter(Boolean).join(' → ');
+      const aspectName=d.aspect.charAt(0).toUpperCase()+d.aspect.slice(1);
+      return `<div style="font-size:.82rem;color:var(--vellum-dim);padding:.15rem 0;"><strong style="color:var(--vellum);">Year ${lbl}</strong> — ${aspectName}${picks?`: ${picks}`:''}</div>`;
+    }).join('');
+  }
+
+  const explEl=document.getElementById('bg-exploration');
+  if(explEl){
+    const lines=[
+      `<div class="ov-row"><span class="ov-label">Civilization Specialty</span><span class="ov-val">${b.civilizationSpecialty||'None'}</span></div>`,
+      `<div class="ov-row"><span class="ov-label">Solo Depth Capability</span><span class="ov-val">D${b.soloDepthCapability||1}</span></div>`,
+    ];
+    if(b.caravanProfile?.length)lines.push(`<div class="ov-row"><span class="ov-label">Caravan Training</span><span class="ov-val">${b.caravanProfile.join(', ')}</span></div>`);
+    explEl.innerHTML=lines.join('');
+  }
+}
+
 // ═══════════════════ RENDER ALL ═══════════════════
 function renderAll(){
   renderHeader();
   renderOverview();
+  renderBackground();
   renderCombat();
   renderMagic();
   renderLeverage();
