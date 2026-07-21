@@ -209,6 +209,14 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 .stamina-btn.active-2{border-color:var(--crimson);color:var(--amber-bright);background:rgba(140,58,26,0.1);}
 .stamina-btn.active-3{border-color:var(--crimson);color:var(--crimson-bright);background:rgba(140,58,26,0.15);}
 .presence-display{font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.08em;color:var(--vellum);padding:.5rem .7rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.12);display:flex;justify-content:space-between;align-items:center;}
+.presence-live-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.6rem;}
+.presence-live-chip{padding:.5rem .4rem;border:1px solid rgba(201,169,110,0.15);background:var(--night-2);display:flex;flex-direction:column;gap:.15rem;text-align:center;}
+.presence-live-chip.degraded{border-color:var(--crimson);background:rgba(140,58,26,0.1);}
+.presence-live-name{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--vellum-faint);}
+.presence-live-status{font-family:'Cinzel',serif;font-size:.68rem;font-weight:600;color:var(--forest-bright);}
+.presence-live-chip.degraded .presence-live-status{color:var(--crimson-bright);}
+.presence-live-cause{font-size:.64rem;color:var(--vellum-dim);line-height:1.3;min-height:1em;}
+@media(max-width:600px){.presence-live-grid{grid-template-columns:1fr;}.presence-live-chip{flex-direction:row;justify-content:space-between;text-align:left;}}
 
 /* ══════════════════════════════════
    MAGIC TAB
@@ -486,6 +494,23 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
     <div class="presence-display">
       <span id="presence-label" style="font-size:.78rem;"></span>
       <span id="weapon-label" style="font-family:'Cinzel',serif;font-size:.68rem;color:var(--gold-dim);"></span>
+    </div>
+    <div class="presence-live-grid" id="presence-live-grid">
+      <div class="presence-live-chip" id="presence-chip-read">
+        <span class="presence-live-name">Read</span>
+        <span class="presence-live-status" id="presence-status-read"></span>
+        <span class="presence-live-cause" id="presence-cause-read"></span>
+      </div>
+      <div class="presence-live-chip" id="presence-chip-commit">
+        <span class="presence-live-name">Commit</span>
+        <span class="presence-live-status" id="presence-status-commit"></span>
+        <span class="presence-live-cause" id="presence-cause-commit"></span>
+      </div>
+      <div class="presence-live-chip" id="presence-chip-hold">
+        <span class="presence-live-name">Hold</span>
+        <span class="presence-live-status" id="presence-status-hold"></span>
+        <span class="presence-live-cause" id="presence-cause-hold"></span>
+      </div>
     </div>
     <div id="weapon-specialty-note" style="font-size:.78rem;color:var(--vellum-dim);font-style:italic;padding:.5rem .7rem;background:var(--night-2);border:1px solid rgba(201,169,110,0.1);margin-top:.4rem;line-height:1.55;display:none;"></div>
     <div id="combat-identity-row" style="display:none;margin-top:.6rem;gap:.5rem;flex-direction:column;">
@@ -1450,6 +1475,53 @@ function renderHeader(){
   }
 }
 
+// Presence has three components — Read, Commit, Hold — that degrade from
+// specific triggers per the SRD (Ch.4), not as a single aggregate number.
+// The wound toggles and stamina selector above already capture the
+// triggers; this just reads them back out as the three statuses a player
+// would otherwise have to cross-reference the SRD text to work out.
+const STAMINA_LABELS=['Fresh','Winded','Strained','Spent'];
+function computePresenceState(){
+  const wounds=state.wounds||[];
+  const stamina=state.stamina||0;
+  const staminaLabel=STAMINA_LABELS[stamina];
+  const hasPresenceWound=wounds.includes('presence');
+
+  const read={causes:[]};
+  if(wounds.includes('head'))read.causes.push('Head wound');
+  if(stamina>=2)read.causes.push(`Stamina: ${staminaLabel}`);
+  if(hasPresenceWound)read.causes.push('Presence wound');
+  read.degraded=read.causes.length>0;
+
+  const commit={causes:[]};
+  if(wounds.includes('weapon-arm'))commit.causes.push('Weapon Arm wound');
+  if(stamina>=3)commit.causes.push(`Stamina: ${staminaLabel}`);
+  if(hasPresenceWound)commit.causes.push('Presence wound');
+  commit.degraded=commit.causes.length>0;
+
+  const hold={causes:[]};
+  if(wounds.includes('shield-arm'))hold.causes.push('Shield Arm wound');
+  if(wounds.includes('legs'))hold.causes.push('Leg wound');
+  if(stamina>=1)hold.causes.push(`Stamina: ${staminaLabel}`);
+  if(hasPresenceWound)hold.causes.push('Presence wound');
+  hold.degraded=hold.causes.length>0;
+
+  return {read,commit,hold};
+}
+function renderPresenceLive(){
+  const p=computePresenceState();
+  ['read','commit','hold'].forEach(key=>{
+    const chip=document.getElementById(`presence-chip-${key}`);
+    const status=document.getElementById(`presence-status-${key}`);
+    const cause=document.getElementById(`presence-cause-${key}`);
+    if(!chip||!status||!cause)return;
+    const c=p[key];
+    chip.classList.toggle('degraded',c.degraded);
+    status.textContent=c.degraded?'Degraded':'Full';
+    cause.textContent=c.causes.join(' · ');
+  });
+}
+
 // ═══════════════════ COMBAT TAB ═══════════════════
 function renderCombat(){
   const s=state.setup;
@@ -1457,6 +1529,7 @@ function renderCombat(){
   const weapEl=document.getElementById('weapon-label');
   const specNote=document.getElementById('weapon-specialty-note');
   if(presEl)presEl.textContent=`Presence: ${s.presence}`;
+  renderPresenceLive();
   if(weapEl)weapEl.textContent=s.weapon?`${s.weapon} — ${WEAPON_SPECIALTIES[s.weapon]?.split('—')[0].trim()||s.weapon}`:'No weapon training';
   if(specNote&&s.weapon&&WEAPON_SPECIALTIES[s.weapon]){
     specNote.textContent=WEAPON_SPECIALTIES[s.weapon];
