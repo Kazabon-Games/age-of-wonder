@@ -6,19 +6,36 @@
 <title>Age of Wonder — Wonderland · World Map</title>
 <!-- ═══════════════════════════════════════════════════════════════════
      Age of Wonder — World Map (Wonderland companion tool)
-     Version: 1.0.0
+     Version: 2.0.0
      ───────────────────────────────────────────────────────────────────
-     A fifth standalone document, reading the SAME localStorage the GM
-     Screen writes to ('aow-gm-screen-v1') so it's always in sync with
-     whatever heirs are already imported into Wonderland — no separate
-     import step. Owns its own storage key ('aow-world-map-v1') for
-     ruin-pin state so it never touches GM Screen's schema; the reward
-     generator (CIVILIZATIONS/DEPTH_TABLE/generateReward) is a verbatim
-     port of GM Screen's Tools-mode generator so pins can be created
-     here even if GM Screen isn't open, and the "export to player"
-     payload shape matches GM Screen's confirmRewardExport() exactly so
-     a pinned discovery drops straight into a Play Sheet's loot/document
-     list with zero changes needed on that end.
+     CHANGELOG
+     v2.0.0 — Cartography redesign: gems out, grid-and-legend in.
+       Producer feedback on v1.0.0 verbatim: "the gem thing is a waste, I
+       just need a legend, simpler is better... I had liked the map on the
+       heir record." v1.0.0 rendered every district/landmark/pin as a
+       Canvas 2D faceted gem (drawFacetedShape/SHAPE_DEFS), with ambient
+       particles, glow, and full camera pan/zoom (wheel, drag, pinch).
+       That's the studio's proven arcade technique, carried into a GM
+       reference tool where it added render/hit-test complexity and
+       label-collision bugs without making anything faster to read.
+       This version replaces the whole rendering approach with the exact
+       register the producer called out — aow_heir_record.html's
+       renderMap(): a plain CSS grid plan view (.map-grid/.mc), districts
+       colored by controlling house, labeled NPCs, no canvas. A single
+       permanent Legend panel (not a tooltip) documents every color/icon
+       used. Canvas, SHAPE_DEFS, particles, and camera pan/zoom/pinch are
+       removed entirely — see the report delivered alongside this build
+       for the full list of what was cut and why.
+       Functional scope is unchanged: Shemsara district layout, landmarks
+       inside districts, the Shemsara/Aetheria Nova city toggle, GM-placed
+       exploration pins with civilization/depth tags, and live reads of
+       the same imported heir-record JSON GM Screen uses — all preserved.
+       Only material schema change: ruin pins now attach to a named zone
+       (a home city or "the Outskirts") instead of a raw canvas x/y pixel
+       coordinate, since there's no continuous canvas space left to place
+       a pixel on. Old saved pins (x/y, no zone) still load — they fall
+       back to the Outskirts zone rather than erroring or vanishing.
+     v1.0.0 — original Canvas 2D faceted-gem build (see git history).
      ─────────────────────────────────────────────────────────────────── -->
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
 <style>
@@ -58,12 +75,10 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 
 /* ══════ LAYOUT ══════ */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
-#mapCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;}
-#mapCanvas.panning{cursor:grabbing;}
+#main{flex:1;min-height:0;overflow-y:auto;padding:1.4rem 1.4rem 3rem;}
 
 /* ══════ TOOLBAR ══════ */
-#toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:.7rem;padding:.65rem 1rem;background:linear-gradient(var(--night-panel),rgba(20,16,8,0.85) 80%,transparent);border-bottom:1px solid var(--panel-border);flex-wrap:wrap;pointer-events:none;}
-#toolbar>*{pointer-events:auto;}
+#toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:.7rem;padding:.65rem 1rem;background:linear-gradient(var(--night-panel),rgba(20,16,8,0.85) 80%,transparent);border-bottom:1px solid var(--panel-border);flex-wrap:wrap;}
 .tb-title{font-family:'Cinzel Decorative',serif;font-size:1.05rem;color:var(--gold-bright);letter-spacing:.03em;margin-right:.4rem;white-space:nowrap;}
 .tb-title small{display:block;font-family:'Cinzel',serif;font-size:.42rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);margin-top:.15rem;}
 .layer-toggle{display:flex;border:1px solid var(--panel-border);background:var(--night-mid);}
@@ -79,6 +94,49 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .tb-icon-btn:hover{border-color:var(--gold-dim);color:var(--vellum-mid);}
 .sync-note{font-family:'EB Garamond',serif;font-style:italic;font-size:.72rem;color:var(--ink-light);white-space:nowrap;}
 .sync-note.warn{color:var(--crimson-bright);}
+
+/* ══════ EMPTY-STATE BANNER ══════ */
+#empty-banner{display:none;text-align:center;max-width:460px;margin:1.5rem auto;padding:1.2rem 2rem;background:rgba(139,105,20,0.06);border:1px solid var(--panel-border);}
+#empty-banner.show{display:block;}
+#empty-banner .eb-title{font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold-bright);margin-bottom:.6rem;}
+#empty-banner .eb-body{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);line-height:1.7;}
+
+/* ══════ MAP REGION — plain CSS grid, the register from aow_heir_record's
+   renderMap(): districts/cities as labeled, house-colored cells, no canvas.
+   ══════ */
+.map-region{display:flex;gap:1.2rem;align-items:flex-start;max-width:1180px;margin:0 auto;}
+.map-panel{flex:1;min-width:0;background:var(--night-panel);border:1px solid var(--panel-border);padding:1.2rem;}
+.map-title{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);text-align:center;margin-bottom:1rem;}
+.map-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:640px;margin:0 auto;}
+.mc{padding:.55rem .4rem;text-align:center;border:1px solid var(--panel-border);min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:border-color .15s,background .15s;position:relative;background:var(--night-mid);}
+.mc.clickable{cursor:pointer;}
+.mc.clickable:hover{border-color:var(--gold-dim);}
+.mc.clickable:focus-visible{outline:2px solid var(--gold-bright);outline-offset:2px;}
+.mc.out{background:rgba(139,105,20,0.05);grid-column:1/-1;min-height:auto;padding:.5rem;}
+.mc.spacer{background:transparent;border-color:transparent;min-height:64px;}
+.mc.castle,.mc.hub{background:rgba(201,169,110,0.08);border-color:var(--gold-dim);}
+.mc.park{background:rgba(42,90,58,0.12);border-color:rgba(42,90,58,0.35);}
+.mc-lbl{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-light);display:block;margin-bottom:.15rem;}
+.mc-name{font-family:'Cinzel',serif;font-size:.68rem;color:var(--vellum-mid);display:block;line-height:1.3;}
+.mc-house{font-family:'EB Garamond',serif;font-size:.72rem;font-style:italic;display:block;margin-top:.2rem;color:var(--vellum-dark);}
+.mc-npc{font-family:'EB Garamond',serif;font-size:.66rem;color:var(--ink-light);display:block;margin-top:.15rem;}
+.mc-dot{width:9px;height:9px;border-radius:50%;margin:0 auto .2rem;display:block;border:1px solid rgba(255,255,255,0.25);}
+.mc-sigil{width:26px;height:26px;border-radius:50%;object-fit:cover;margin:0 auto .2rem;border:1px solid rgba(255,255,255,0.25);display:block;}
+.mc-chips{display:flex;flex-wrap:wrap;gap:.3rem;justify-content:center;margin-top:.35rem;}
+.mc-chip{font-family:'EB Garamond',serif;font-size:.64rem;padding:.12rem .4rem;border:1px solid var(--panel-border);border-left-width:3px;background:var(--night-panel);color:var(--vellum-mid);cursor:pointer;line-height:1.4;}
+.mc-chip:hover{border-color:var(--gold-dim);}
+.mc-chip:focus-visible{outline:2px solid var(--gold-bright);outline-offset:1px;}
+
+/* ══════ LEGEND — permanent, visible, never a tooltip/modal ══════ */
+.legend-panel{width:250px;flex-shrink:0;background:var(--night-panel);border:1px solid var(--panel-border);padding:1.1rem;position:sticky;top:0;}
+.legend-title{font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-bright);margin-bottom:.9rem;}
+.legend-section{margin-bottom:1rem;}
+.legend-section:last-child{margin-bottom:0;}
+.legend-section-title{font-family:'Cinzel',serif;font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;}
+.legend-row{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.78rem;color:var(--vellum-mid);}
+.legend-swatch{width:12px;height:12px;flex-shrink:0;border:1px solid rgba(255,255,255,0.2);}
+.legend-swatch.round{border-radius:50%;}
+.legend-empty{font-style:italic;font-size:.74rem;color:var(--ink-light);padding:.2rem 0;}
 
 /* ══════ SIDE DRAWER ══════ */
 #drawer{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:88vw;background:var(--night-panel);border-left:1px solid var(--panel-border);box-shadow:-12px 0 30px rgba(0,0,0,0.4);transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.9,.3,1);z-index:40;overflow-y:auto;padding:1.3rem 1.2rem;}
@@ -155,17 +213,20 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 .modal-btn.primary{border-color:var(--gold);color:var(--gold);}
 .modal-btn.primary:hover{background:var(--gold-faint);}
 
-/* ══════ EMPTY-STATE BANNER ══════ */
-#empty-banner{position:absolute;top:14%;left:50%;transform:translateX(-50%);text-align:center;max-width:420px;padding:1.2rem 2rem;z-index:5;display:none;pointer-events:none;background:rgba(15,13,10,0.7);border:1px solid var(--panel-border);}
-#empty-banner.show{display:block;}
-#empty-banner .eb-title{font-family:'Cinzel',serif;font-size:.95rem;color:var(--gold-bright);margin-bottom:.6rem;}
-#empty-banner .eb-body{font-family:'EB Garamond',serif;font-style:italic;font-size:.88rem;color:var(--ink-light);line-height:1.7;}
-
 /* ══════ MOBILE ══════ */
+@media(max-width:900px){
+  .map-region{flex-direction:column;}
+  .legend-panel{width:100%;position:static;}
+}
 @media(max-width:640px){
   .tb-title{font-size:.85rem;}
   .sync-note{display:none;}
   #drawer{width:100vw;max-width:100vw;}
+  .map-grid{grid-template-columns:repeat(3,1fr);max-width:100%;}
+  .mc.out{grid-column:1/-1;}
+}
+@media(max-width:420px){
+  .map-grid{grid-template-columns:repeat(2,1fr);}
 }
 
 /* scrollbars */
@@ -187,16 +248,37 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     <button class="tb-btn primary" onclick="openGeneratorModal()">✦ Chart a Discovery</button>
     <span class="sync-note" id="sync-note"></span>
     <div class="tb-spacer"></div>
-    <button class="tb-icon-btn" id="reset-view-btn" onclick="resetView()" title="Reset pan/zoom" aria-label="Reset pan and zoom">⊙</button>
     <button class="tb-icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle light/dark theme">◐</button>
   </div>
 
-  <canvas id="mapCanvas" tabindex="0" role="img" aria-label="Interactive map"></canvas>
+  <main id="main">
+    <div id="empty-banner">
+      <div class="eb-title">No heirs imported yet</div>
+      <div class="eb-body">Import heir records into the GM Screen first — the map reads the same world state Wonderland does. Once heirs are imported there, hit "Refresh from Wonderland" above.</div>
+    </div>
 
-  <div id="empty-banner">
-    <div class="eb-title">No heirs imported yet</div>
-    <div class="eb-body">Import heir records into the GM Screen first — the map reads the same world state Wonderland does. Once heirs are imported there, hit "Refresh from Wonderland" above.</div>
-  </div>
+    <div class="map-region">
+      <div class="map-panel">
+        <div class="map-title" id="map-panel-title">Shemsara · Plan of the City · Districts Colored by House</div>
+        <div class="map-grid" id="map-grid"></div>
+      </div>
+      <aside class="legend-panel" aria-label="Map legend">
+        <div class="legend-title">Legend</div>
+        <div class="legend-section">
+          <div class="legend-section-title">House Colors</div>
+          <div id="legend-houses"></div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-section-title">Landmark Marks</div>
+          <div id="legend-landmarks"></div>
+        </div>
+        <div class="legend-section">
+          <div class="legend-section-title">Exploration Pins</div>
+          <div id="legend-pins"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
 </div>
 
 <!-- SIDE DRAWER -->
@@ -231,9 +313,13 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
     </div>
     <button class="tb-btn primary" style="width:100%;" onclick="rollDiscovery()">Roll the Discovery</button>
     <div id="gen-result"></div>
+    <div class="gen-field" id="gen-zone-field" style="display:none;margin-top:.7rem;">
+      <label class="gen-label" for="gen-zone">Place at</label>
+      <select class="gen-select" id="gen-zone"></select>
+    </div>
     <div class="modal-btn-row">
       <button class="modal-btn" onclick="closeGeneratorModal()">Cancel</button>
-      <button class="modal-btn primary" id="gen-place-btn" onclick="beginPinPlacement()" style="display:none;">Place on Map →</button>
+      <button class="modal-btn primary" id="gen-place-btn" onclick="commitPinPlacement()" style="display:none;">Place on Map →</button>
     </div>
   </div>
 </div>
@@ -338,26 +424,8 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
    SHARED HELPERS — ported verbatim from the rest of the toolkit
    ═══════════════════════════════════════════ */
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function shadeHex(hex, dLight, dSat){
-  dSat = dSat || 0;
-  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
-  const max = Math.max(r,g,b), min = Math.min(r,g,b);
-  let h, s, l = (max+min)/2;
-  if(max===min){ h=s=0; }
-  else {
-    const d = max-min;
-    s = l>0.5 ? d/(2-max-min) : d/(max+min);
-    switch(max){
-      case r: h=(g-b)/d+(g<b?6:0); break;
-      case g: h=(b-r)/d+2; break;
-      case b: h=(r-g)/d+4; break;
-    }
-    h/=6;
-  }
-  h*=360; s = clamp(s*100+dSat,0,100); l = clamp(l*100+dLight,0,100);
-  return `hsl(${h.toFixed(0)}, ${s.toFixed(0)}%, ${l.toFixed(0)}%)`;
-}
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // _aowOverlayStack tracks nested open overlays so opening one modal
 // while another is already open (e.g. the bug-report widget over the
@@ -428,107 +496,18 @@ function toggleTheme(){
 })();
 
 /* ═══════════════════════════════════════════
-   DISTRICT / CITY SHAPE DATA
-   Per the studio's own faceted-gem-rendering skill: any named, singular
-   entity a player needs to tell apart by silhouette (not just color) gets
-   a hand-authored, irregular {angle,radiusMultiplier} vertex list — never
-   a uniform ngon() generator. Nine districts/landmarks below, each with a
-   genuinely different silhouette evocative of its character (Military =
-   blocky/shielded, Religious = single dominant spire, Magical = sharp
-   crystal points, Agricultural = soft organic bumps, etc.) rather than
-   the same polygon recolored nine times.
+   DISTRICT / CITY DATA
+   Same six districts, same NPC pairings as the canonical layout already
+   established in the Heir Record's session-zero map preview (renderMap()
+   there) — this map reads that same shape, not a reinvented one.
    ═══════════════════════════════════════════ */
-// Redesigned after an honest zoomed side-by-side check (per the studio's
-// own faceted-gem-rendering skill's verification rule) found the first
-// pass had fallen into the exact trap the skill warns about: technique
-// correct, but every shape was an 8-vertex "alternate tall/short" template
-// with only the magnitude values tweaked — castle/Religious/shemsara/
-// architect all collapsed into the same generic "4-point star," and
-// Military/Scholarly were indistinguishable blunt pinwheels. This pass
-// varies VERTEX COUNT and alternation DEPTH per shape, not just the
-// numbers within one template, so each one is structurally different —
-// a real crown, a single spire, a blunt hexagon, a toothed gear — not
-// nine reskins of the same silhouette.
-const SHAPE_DEFS = {
-  // crown — 12 points, six real spikes. Reads as an ornate crown at a
-  // glance specifically because of the point DENSITY, not just height.
-  castle: [{a:0.00,m:1.15},{a:0.07,m:0.60},{a:0.15,m:0.95},{a:0.22,m:0.55},{a:0.33,m:1.10},{a:0.40,m:0.58},{a:0.50,m:1.30},{a:0.58,m:0.55},{a:0.67,m:1.05},{a:0.75,m:0.60},{a:0.85,m:0.95},{a:0.92,m:0.62}],
-  // blunt hexagon, mild alternation — armored/blocky, deliberately NOT spiky
-  Military: [{a:0.00,m:1.00},{a:0.17,m:0.86},{a:0.33,m:1.06},{a:0.50,m:0.80},{a:0.67,m:1.04},{a:0.83,m:0.88}],
-  // coin/diamond cluster — medium alternation, 8 points
-  Trade: [{a:0.00,m:1.00},{a:0.14,m:0.76},{a:0.26,m:1.10},{a:0.40,m:0.72},{a:0.55,m:1.06},{a:0.68,m:0.78},{a:0.82,m:1.04},{a:0.92,m:0.82}],
-  // single dominant spire on a low base — only 5 points, one very tall,
-  // the rest deliberately flat. Reads as a temple roof, not a star.
-  Religious: [{a:0.00,m:1.45},{a:0.15,m:0.42},{a:0.35,m:0.62},{a:0.55,m:0.40},{a:0.78,m:0.58}],
-  // blunt block/stack — 8 points but LOW alternation (0.85-1.06), so it
-  // reads as an irregular solid mass (stacked archive shelves), not a
-  // star — structurally the opposite of Magical below despite same count.
-  Scholarly: [{a:0.00,m:0.92},{a:0.13,m:1.06},{a:0.25,m:0.86},{a:0.38,m:1.04},{a:0.50,m:0.88},{a:0.63,m:1.06},{a:0.75,m:0.84},{a:0.88,m:1.00}],
-  // soft organic bumps — 6 points, gentle range, no sharp points anywhere
-  Agricultural: [{a:0.00,m:0.92},{a:0.18,m:1.08},{a:0.36,m:0.88},{a:0.54,m:1.10},{a:0.72,m:0.85},{a:0.88,m:1.02}],
-  // sharp crystal — 8 points, EXTREME alternation (0.35-1.35), the
-  // sharpest points on the map by design, contrasting Scholarly's blunt
-  // 8-point block
-  Magical: [{a:0.00,m:1.30},{a:0.08,m:0.35},{a:0.22,m:1.10},{a:0.30,m:0.38},{a:0.50,m:1.35},{a:0.58,m:0.36},{a:0.75,m:1.05},{a:0.83,m:0.40}],
-  park: [{a:0.00,m:0.90},{a:0.25,m:1.00},{a:0.50,m:0.88},{a:0.75,m:1.00}],
-  // Shemsara-from-a-distance — a rounder, fewer-pointed cousin of the
-  // castle's crown (same city, but this is the kingdom-scale abstraction,
-  // not the detailed city-scale crest) — the two never render side by
-  // side (different layers), so a family resemblance here is correct,
-  // not a collision, as long as it doesn't match anything else on ITS
-  // own layer (it doesn't — home cities below are all lower point-count).
-  shemsara: [{a:0.00,m:1.10},{a:0.12,m:0.65},{a:0.28,m:0.92},{a:0.42,m:0.60},{a:0.58,m:1.20},{a:0.72,m:0.62},{a:0.88,m:0.90}],
-  // ruin-pin markers — smaller UI markers that DO all appear together on
-  // the kingdom map, so these three need to read apart from each other
-  // first and foremost, not just from the districts.
-  // gear/mechanism — 16 small EVEN teeth. Deliberately the most regular
-  // shape on the map: a machine reads as mechanically precise, which is
-  // itself the distinguishing cue against every hand-irregular district/
-  // city shape around it.
-  architect: [{a:0.00,m:1.0},{a:0.06,m:0.72},{a:0.13,m:1.0},{a:0.19,m:0.72},{a:0.25,m:1.0},{a:0.31,m:0.72},{a:0.38,m:1.0},{a:0.44,m:0.72},{a:0.50,m:1.0},{a:0.56,m:0.72},{a:0.63,m:1.0},{a:0.69,m:0.72},{a:0.75,m:1.0},{a:0.81,m:0.72},{a:0.88,m:1.0},{a:0.94,m:0.72}],
-  // formal wax-seal — 7 points, tight alternation, stable and document-like
-  predecessor: [{a:0.00,m:1.02},{a:0.14,m:0.94},{a:0.29,m:1.06},{a:0.43,m:0.90},{a:0.57,m:1.08},{a:0.71,m:0.88},{a:0.86,m:1.00}],
-  // fractured/asymmetric — kept from the original pass, already reads
-  // correctly as "wrong" against everything else on the map
-  void: [{a:0.00,m:1.20},{a:0.10,m:0.40},{a:0.30,m:0.90},{a:0.38,m:1.15},{a:0.55,m:0.35},{a:0.68,m:1.00},{a:0.85,m:0.55}],
-  // landmark markers — small satellite icons a GM drops inside a district
-  // while populating it (the church in the Religious district, etc). These
-  // render much smaller than district/city gems, so each needed a silhouette
-  // that stays legible at ~16px radius, not just at gallery size.
-  // shrine — single tall spire on a narrow base, echo of Religious's temple
-  // roof at a smaller point-count so it reads clean at marker scale
-  lm_shrine: [{a:0.00,m:1.50},{a:0.22,m:0.45},{a:0.50,m:0.65},{a:0.78,m:0.45}],
-  // market — low wide stall/awning, flat-topped rather than pointed
-  lm_market: [{a:0.00,m:0.85},{a:0.20,m:1.05},{a:0.40,m:0.80},{a:0.60,m:1.05},{a:0.80,m:0.80}],
-  // tower — tall narrow four-point, almost a blade, distinct from the shrine's
-  // single-spire-on-flat-base by being even ALL the way around instead
-  lm_tower: [{a:0.00,m:1.55},{a:0.25,m:0.55},{a:0.50,m:1.55},{a:0.75,m:0.55}],
-  // gate — twin peaks with a deep notch between them, an archway silhouette
-  lm_gate: [{a:0.00,m:1.30},{a:0.12,m:0.85},{a:0.25,m:0.30},{a:0.50,m:0.85},{a:0.75,m:0.30},{a:0.88,m:0.85}],
-  // hall/tavern — rounded blunt hexagon, warm and low, nothing pointed at all
-  lm_hall: [{a:0.00,m:0.95},{a:0.17,m:1.02},{a:0.33,m:0.90},{a:0.50,m:1.00},{a:0.67,m:0.92},{a:0.83,m:1.00}],
-  // dock/water — wavy asymmetric ripple, 6 points, alternating short/long
-  // in an irregular (not evenly-spaced) rhythm to read as water, not a gear
-  lm_dock: [{a:0.00,m:1.10},{a:0.14,m:0.55},{a:0.32,m:0.95},{a:0.50,m:0.50},{a:0.68,m:1.00},{a:0.86,m:0.48}],
-  // ruins/tomb — jagged broken outline, low and irregular, deliberately the
-  // most asymmetric marker on the map (nothing here should look intact)
-  lm_ruins: [{a:0.00,m:1.05},{a:0.09,m:0.30},{a:0.24,m:0.75},{a:0.36,m:1.20},{a:0.50,m:0.40},{a:0.64,m:0.90},{a:0.80,m:0.60},{a:0.92,m:1.00}],
-  // generic landmark — plain diamond, the deliberately "unmarked" catch-all
-  lm_generic: [{a:0.00,m:1.20},{a:0.25,m:0.75},{a:0.50,m:1.20},{a:0.75,m:0.75}],
-};
-
-// District → (name shown on map, the world NPC anchored there, leverage node
-// key, house-relevant seed key) — ported from the SRD's own §1 district
-// table and the canonical layout already established in the Heir Record's
-// session-zero map preview (renderMap() there — same six districts, same
-// NPC pairings, same "Courier Master has no fixed seat" exception).
 const DISTRICTS = [
-  {key:'Military',     label:'The Military District', place:'Garrison',        npcKey:'watchCommander',   angle:-150},
-  {key:'Trade',        label:'The Trade District',    place:'Merchant Quarter',npcKey:'merchantConsortium',angle:-90},
-  {key:'Religious',    label:'The Religious District',place:'Temple District', npcKey:'highPriest',       angle:-30},
-  {key:'Scholarly',    label:'The Scholarly District',place:'Archive',         npcKey:'archivistGeneral', angle:150},
-  {key:'Agricultural', label:'The Agricultural District',place:'Granary',      npcKey:'dockworkersForeman',angle:90},
-  {key:'Magical',      label:'The Magical District',  place:'Sanctum',         npcKey:null,               angle:30},
+  {key:'Military',     label:'The Military District', place:'Garrison',        npcKey:'watchCommander',   pos:'tl'},
+  {key:'Trade',        label:'The Trade District',    place:'Merchant Quarter',npcKey:'merchantConsortium',pos:'t'},
+  {key:'Religious',    label:'The Religious District',place:'Temple District', npcKey:'highPriest',       pos:'tr'},
+  {key:'Scholarly',    label:'The Scholarly District',place:'Archive',         npcKey:'archivistGeneral', pos:'bl'},
+  {key:'Agricultural', label:'The Agricultural District',place:'Granary',      npcKey:'dockworkersForeman',pos:'b'},
+  {key:'Magical',      label:'The Magical District',  place:'Sanctum',         npcKey:null,               pos:'br'},
 ];
 const WORLD_NPC_NAMES = {
   kingHector:'King Hector', royalChamberlain:'Edrin Castellane', merchantConsortium:'Mira Thessaly',
@@ -540,19 +519,20 @@ const CIV_NAMES = { architect:'The Architects', predecessor:'The Predecessor Cou
 // Landmark icon set — the GM's "convention for heraldry": a small, fixed
 // vocabulary of hand-shaped markers for the specific things a district
 // holds (the church in the Religious district, a dock in Agricultural,
-// etc), so the same icon always means the same kind of place across every
-// district instead of being freeform per-pin. "Other / Custom" covers
-// anything that doesn't fit — still gets its own consistent diamond mark,
-// plus an optional uploaded photo shown in its drawer regardless of icon.
+// etc), so the same mark always means the same kind of place across every
+// district instead of being freeform per-pin. Documented in the Legend
+// panel, not a tooltip. "Other / Custom" covers anything that doesn't
+// fit — still gets its own consistent mark, plus an optional uploaded
+// photo shown in its drawer regardless of icon.
 const LANDMARK_ICONS = [
-  {key:'shrine',  label:'Shrine / Temple', shape:'lm_shrine',  color:'#c9a0c9'},
-  {key:'market',  label:'Market / Stall',  shape:'lm_market',  color:'#c9a048'},
-  {key:'tower',   label:'Tower / Keep',    shape:'lm_tower',   color:'#8a96b0'},
-  {key:'gate',    label:'Gate / Archway',  shape:'lm_gate',    color:'#b08a5a'},
-  {key:'hall',    label:'Hall / Tavern',   shape:'lm_hall',    color:'#c97a4a'},
-  {key:'dock',    label:'Dock / Waterway', shape:'lm_dock',    color:'#5a9ac9'},
-  {key:'ruins',   label:'Ruin / Tomb',     shape:'lm_ruins',   color:'#7a7a6a'},
-  {key:'generic', label:'Other / Custom',  shape:'lm_generic', color:'#a0a090'},
+  {key:'shrine',  label:'Shrine / Temple', color:'#c9a0c9'},
+  {key:'market',  label:'Market / Stall',  color:'#c9a048'},
+  {key:'tower',   label:'Tower / Keep',    color:'#8a96b0'},
+  {key:'gate',    label:'Gate / Archway',  color:'#b08a5a'},
+  {key:'hall',    label:'Hall / Tavern',   color:'#c97a4a'},
+  {key:'dock',    label:'Dock / Waterway', color:'#5a9ac9'},
+  {key:'ruins',   label:'Ruin / Tomb',     color:'#7a7a6a'},
+  {key:'generic', label:'Other / Custom',  color:'#a0a090'},
 ];
 function landmarkIcon(key){ return LANDMARK_ICONS.find(i=>i.key===key) || LANDMARK_ICONS[LANDMARK_ICONS.length-1]; }
 
@@ -592,6 +572,7 @@ const DOC_SUBJECTS=['a succession dispute','a sealed trade agreement','a marriag
 const DOC_IMPLICATES=['the royal line directly','a currently-seated councillor\'s house','the Church of the Axiom\'s founding claims','the Scholars Guild\'s own archive','a merchant house\'s legitimacy','the Outskirts\' oldest territorial claims'];
 const SCHOOL_NAMES={ALT:'Alteration',CON:'Conjuration',NEG:'Negation',DIV:'Divination',TRN:'Transposition',DOM:'Dominion'};
 const SCHOOL_COLORS={ALT:'#c9863a',CON:'#7a9e5c',NEG:'#6b6089',DIV:'#5c9ac9',TRN:'#c95c8e',DOM:'#9b2a2a'};
+const CIV_COLORS={ architect:'#9b8340', predecessor:'#8a6a48', void:'#6b6089' };
 
 function generateReward(civKey,depthKey){
   const civ=CIVILIZATIONS[civKey];
@@ -638,6 +619,15 @@ function loadMapState(){
   if(!mapState.pins) mapState.pins = [];
   if(!mapState.landmarks) mapState.landmarks = [];
   if(!mapState.npcs) mapState.npcs = [];
+  // Backward compat: v1.0.0 pins carried a raw canvas x/y pixel coordinate
+  // (there's no continuous canvas space left to place a pixel on in this
+  // version's grid/zone layout). Any pin saved before this rebuild that
+  // lacks a zone falls back to the Outskirts zone rather than erroring or
+  // silently vanishing from the map — the GM can always re-place it at a
+  // more specific zone from its drawer if that matters.
+  let migrated = false;
+  mapState.pins.forEach(p=>{ if(!p.zone){ p.zone = 'outskirts'; migrated = true; } });
+  if(migrated) saveMapState();
 }
 function saveMapState(){
   try{ localStorage.setItem(MAP_KEY, JSON.stringify(mapState)); }
@@ -694,22 +684,181 @@ function leverageFor(npcKey, heirKey){
   const v = node.scores ? node.scores[heirKey] : undefined;
   return (v===undefined) ? null : v;
 }
+function kingdomCityLabel(d){
+  const heir = heirForDistrict(d.key);
+  return heir ? (heir.raw?.house?.seat || heir.raw?.identity?.originCity || 'Unnamed City') : 'Awaiting an Heir';
+}
+function kingdomCitySub(d){
+  const heir = heirForDistrict(d.key);
+  return heir ? `Seat of ${heir.house}` : `${d.label.replace('The ','').replace(' District','')} character`;
+}
+
+/* ═══════════════════════════════════════════
+   HOUSE COLOR / SIGIL LOOKUP — the whole point of this tool: house.
+   colorPrimary/colorSecondary and the uploaded sigil are captured in
+   every Heir Record export and, before this tool existed, never
+   rendered anywhere in the toolkit. Every district/home-city cell below
+   pulls its actual color straight from the imported JSON.
+   ═══════════════════════════════════════════ */
+const GHOST_COLOR = '#5a4a30';
+function houseColorFor(heir){
+  return (heir && heir.raw && heir.raw.house && heir.raw.house.colorPrimary) || null;
+}
+function sigilFor(heir){
+  return (heir && heir.raw && heir.raw.house && heir.raw.house.sigil) || null;
+}
+
+/* ═══════════════════════════════════════════
+   GRID RENDER — one plain CSS grid per layer, same register as
+   aow_heir_record.html's renderMap(): labeled, house-colored cells,
+   no canvas, no animation loop. Landmarks/pins for a cell render as
+   small clickable chips inside it so they're visible at a glance, not
+   just reachable from a drawer.
+   ═══════════════════════════════════════════ */
+let layer = 'city'; // 'city' | 'kingdom'
+
+function landmarksForAttach(key){ return mapState.landmarks.filter(l=>l.districtKey===key); }
+function npcsForAttach(key, landmarkId){
+  return mapState.npcs.filter(n => n.districtKey===key && (landmarkId ? n.landmarkId===landmarkId : !n.landmarkId));
+}
+function pinsForZone(zone){ return mapState.pins.filter(p=>p.zone===zone); }
+
+function landmarkChipsHtml(districtKey){
+  const lms = landmarksForAttach(districtKey);
+  if(!lms.length) return '';
+  return `<div class="mc-chips">${lms.map(lm=>{
+    const icon = landmarkIcon(lm.icon);
+    return `<button type="button" class="mc-chip" style="border-left-color:${icon.color};" title="${esc(icon.label)}" onclick="event.stopPropagation();openLandmarkDrawer('${lm.id}')">${esc(lm.name || icon.label)}</button>`;
+  }).join('')}</div>`;
+}
+function pinChipsHtml(zone){
+  const pins = pinsForZone(zone);
+  if(!pins.length) return '';
+  return `<div class="mc-chips">${pins.map(p=>{
+    const color = CIV_COLORS[p.civ] || CIV_COLORS.architect;
+    return `<button type="button" class="mc-chip" style="border-left-color:${color};" title="${esc(CIV_NAMES[p.civ]||'')} · ${esc(p.depth||'')}" onclick="event.stopPropagation();openPinDrawer('${p.id}')">${esc(p.name)}</button>`;
+  }).join('')}</div>`;
+}
+function cellKeydown(e){
+  if(e.key==='Enter'||e.key===' '){ e.preventDefault(); e.currentTarget.click(); }
+}
+
+function renderCityGrid(){
+  document.getElementById('map-panel-title').textContent = 'Shemsara · Plan of the City · Districts Colored by House';
+  const grid = document.getElementById('map-grid');
+  const byPos = {}; DISTRICTS.forEach(d=>byPos[d.pos]=d);
+  const cellHtml = (d) => {
+    const heir = heirForDistrict(d.key);
+    const color = houseColorFor(heir);
+    const style = color ? `border-color:${color};background:${color}22;` : '';
+    const dot = color ? `<span class="mc-dot" style="background:${color};"></span>` : '';
+    const npcLine = d.npcKey ? `<span class="mc-npc">${esc(WORLD_NPC_NAMES[d.npcKey]||d.npcKey)}</span>` : '';
+    const nameLine = heir
+      ? `<span class="mc-house">${esc(heir.house)}</span>`
+      : `<span class="mc-house" style="opacity:.4;">— unclaimed —</span>`;
+    return `<div class="mc dist clickable" style="${style}" role="button" tabindex="0"
+        onclick="openDistrictDrawer('${d.key}')" onkeydown="cellKeydown(event)">
+      ${dot}<span class="mc-lbl">${esc(d.place)}</span>
+      ${nameLine}${npcLine}
+      ${landmarkChipsHtml(d.key)}
+    </div>`;
+  };
+  const spacer = '<div class="mc spacer"></div>';
+  const castleColor = '#c9a030';
+  const castleCell = `<div class="mc castle clickable" role="button" tabindex="0" onclick="openCastleDrawer()" onkeydown="cellKeydown(event)">
+      <span class="mc-lbl" style="color:${castleColor};">Royal Seat</span>
+      <span class="mc-name">The Castle</span>
+      <span class="mc-npc">King Hector · Royal Chamberlain</span>
+      ${landmarkChipsHtml('castle')}
+    </div>`;
+  const parkCell = `<div class="mc park clickable" role="button" tabindex="0" onclick="openParkDrawer()" onkeydown="cellKeydown(event)">
+      <span class="mc-lbl" style="color:var(--forest-bright);">Neutral</span>
+      <span class="mc-name">City Park</span>
+      ${landmarkChipsHtml('park1')}
+    </div>`;
+  const outCell = `<div class="mc out clickable" role="button" tabindex="0" onclick="openOutskirtsDrawer()" onkeydown="cellKeydown(event)">
+      <span class="mc-lbl">The Outskirts</span>
+      <span class="mc-name" style="font-size:.6rem;opacity:.7;">Contested territory · "The Tallyman"</span>
+    </div>`;
+
+  grid.innerHTML = [
+    outCell,
+    cellHtml(byPos.tl), spacer, cellHtml(byPos.t), spacer, cellHtml(byPos.tr),
+    parkCell, spacer, castleCell, spacer, parkCell,
+    cellHtml(byPos.bl), spacer, cellHtml(byPos.b), spacer, cellHtml(byPos.br),
+    outCell,
+  ].join('');
+}
+
+function renderKingdomGrid(){
+  document.getElementById('map-panel-title').textContent = 'Aetheria Nova · The Six Home Cities';
+  const grid = document.getElementById('map-grid');
+  const byPos = {}; DISTRICTS.forEach(d=>byPos[d.pos]=d);
+  const cellHtml = (d) => {
+    const heir = heirForDistrict(d.key);
+    const color = houseColorFor(heir);
+    const style = color ? `border-color:${color};background:${color}22;` : '';
+    const dot = color ? `<span class="mc-dot" style="background:${color};"></span>` : '';
+    return `<div class="mc dist clickable" style="${style}" role="button" tabindex="0"
+        onclick="openHomeCityDrawer('${d.key}')" onkeydown="cellKeydown(event)">
+      ${dot}<span class="mc-lbl">${esc(d.label.replace('The ','').replace(' District',''))}</span>
+      <span class="mc-name">${esc(kingdomCityLabel(d))}</span>
+      <span class="mc-house">${esc(kingdomCitySub(d))}</span>
+      ${pinChipsHtml(d.key)}
+    </div>`;
+  };
+  const spacer = '<div class="mc spacer"></div>';
+  const hubCell = `<div class="mc hub clickable" role="button" tabindex="0" onclick="openShemsaraDrawer()" onkeydown="cellKeydown(event)">
+      <span class="mc-lbl" style="color:#c9a030;">The Capital</span>
+      <span class="mc-name">Shemsara</span>
+      <span class="mc-npc">Seat of the Crown</span>
+    </div>`;
+  const outCell = `<div class="mc out clickable" role="button" tabindex="0" onclick="openOutskirtsDrawer()" onkeydown="cellKeydown(event)">
+      <span class="mc-lbl">The Outskirts</span>
+      <span class="mc-name" style="font-size:.6rem;opacity:.7;">Beyond reliable control · "The Tallyman"</span>
+      ${pinChipsHtml('outskirts')}
+    </div>`;
+
+  grid.innerHTML = [
+    outCell,
+    cellHtml(byPos.tl), spacer, cellHtml(byPos.t), spacer, cellHtml(byPos.tr),
+    spacer, spacer, hubCell, spacer, spacer,
+    cellHtml(byPos.bl), spacer, cellHtml(byPos.b), spacer, cellHtml(byPos.br),
+    outCell,
+  ].join('');
+}
+
+function renderLegend(){
+  const housesEl = document.getElementById('legend-houses');
+  if(wonderland.heirs.length){
+    housesEl.innerHTML = wonderland.heirs.map(h=>{
+      const color = houseColorFor(h) || GHOST_COLOR;
+      return `<div class="legend-row"><span class="legend-swatch round" style="background:${color};"></span>${esc(h.house)}${h.district && h.district!=='—' ? ` <span style="opacity:.6;">· ${esc(h.district)}</span>` : ''}</div>`;
+    }).join('') + `<div class="legend-row"><span class="legend-swatch round" style="background:${GHOST_COLOR};"></span><span style="opacity:.7;">Unclaimed district</span></div>`;
+  } else {
+    housesEl.innerHTML = '<div class="legend-empty">Import heirs in the GM Screen to populate house colors here.</div>';
+  }
+
+  const lmEl = document.getElementById('legend-landmarks');
+  lmEl.innerHTML = LANDMARK_ICONS.map(i=>`<div class="legend-row"><span class="legend-swatch" style="background:${i.color};"></span>${esc(i.label)}</div>`).join('');
+
+  const pinEl = document.getElementById('legend-pins');
+  pinEl.innerHTML = Object.keys(CIV_NAMES).map(k=>`<div class="legend-row"><span class="legend-swatch" style="background:${CIV_COLORS[k]};"></span>${esc(CIV_NAMES[k])}</div>`).join('')
+    + '<div class="legend-row" style="opacity:.65;font-style:italic;">Depth D1 (shallow) → D6 (deepest, Void Touched only)</div>';
+}
+
+function renderMap(){
+  if(layer==='city') renderCityGrid(); else renderKingdomGrid();
+  renderLegend();
+}
 
 function refreshFromWonderland(userInitiated){
   loadWonderland();
-  // layoutNodes() bakes heir/house/sigil data into kingdomNodes at layout
-  // time (drawKingdomLayer doesn't re-derive it per frame), and used to
-  // only get called from resize(). A refresh that pulled in new or
-  // changed heirs rendered as stale "Awaiting an Heir" placeholders —
-  // correct data in `wonderland`, wrong data on screen — until something
-  // else happened to trigger a resize.
-  layoutNodes();
+  renderMap();
   updateSyncNote();
   updateEmptyBanner();
-  render();
   if(userInitiated){
     const note = document.getElementById('sync-note');
-    const prev = note.textContent;
     note.textContent = 'Refreshed.';
     setTimeout(()=>{ updateSyncNote(); }, 1400);
   }
@@ -724,833 +873,11 @@ function updateEmptyBanner(){
   document.getElementById('empty-banner').classList.toggle('show', wonderland.heirs.length===0 && layer==='city');
 }
 
-/* ═══════════════════════════════════════════
-   CANVAS SETUP — dpr-aware, resize-aware, same pattern as the studio's
-   arcade titles (Math.min(devicePixelRatio,2), setTransform once, no
-   per-frame scale math)
-   ═══════════════════════════════════════════ */
-const canvas = document.getElementById('mapCanvas');
-const ctx = canvas.getContext('2d');
-let W=0, H=0, dpr=1;
-function resize(){
-  dpr = Math.min(window.devicePixelRatio||1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = W*dpr; canvas.height = H*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  layoutNodes();
-  resetCamera();
-  render();
-}
-window.addEventListener('resize', resize);
-
-let layer = 'city'; // 'city' | 'kingdom'
-let elapsed = 0, lastTs = 0;
-let camScale = 1, hoverNode = null, selectedPin = null;
-
-/* ═══════════════════════════════════════════
-   CAMERA — pan/zoom applied on top of the existing screen-space layout.
-   layoutNodes() still bakes node x/y as absolute pixels at camScale=1;
-   camPanX/camPanY/camScale are a transform applied once per frame in
-   render() on top of that, not a change to the layout model itself.
-   Reset on layer switch and resize so stale pan/zoom never persists
-   across a context where the underlying layout just changed anyway.
-   ═══════════════════════════════════════════ */
-let camPanX = 0, camPanY = 0;
-const CAM_ZOOM_MIN = 1, CAM_ZOOM_MAX = 3;
-function resetCamera(){
-  camScale = 1; camPanX = 0; camPanY = 0;
-}
-// Converts a canvas-relative screen point (as mousemove/click already
-// compute via getBoundingClientRect) into the world-space coordinates
-// layoutNodes() actually assigned to nodes, by inverting the same
-// translate-then-scale transform render() applies.
-function screenToWorld(sx, sy){
-  return { x:(sx-camPanX)/camScale, y:(sy-camPanY)/camScale };
-}
-// Adjusts pan so the given screen point stays visually fixed across a
-// scale change — the standard "zoom toward cursor" behavior, rather
-// than always zooming toward the canvas center.
-function zoomAt(sx, sy, newScale){
-  newScale = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, newScale));
-  const world = screenToWorld(sx, sy);
-  camScale = newScale;
-  camPanX = sx - world.x*camScale;
-  camPanY = sy - world.y*camScale;
-}
-// Keeps the current layer's own center roughly reachable on screen —
-// generous enough to freely explore while zoomed in on the outer ring,
-// but stops a long drag from panning the whole map away with no visual
-// landmark left to navigate back by (resetView() is the deliberate,
-// explicit way back; this is just a guard rail against getting lost
-// by accident).
-function clampPan(){
-  const origin = layer==='city' ? cityOrigin : kingdomOrigin;
-  const screenOX = origin.x*camScale + camPanX, screenOY = origin.y*camScale + camPanY;
-  const maxDrift = Math.max(W,H) * 0.9;
-  if(screenOX < -maxDrift) camPanX += (-maxDrift - screenOX);
-  else if(screenOX > W+maxDrift) camPanX -= (screenOX - (W+maxDrift));
-  if(screenOY < -maxDrift) camPanY += (-maxDrift - screenOY);
-  else if(screenOY > H+maxDrift) camPanY -= (screenOY - (H+maxDrift));
-}
-function resetView(){
-  resetCamera();
-  render();
-}
-
-/* ═══════════════════════════════════════════
-   FACETED-GEM POLYGON RENDERER — the studio's own signature Canvas 2D
-   technique (see .claude/skills/faceted-gem-rendering in the arcade repo):
-   one glow-backed base fill, alternating lit/dark center-to-vertex facets,
-   one bright specular facet, translucent outer stroke. Reused verbatim
-   here for every district/city/ruin node instead of a flat filled shape.
-   ═══════════════════════════════════════════ */
-function drawFacetedShape(cx, cy, r, rotation, vertDefs, baseColor, glowAmt, alpha){
-  alpha = alpha===undefined ? 1 : alpha;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(rotation||0);
-  ctx.globalAlpha = alpha;
-  const n = vertDefs.length;
-  const vx = i => Math.cos(vertDefs[i].a*Math.PI*2)*r*vertDefs[i].m;
-  const vy = i => Math.sin(vertDefs[i].a*Math.PI*2)*r*vertDefs[i].m;
-
-  ctx.shadowColor = baseColor; ctx.shadowBlur = glowAmt!==undefined ? glowAmt : 16;
-  ctx.fillStyle = baseColor;
-  ctx.beginPath();
-  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
-  ctx.closePath(); ctx.fill();
-  ctx.shadowBlur = 0;
-
-  for(let i=0;i<n;i++){
-    const j=(i+1)%n;
-    ctx.fillStyle = shadeHex(baseColor, i%2===0?16:-14, i%2===0?8:-6);
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(vx(i),vy(i)); ctx.lineTo(vx(j),vy(j)); ctx.closePath(); ctx.fill();
-  }
-  // specular facet
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(vx(0),vy(0)); ctx.lineTo(vx(n-1),vy(n-1)); ctx.closePath(); ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  for(let i=0;i<n;i++){ const px=vx(i), py=vy(i); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
-  ctx.closePath(); ctx.stroke();
-  ctx.restore();
-}
-
-/* fallback color for a district with no house imported yet — a dim,
-   desaturated version of the gold token so an empty slot still reads as
-   "part of the city," not a rendering error */
-const GHOST_COLOR = '#5a4a30';
-
-/* ═══════════════════════════════════════════
-   AMBIENT PARTICLES — slow-drifting dust motes, matching the arcade
-   titles' idle-backdrop particle systems (kept cheap: capped count, no
-   physics beyond linear drift + wrap)
-   ═══════════════════════════════════════════ */
-const MAX_PARTICLES = 90;
-let particles = [];
-function seedParticles(){
-  particles = [];
-  for(let i=0;i<MAX_PARTICLES;i++){
-    particles.push({ x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-0.5)*6, vy:-4-Math.random()*8,
-      size:Math.random()*1.6+0.4, alpha:Math.random()*0.35+0.08, phase:Math.random()*Math.PI*2 });
-  }
-}
-function updateParticles(dt){
-  for(const p of particles){
-    p.x += p.vx*dt; p.y += p.vy*dt;
-    if(p.y < -10){ p.y = H+10; p.x = Math.random()*W; }
-    if(p.x < -10) p.x = W+10; if(p.x > W+10) p.x = -10;
-  }
-}
-function drawParticles(){
-  ctx.save();
-  for(const p of particles){
-    const tw = 0.6+0.4*Math.sin(elapsed*1.3+p.phase);
-    ctx.globalAlpha = p.alpha*tw;
-    ctx.fillStyle = '#e8c97a';
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
-  }
-  ctx.restore();
-}
-
-/* ═══════════════════════════════════════════
-   NODE LAYOUT — computed on resize/layer-switch so hit-testing and
-   drawing always agree, and everything scales cleanly to any viewport
-   ═══════════════════════════════════════════ */
-let cityNodes = [];    // castle, 6 districts, 2 park accents, outskirts ring
-let kingdomNodes = []; // shemsara hub, 6 home cities, outskirts ring
-let pinNodes = [];     // rendered ruin pins for the current layer (kingdom only)
-let landmarkNodes = [];// satellite markers orbiting their owning city node (city layer only)
-
-// Locations a landmark (or a district-level NPC) can attach to. Deliberately
-// NOT every cityNodes entry — the two City Park accents are the same
-// conceptual place shown twice for layout symmetry, so they share one
-// option, and Outskirts isn't a clickable node at all (see
-// allInteractiveNodes) so it's excluded rather than offering a dead end.
-const LANDMARK_ATTACH_POINTS = [
-  {key:'castle', label:'The Castle'},
-  {key:'Military', label:'The Military District'},
-  {key:'Trade', label:'The Trade District'},
-  {key:'Religious', label:'The Religious District'},
-  {key:'Scholarly', label:'The Scholarly District'},
-  {key:'Agricultural', label:'The Agricultural District'},
-  {key:'Magical', label:'The Magical District'},
-  {key:'park1', label:'City Park'},
-];
-function attachPointLabel(key){
-  const p = LANDMARK_ATTACH_POINTS.find(p=>p.key===key);
-  return p ? p.label : key;
-}
-
-let cityOrigin = {x:0,y:0}, kingdomOrigin = {x:0,y:0};
-function layoutNodes(){
-  // Real mobile audit finding (390px viewport, full 6-heir roster): the
-  // map was vertically centered on raw H/2 regardless of how much of that
-  // height the ring actually needed, leaving ~140px of dead space above
-  // the toolbar-to-ring gap. The ring itself is width-bound (it has to
-  // fit inside W either way), so the fix isn't a bigger ring — it's
-  // pulling the vertical center up to close the gap between the toolbar
-  // and where content actually starts, without ever overshooting past a
-  // simple center on wide/landscape viewports where there's no gap to
-  // close in the first place.
-  const toolbarH = document.getElementById('toolbar').getBoundingClientRect().height || 56;
-  const cx = W/2;
-  const R = Math.min(W,H) * 0.30;
-  const ringR = R*1.42;
-  const centeredCy = H/2 + 8;
-  const tightCy = toolbarH + 28 + ringR;
-  const cy = Math.min(centeredCy, tightCy);
-
-  cityOrigin = {x:cx,y:cy};
-  cityNodes = [];
-  cityNodes.push({ type:'castle', key:'castle', label:'The Castle', sub:'King Hector · Royal Chamberlain',
-    x:cx, y:cy, r:Math.max(30, R*0.32), shape:'castle', npcKeys:['kingHector','royalChamberlain'] });
-  for(const d of DISTRICTS){
-    const rad = d.angle*Math.PI/180;
-    cityNodes.push({ type:'district', key:d.key, label:d.label, sub:d.place, npcKey:d.npcKey,
-      x:cx+Math.cos(rad)*R, y:cy+Math.sin(rad)*R, r:Math.max(24,R*0.26), shape:d.key, angle:rad });
-  }
-  // two park accents flanking the castle, matching the session-zero map
-  // preview. Real mobile audit finding: at pure left/right (angle 180/0,
-  // same y as center) these sat close enough to Military/Scholarly
-  // (angles -150/150, only 30deg away) that once labels radiate outward
-  // (see drawNodeLabel) Military/Scholarly's own labels swing up/down
-  // away from center and clear the parks fine — but the parks' fixed
-  // node position was still tight at narrow widths, so nudged slightly
-  // further out (0.62->0.70) for a cleaner gap with margin to spare.
-  cityNodes.push({ type:'park', key:'park1', label:'City Park', sub:'Neutral ground',
-    x:cx-R*0.70, y:cy, r:Math.max(14,R*0.13), shape:'park' });
-  cityNodes.push({ type:'park', key:'park2', label:'City Park', sub:'Neutral ground',
-    x:cx+R*0.70, y:cy, r:Math.max(14,R*0.13), shape:'park' });
-  // Outskirts renders as a broken ring around everything, not a gem node —
-  // handled separately in drawCityLayer, but kept here for hit-testing.
-  cityNodes.push({ type:'outskirts', key:'outskirts', label:'The Outskirts', sub:'Contested territory · "The Tallyman"',
-    x:cx, y:cy, r:ringR, npcKey:'outskirtsBroker', isRing:true });
-
-  const kR = Math.min(W,H) * 0.36;
-  const kRingR = kR*0.55;
-  const kCenteredCy = H/2 + 8;
-  const kTightCy = toolbarH + 28 + kR; // home cities sit AT kR, the outermost ring in this layer
-  const kcy = Math.min(kCenteredCy, kTightCy);
-  kingdomOrigin = {x:cx,y:kcy};
-  kingdomNodes = [];
-  kingdomNodes.push({ type:'shemsara', key:'shemsara', label:'Shemsara', sub:'The Capital · Seat of the Crown',
-    x:cx, y:kcy, r:Math.max(28,kR*0.24), shape:'shemsara' });
-  for(const d of DISTRICTS){
-    const rad = d.angle*Math.PI/180;
-    const heir = heirForDistrict(d.key);
-    kingdomNodes.push({ type:'homecity', key:d.key, label: heir ? (heir.raw?.house?.seat || heir.raw?.identity?.originCity || 'Unnamed City') : 'Awaiting an Heir',
-      sub: heir ? `Seat of ${heir.house}` : `${d.label.replace('The ','').replace(' District','')} character`,
-      x:cx+Math.cos(rad)*kR, y:kcy+Math.sin(rad)*kR, r:Math.max(22,kR*0.20), shape:d.key, angle:rad, heir, districtKey:d.key });
-  }
-  kingdomNodes.push({ type:'outskirts', key:'outskirts-k', label:'The Outskirts', sub:'Beyond reliable control',
-    x:cx, y:kcy, r:kRingR, isRing:true, npcKey:'outskirtsBroker' });
-
-  layoutPins();
-  layoutLandmarks();
-}
-function layoutPins(){
-  pinNodes = mapState.pins.map(p => ({ ...p, type:'pin' }));
-}
-// Landmarks orbit their owning city node as small satellite markers rather
-// than sitting free-floating — that's what makes "the church in the
-// Religious district" a district-specific mark instead of just another pin
-// anywhere on the map. Placed on the INWARD side of the parent node (the
-// side facing the castle), the opposite direction from where drawNodeLabel
-// radiates that node's own title/heir text outward — so a satellite marker
-// can never land on top of its parent's label.
-function layoutLandmarks(){
-  landmarkNodes = [];
-  const byParent = {};
-  for(const lm of mapState.landmarks){
-    (byParent[lm.districtKey] = byParent[lm.districtKey] || []).push(lm);
-  }
-  for(const districtKey in byParent){
-    const parent = cityNodes.find(n=>n.key===districtKey);
-    if(!parent) continue;
-    const list = byParent[districtKey];
-    const dx = parent.x-cityOrigin.x, dy = parent.y-cityOrigin.y;
-    const d = Math.hypot(dx,dy);
-    // The castle sits AT cityOrigin (dx=dy=0), so it has no "inward" side —
-    // and drawNodeLabel has its own separate d<1 fallback that always sends
-    // a centered node's title/subtitle straight down. Landmarks orbiting
-    // "inward" from the same degenerate case landed in that exact downward
-    // lane and overlapped the castle's own label text. Every other node has
-    // real district neighbors on most other headings, so orbiting up (the
-    // one direction guaranteed clear of the castle's own label) is the safe
-    // choice specifically for this case — not a general-purpose angle.
-    const baseAngle = d<1 ? -Math.PI/2 : Math.atan2(dy,dx) + Math.PI; // inward-facing side
-    // Orbit radius and arc span used to be fixed regardless of how many
-    // landmarks a district held — fine for the 1-3 that were validated by
-    // hand, but past that the fixed 0.85rad arc at a fixed radius packs
-    // markers closer together than their own diameter, so a district
-    // populated over a real session (4-5+ landmarks isn't unusual) stacks
-    // icons and labels directly on top of each other. Grow the orbit
-    // radius modestly per extra landmark, then derive however much arc is
-    // actually needed to keep consecutive markers at least one diameter
-    // apart at that radius — floored at the original tuned 0.85rad so the
-    // small-N case is essentially untouched, capped short of a full
-    // circle so a heavily-populated district fans out rather than
-    // wrapping into a closed, self-overlapping ring.
-    //
-    // First pass at this used a flat 30px (marker diameter + a small gap)
-    // as the minimum spacing — QA playtest at 5-7 landmarks in one
-    // district found that still wasn't enough: it only accounted for the
-    // icon's nominal radius, not the actual rendered footprint (faceted-
-    // gem vertices reach up to ~1.55x the radius at their points, per
-    // SHAPE_DEFS) or the label text drawn centered directly below each
-    // icon — real landmark names are routinely wider than 30px, so
-    // adjacent labels kept bleeding into each other's icons even once
-    // the icons themselves cleared. Measure each label at the exact font
-    // drawLandmarkNode renders it with, and size spacing off whichever
-    // is larger: the icon footprint, or (conservatively) the wider of
-    // any two labels that could end up adjacent.
-    ctx.font = `600 9px Cinzel, serif`; // must match drawLandmarkNode's label font exactly
-    const maxLabelWidth = list.reduce((m,lm)=>Math.max(m, ctx.measureText(lm.name || landmarkIcon(lm.icon).label).width), 0);
-    const MIN_MARKER_SPACING = Math.max(13*1.55*2 + 8, maxLabelWidth + 14);
-    const orbit = parent.r + 20 + Math.max(0, list.length-2)*12;
-    const neededArc = list.length>1 ? (list.length-1)*MIN_MARKER_SPACING/orbit : 0;
-    const arcSpan = Math.min(5.5, Math.max(0.85, neededArc));
-    list.forEach((lm,i)=>{
-      const t = list.length>1 ? (i/(list.length-1) - 0.5) : 0;
-      const ang = baseAngle + t*arcSpan;
-      landmarkNodes.push({ ...lm, type:'landmark',
-        x: parent.x + Math.cos(ang)*orbit, y: parent.y + Math.sin(ang)*orbit, r:13 });
-    });
-  }
-}
-
-/* ═══════════════════════════════════════════
-   HOUSE COLOR / SIGIL LOOKUP — the whole point of this tool: house.
-   colorPrimary/colorSecondary and the uploaded sigil are captured in
-   every Heir Record export and, before this tool existed, never
-   rendered anywhere in the toolkit. Every district/home-city node below
-   pulls its actual color straight from the imported JSON.
-   ═══════════════════════════════════════════ */
-function houseColorFor(heir){
-  return (heir && heir.raw && heir.raw.house && heir.raw.house.colorPrimary) || GHOST_COLOR;
-}
-function sigilFor(heir){
-  return (heir && heir.raw && heir.raw.house && heir.raw.house.sigil) || null;
-}
-const sigilImgCache = {};
-function getSigilImg(dataUri){
-  if(!dataUri) return null;
-  if(sigilImgCache[dataUri]) return sigilImgCache[dataUri];
-  const img = new Image();
-  img.onload = () => render();
-  img.src = dataUri;
-  sigilImgCache[dataUri] = img;
-  return img;
-}
-
-/* ═══════════════════════════════════════════
-   RENDER — one full frame: backdrop, ambient particles, connective
-   routes, nodes (faceted, glow scaled by leverage where relevant),
-   sigils, labels, ruin pins.
-   ═══════════════════════════════════════════ */
-function render(){
-  ctx.clearRect(0,0,W,H);
-
-  // backdrop vignette
-  const grad = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,Math.max(W,H)*0.75);
-  const nightColor = getComputedStyle(document.documentElement).getPropertyValue('--night').trim() || '#0f0d0a';
-  grad.addColorStop(0, shadeHex(nightColor, 6));
-  grad.addColorStop(1, nightColor);
-  ctx.fillStyle = grad;
-  ctx.fillRect(0,0,W,H);
-
-  drawParticles();
-
-  // Camera transform wraps content only — the vignette and particles
-  // above stay screen-fixed ambient effects, not map content, so they
-  // must not pan/zoom with everything else.
-  ctx.save();
-  ctx.translate(camPanX, camPanY);
-  ctx.scale(camScale, camScale);
-  if(layer==='city') drawCityLayer();
-  else drawKingdomLayer();
-  ctx.restore();
-}
-
-function drawCityLayer(){
-  const castle = cityNodes.find(n=>n.type==='castle');
-  const ring = cityNodes.find(n=>n.type==='outskirts');
-
-  // Outskirts — a broken ring around the whole city ("beyond the wall on
-  // all sides"), rendered as a dashed jagged circle rather than a gem fill,
-  // since it's explicitly NOT a controlled, ownable space in the SRD.
-  ctx.save();
-  ctx.strokeStyle = 'rgba(107,96,137,0.5)';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([14,10]);
-  ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI*2); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-
-  // wall (solid ring just inside the Outskirts) — pure atmosphere
-  ctx.save();
-  ctx.strokeStyle = 'rgba(139,105,20,0.28)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(castle.x, castle.y, ring.r*0.78, 0, Math.PI*2); ctx.stroke();
-  ctx.restore();
-
-  // spoke lines from castle to each district
-  for(const n of cityNodes){
-    if(n.type!=='district') continue;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(139,105,20,0.18)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(castle.x,castle.y); ctx.lineTo(n.x,n.y); ctx.stroke();
-    ctx.restore();
-  }
-
-  for(const n of cityNodes){
-    if(n.type==='outskirts') continue;
-    drawCityNode(n);
-  }
-  for(const n of landmarkNodes) drawLandmarkNode(n);
-}
-
-function drawLandmarkNode(n){
-  const pulse = 1 + Math.sin(elapsed*1.6 + (n.x+n.y)*0.02)*0.05;
-  const hovered = hoverNode===n;
-  const icon = landmarkIcon(n.icon);
-  const r = n.r * pulse * (hovered?1.15:1);
-  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[icon.shape]||SHAPE_DEFS.lm_generic, icon.color, hovered?18:9);
-  if(n.image){
-    const img = getSigilImg(n.image);
-    if(img && img.complete && img.naturalWidth){
-      const s = r*0.66;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
-      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
-      ctx.restore();
-    }
-  }
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(245,238,223,0.85)';
-  ctx.font = `600 9px Cinzel, serif`;
-  fillTextClamped(n.name || icon.label, n.x, n.y+r+12, 'center');
-  ctx.restore();
-}
-
-function drawCityNode(n, origin){
-  // origin defaults to cityOrigin — but drawKingdomLayer reuses this same
-  // function to draw the Shemsara hub, whose true center is kingdomOrigin
-  // (they can differ: city and kingdom layers compute independent "pull
-  // toward the toolbar" adjustments off different ring radii). Passing
-  // cityOrigin there by default would have handed Shemsara's label a
-  // stale, wrong-layer center and sent it radiating off at whatever
-  // arbitrary angle the two origins' offset happened to produce.
-  origin = origin || cityOrigin;
-  const pulse = 1 + Math.sin(elapsed*1.4 + (n.x+n.y)*0.01)*0.02;
-  const hovered = hoverNode===n;
-  let color, heir=null, leverageBadge=null;
-  if(n.type==='castle'){ color = '#c9a030'; }
-  else if(n.type==='park'){ color = '#2a5a3a'; }
-  else{
-    heir = heirForDistrict(n.key);
-    color = houseColorFor(heir);
-    if(heir && n.npcKey){
-      const scores = wonderland.nodes[n.npcKey] ? wonderland.nodes[n.npcKey].scores : null;
-      const v = scores ? scores[heir.key] : undefined;
-      if(v!==undefined) leverageBadge = v;
-    }
-  }
-  const r = n.r * pulse * (hovered?1.08:1);
-  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[n.shape]||SHAPE_DEFS.park, color, hovered?26:16);
-
-  // leverage heat ring
-  if(leverageBadge!==null && leverageBadge!==0){
-    ctx.save();
-    ctx.strokeStyle = leverageBadge>0 ? 'rgba(42,90,58,0.55)' : 'rgba(155,42,42,0.55)';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(n.x,n.y,r+9,0,Math.PI*2*clamp(Math.abs(leverageBadge)/5,0.08,1)); ctx.stroke();
-    ctx.restore();
-  }
-
-  // sigil overlay, if the house uploaded one
-  const sigilData = sigilFor(heir);
-  if(sigilData){
-    const img = getSigilImg(sigilData);
-    if(img && img.complete && img.naturalWidth){
-      const s = r*0.62;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
-      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
-      ctx.restore();
-    }
-  }
-
-  drawNodeLabel(n, heir, origin);
-}
-
-// Real mobile audit finding (390px viewport, full 6-heir roster): labels
-// always drawn straight down meant Military/Scholarly's text — nodes
-// positioned up-left/up-right of the castle — landed pointed back IN
-// toward center, directly into the City Park nodes sitting there. Labels
-// now radiate OUTWARD along the same vector from the layer's own center
-// through the node, so every label moves away from the busy middle of
-// the map instead of always down into it. Hub nodes (castle/shemsara,
-// dx=dy=0) fall back to straight-down, which is correct for them (they
-// ARE the center, no outward direction to speak of, and nothing sits in
-// their one open lane below).
-// Clamps a text draw so its rendered bounds never cross the canvas edge,
-// regardless of textAlign or string length — a heuristic damping factor
-// (tried first) only ever approximates the actual rendered width, and a
-// long heir name at the wrong angle still clipped past a 390px viewport
-// edge even after damping. Measuring the real width and shifting x by
-// exactly however much it overflows is the only version of this that's
-// correct for every string, not just the ones tested.
-const LABEL_MARGIN = 6;
-function fillTextClamped(text, x, y, align){
-  ctx.textAlign = align;
-  const w = ctx.measureText(text).width;
-  let left, right;
-  if(align==='left'){ left = x; right = x+w; }
-  else if(align==='right'){ left = x-w; right = x; }
-  else { left = x-w/2; right = x+w/2; }
-  // x/y arrive in world-space (this runs inside the camera-transformed
-  // draw path) but the safe-edge margin is a screen-space concept — the
-  // visible screen edges (0 and W) and the margin itself both need to be
-  // converted into world-space units via the current pan/zoom before
-  // clamping, or this clamps against the wrong bounds the moment
-  // pan/zoom are non-identity (e.g. clamping too early while zoomed in,
-  // or not at all against the true visible edge while panned).
-  const worldLeftEdge = (0-camPanX)/camScale, worldRightEdge = (W-camPanX)/camScale;
-  const worldMargin = LABEL_MARGIN/camScale;
-  if(left < worldLeftEdge+worldMargin) x += (worldLeftEdge+worldMargin-left);
-  else if(right > worldRightEdge-worldMargin) x -= (right-(worldRightEdge-worldMargin));
-  ctx.fillText(text, x, y);
-}
-
-function drawNodeLabel(n, heir, origin){
-  origin = origin || {x:n.x, y:n.y-1}; // no origin given -> straight down, old behavior
-  const dx = n.x-origin.x, dy = n.y-origin.y;
-  const d = Math.hypot(dx,dy);
-  const ux = d < 1 ? 0 : dx/d, uy = d < 1 ? 1 : dy/d;
-  // Real mobile audit finding: labels drawn straight down for every node
-  // meant Military/Scholarly (up-left/up-right of the castle) pointed
-  // their text back IN toward center, landing on top of the City Park
-  // nodes sitting there. Labels now radiate OUTWARD along the vector from
-  // the layer's own center through the node instead, so they move away
-  // from the busy middle — and fillTextClamped (above) keeps that same
-  // outward push from then running the text off the opposite edge on a
-  // narrow viewport, by measuring the actual rendered width rather than
-  // guessing at a safe damping factor.
-  const align = ux > 0.35 ? 'left' : (ux < -0.35 ? 'right' : 'center');
-  // g1 is always the distance closer to the node, g2 further out. For a
-  // downward-pointing node that means title-then-subtitle reads correctly
-  // top to bottom (closer=higher=title, further=lower=subtitle) — but for
-  // an upward-pointing node (Trade sits almost due north of the castle,
-  // uy~-1) "further out" means smaller y, i.e. HIGHER on screen, so the
-  // naive version put the subtitle above the title. Swapping which line
-  // gets which distance when uy<0 keeps title-above-subtitle true in both
-  // directions instead of only the downward case anyone happened to test.
-  const g1 = n.r+16, g2 = n.r+32;
-  let xt, yt, xs, ys;
-  if (Math.abs(uy) < 0.15) {
-    // Purely horizontal nodes (the City Park accents sit dead level with
-    // the castle, uy≈0) have no vertical component in the outward vector
-    // to separate title from subtitle — both landed on the same row and
-    // interleaved character-by-character. Stack them vertically below
-    // the node instead of pushing both further out along the same row.
-    xt = xs = n.x + ux*(n.r+10);
-    yt = n.y + g1; ys = n.y + g2;
-  } else {
-    const titleDist = uy < -0.15 ? g2 : g1;
-    const subDist = uy < -0.15 ? g1 : g2;
-    xt = n.x+ux*titleDist; yt = n.y+uy*titleDist;
-    xs = n.x+ux*subDist; ys = n.y+uy*subDist;
-  }
-
-  ctx.save();
-  ctx.fillStyle = 'rgba(245,238,223,0.92)';
-  ctx.font = `600 ${clamp(n.r*0.22,10,15)}px Cinzel, serif`;
-  fillTextClamped(n.label, xt, yt, align);
-  if(heir){
-    ctx.fillStyle = 'rgba(212,196,168,0.8)';
-    ctx.font = `italic ${clamp(n.r*0.17,9,12)}px "EB Garamond", serif`;
-    fillTextClamped(heir.name, xs, ys, align);
-  } else if(n.sub){
-    ctx.fillStyle = 'rgba(138,106,72,0.85)';
-    ctx.font = `italic ${clamp(n.r*0.16,8,11)}px "EB Garamond", serif`;
-    fillTextClamped(n.sub, xs, ys, align);
-  }
-  ctx.restore();
-}
-
-function drawKingdomLayer(){
-  const hub = kingdomNodes.find(n=>n.type==='shemsara');
-  const ring = kingdomNodes.find(n=>n.type==='outskirts');
-
-  ctx.save();
-  ctx.strokeStyle = 'rgba(107,96,137,0.35)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10,8]);
-  ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI*2); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-
-  // roads — dashed glowing routes from each home city to the capital,
-  // visualizing the caravan Route system the SRD ties to district/city
-  // control (Chapter 5). Brighter where a heir is actually seated there.
-  for(const n of kingdomNodes){
-    if(n.type!=='homecity') continue;
-    ctx.save();
-    ctx.strokeStyle = n.heir ? 'rgba(201,160,48,0.4)' : 'rgba(139,105,20,0.12)';
-    ctx.lineWidth = n.heir ? 1.6 : 1;
-    ctx.setLineDash([3,7]);
-    ctx.beginPath(); ctx.moveTo(hub.x,hub.y); ctx.lineTo(n.x,n.y); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-  }
-
-  drawCityNode(hub, kingdomOrigin);
-  for(const n of kingdomNodes){ if(n.type==='homecity') drawHomeCityNode(n); }
-  for(const p of pinNodes) drawPinNode(p);
-}
-
-function drawHomeCityNode(n){
-  const pulse = 1 + Math.sin(elapsed*1.4 + (n.x+n.y)*0.01)*0.02;
-  const hovered = hoverNode===n;
-  const color = houseColorFor(n.heir);
-  const r = n.r * pulse * (hovered?1.08:1);
-  drawFacetedShape(n.x, n.y, r, 0, SHAPE_DEFS[n.shape]||SHAPE_DEFS.park, color, hovered?24:14, n.heir?1:0.55);
-  const sigilData = sigilFor(n.heir);
-  if(sigilData){
-    const img = getSigilImg(sigilData);
-    if(img && img.complete && img.naturalWidth){
-      const s = r*0.6;
-      ctx.save();
-      ctx.globalAlpha = n.heir?1:0.5;
-      ctx.beginPath(); ctx.arc(n.x,n.y,s,0,Math.PI*2); ctx.clip();
-      ctx.drawImage(img, n.x-s, n.y-s, s*2, s*2);
-      ctx.restore();
-    }
-  }
-  // n.sub is precomputed per-heir in layoutNodes() ("Seat of House X" or
-  // "— character, awaiting an heir") so a single drawNodeLabel pass (always
-  // treated as a sub-line, not a heir-name line) is correct for both states
-  // — no separate manual draw needed here.
-  drawNodeLabel(n, null, kingdomOrigin);
-}
-
-function drawPinNode(p){
-  const pulse = 1 + Math.sin(elapsed*2.1 + (p.x+p.y)*0.02)*0.06;
-  const hovered = hoverNode===p;
-  const r = (hovered?17:13) * pulse;
-  const color = shadeHex('#c9a030', p.civ==='void'?-10:(p.civ==='predecessor'?-4:6), p.civ==='void'?10:0);
-  const shapeColor = p.civ==='void' ? '#6b6089' : (p.civ==='predecessor' ? '#8a6a48' : '#9b8340');
-  drawFacetedShape(p.x, p.y, r, elapsed*0.15, SHAPE_DEFS[p.civ]||SHAPE_DEFS.architect, shapeColor, hovered?22:12);
-  ctx.save();
-  ctx.textAlign='center';
-  ctx.fillStyle='rgba(245,238,223,0.85)';
-  ctx.font=`600 10px Cinzel, serif`;
-  ctx.fillText(p.name||CIV_NAMES[p.civ], p.x, p.y+r+14);
-  ctx.restore();
-}
-
-/* ═══════════════════════════════════════════
-   MAIN LOOP
-   ═══════════════════════════════════════════ */
-function tick(ts){
-  if(!lastTs) lastTs = ts;
-  const dt = Math.min((ts-lastTs)/1000, 0.05);
-  lastTs = ts;
-  elapsed += dt;
-  updateParticles(dt);
-  render();
-  requestAnimationFrame(tick);
-}
-
-/* ═══════════════════════════════════════════
-   HIT TESTING + INTERACTION
-   ═══════════════════════════════════════════ */
-function allInteractiveNodes(){
-  const base = layer==='city' ? cityNodes.filter(n=>n.type!=='outskirts') : kingdomNodes.filter(n=>n.type!=='outskirts');
-  if(layer==='kingdom') return base.concat(pinNodes);
-  return base.concat(landmarkNodes);
-}
-function nodeAt(x,y){
-  const nodes = allInteractiveNodes();
-  for(let i=nodes.length-1;i>=0;i--){
-    const n = nodes[i];
-    const rr = n.type==='pin' ? 17 : n.r;
-    if(Math.hypot(x-n.x,y-n.y) < rr) return n;
-  }
-  return null;
-}
-let placingPin = false;
-canvas.addEventListener('mousemove', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
-  if(isPanning && panMoved) return; // drag-in-progress owns hover/cursor state below
-  const {x,y} = screenToWorld(sx,sy);
-  const n = nodeAt(x,y);
-  if(n!==hoverNode){ hoverNode = n; canvas.style.cursor = n ? 'pointer' : (placingPin?'crosshair':'grab'); }
-});
-canvas.addEventListener('click', (e)=>{
-  if(suppressNextClick){ suppressNextClick = false; return; }
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
-  const {x,y} = screenToWorld(sx,sy);
-  if(placingPin){ commitPinPlacement(x,y); return; }
-  const n = nodeAt(x,y);
-  if(!n) return;
-  if(n.type==='pin') openPinDrawer(n);
-  else if(n.type==='landmark') openLandmarkDrawer(n.id);
-  else openNodeDrawer(n);
-});
-
-/* ═══════════════════════════════════════════
-   PAN (drag) + ZOOM (wheel / pinch) — the .panning CSS class and
-   #mapCanvas's default cursor:grab already existed before this; nothing
-   ever actually dragged. `isPanning`/`panMoved` are tracked separately:
-   a mousedown that never moves past PAN_DRAG_THRESHOLD still resolves as
-   a normal click (opening a node's drawer), and only a genuine drag
-   suppresses the click that mouseup would otherwise still fire.
-   ═══════════════════════════════════════════ */
-let isPanning = false, panMoved = false, suppressNextClick = false;
-let panStartSX=0, panStartSY=0, panStartCamX=0, panStartCamY=0;
-const PAN_DRAG_THRESHOLD = 4;
-
-canvas.addEventListener('mousedown', (e)=>{
-  if(placingPin) return; // pin placement owns the click in that mode — don't also start a pan
-  const rect = canvas.getBoundingClientRect();
-  isPanning = true; panMoved = false;
-  panStartSX = e.clientX-rect.left; panStartSY = e.clientY-rect.top;
-  panStartCamX = camPanX; panStartCamY = camPanY;
-});
-// Tracked on window, not the canvas, so a fast drag that briefly leaves
-// the canvas's bounding rect doesn't drop the gesture mid-pan.
-window.addEventListener('mousemove', (e)=>{
-  if(!isPanning) return;
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
-  const dx = sx-panStartSX, dy = sy-panStartSY;
-  if(!panMoved && Math.hypot(dx,dy) > PAN_DRAG_THRESHOLD){ panMoved = true; canvas.classList.add('panning'); }
-  if(panMoved){ camPanX = panStartCamX+dx; camPanY = panStartCamY+dy; clampPan(); render(); }
-});
-window.addEventListener('mouseup', ()=>{
-  if(!isPanning) return;
-  isPanning = false;
-  canvas.classList.remove('panning');
-  if(panMoved) suppressNextClick = true; // a real drag happened — the click that follows mouseup isn't a node click
-});
-
-canvas.addEventListener('wheel', (e)=>{
-  // mousedown/touchstart both bail out while a pin placement is in
-  // progress so drag-to-pan can't fight it — wheel-zoom didn't have the
-  // same guard (QA playtest found the inconsistency; it didn't actually
-  // misplace pins, since placement always used the live cursor/tap
-  // position, but zooming mid-placement was still an unintended gap).
-  if(placingPin) return;
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX-rect.left, sy = e.clientY-rect.top;
-  const factor = Math.pow(1.0015, -e.deltaY); // scroll up / pinch-out zooms in, matches natural trackpad direction
-  zoomAt(sx, sy, camScale*factor);
-  render();
-}, {passive:false});
-
-// Touch — no touch handling existed on this canvas before pan/zoom (tap-
-// to-open worked only because browsers synthesize a mouse click after an
-// untouched tap). Real single-finger pan and two-finger pinch-zoom both
-// need genuine touch events, and once this calls preventDefault() on
-// touchstart that synthetic click stops firing — so the tap-to-open path
-// is reimplemented here in touchend rather than continuing to rely on
-// the mouse click handler for touch input. While placingPin is active,
-// every handler below bails out immediately without preventDefault,
-// leaving that synthetic click exactly as it was for the pin-placement
-// flow, unchanged.
-let touchMode = null; // null | 'pan' | 'pinch'
-let touchStartSX=0, touchStartSY=0, touchStartCamX=0, touchStartCamY=0, touchMoved=false;
-let pinchStartDist=1, pinchStartScale=1;
-
-canvas.addEventListener('touchstart', (e)=>{
-  if(placingPin) return;
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  if(e.touches.length===1){
-    touchMode = 'pan'; touchMoved = false;
-    touchStartSX = e.touches[0].clientX-rect.left; touchStartSY = e.touches[0].clientY-rect.top;
-    touchStartCamX = camPanX; touchStartCamY = camPanY;
-  } else if(e.touches.length===2){
-    touchMode = 'pinch'; touchMoved = true;
-    const t0=e.touches[0], t1=e.touches[1];
-    pinchStartDist = Math.max(1, Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY));
-    pinchStartScale = camScale;
-  }
-}, {passive:false});
-
-canvas.addEventListener('touchmove', (e)=>{
-  if(placingPin || !touchMode) return;
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  if(touchMode==='pan' && e.touches.length===1){
-    const sx = e.touches[0].clientX-rect.left, sy = e.touches[0].clientY-rect.top;
-    const dx = sx-touchStartSX, dy = sy-touchStartSY;
-    if(!touchMoved && Math.hypot(dx,dy) > PAN_DRAG_THRESHOLD){ touchMoved = true; canvas.classList.add('panning'); }
-    if(touchMoved){ camPanX = touchStartCamX+dx; camPanY = touchStartCamY+dy; clampPan(); render(); }
-  } else if(touchMode==='pinch' && e.touches.length===2){
-    const t0=e.touches[0], t1=e.touches[1];
-    const dist = Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY);
-    const mx = (t0.clientX+t1.clientX)/2-rect.left, my = (t0.clientY+t1.clientY)/2-rect.top;
-    zoomAt(mx, my, pinchStartScale*(dist/pinchStartDist));
-    render();
-  }
-}, {passive:false});
-
-canvas.addEventListener('touchend', (e)=>{
-  if(placingPin) return;
-  e.preventDefault();
-  const wasTap = touchMode==='pan' && !touchMoved;
-  canvas.classList.remove('panning');
-  if(wasTap && e.changedTouches.length){
-    const rect = canvas.getBoundingClientRect();
-    const t = e.changedTouches[0];
-    const {x,y} = screenToWorld(t.clientX-rect.left, t.clientY-rect.top);
-    const n = nodeAt(x,y);
-    if(n){
-      if(n.type==='pin') openPinDrawer(n);
-      else if(n.type==='landmark') openLandmarkDrawer(n.id);
-      else openNodeDrawer(n);
-    }
-  }
-  if(e.touches.length===0){ touchMode = null; touchMoved = false; }
-}, {passive:false});
-
 function setLayer(next){
   layer = next;
   document.getElementById('layer-btn-city').classList.toggle('active', next==='city');
   document.getElementById('layer-btn-kingdom').classList.toggle('active', next==='kingdom');
-  hoverNode = null;
-  resetCamera();
+  renderMap();
   updateEmptyBanner();
   closeDrawer();
 }
@@ -1574,62 +901,136 @@ function leverageRowsForNpc(npcKey){
     const v = node && node.scores ? node.scores[h.key] : undefined;
     const val = (v===undefined||v===null) ? 0 : v;
     const cls = val>0?'pos':(val<0?'neg':'zero');
-    return `<div class="drawer-row"><span class="drawer-row-label">${h.name}</span><span class="lev-pip ${cls}">${val>0?'+':''}${val}</span></div>`;
+    return `<div class="drawer-row"><span class="drawer-row-label">${esc(h.name)}</span><span class="lev-pip ${cls}">${val>0?'+':''}${val}</span></div>`;
   }).join('');
 }
 
-function openNodeDrawer(n){
-  if(n.type==='castle'){
-    openDrawerRaw(`
-      <span class="drawer-eyebrow">The Royal Seat</span>
-      <div class="drawer-title">${n.label}</div>
-      <div class="drawer-sub">${n.sub}</div>
-      <div class="drawer-section">
-        <div class="drawer-section-title">King Hector — Leverage</div>
-        ${leverageRowsForNpc('kingHector')}
-      </div>
-      <div class="drawer-section">
-        <div class="drawer-section-title">Royal Chamberlain — Leverage</div>
-        ${leverageRowsForNpc('royalChamberlain')}
-      </div>
-      ${attachSectionHtml('castle','The Castle')}
-    `);
-    return;
-  }
-  if(n.type==='park'){
-    openDrawerRaw(`
-      <span class="drawer-eyebrow">Neutral Ground</span>
-      <div class="drawer-title">${n.label}</div>
-      <div class="drawer-sub">${n.sub}</div>
-      <div class="drawer-section"><div class="drawer-empty">Belongs to no house — and therefore to everyone. No leverage is tracked here.</div></div>
-      ${attachSectionHtml('park1','City Park')}
-    `);
-    return;
-  }
-  // district or homecity
-  const heir = n.type==='homecity' ? n.heir : heirForDistrict(n.key);
-  const npcName = n.npcKey ? (WORLD_NPC_NAMES[n.npcKey]||n.npcKey) : 'The Courier Network (no fixed seat)';
+function attachSectionHtml(attachKey, attachLabel){
+  const lms = landmarksForAttach(attachKey);
+  const npcs = npcsForAttach(attachKey, null);
+  return `
+    <div class="drawer-section">
+      <div class="drawer-section-title">Landmarks</div>
+      ${lms.length ? lms.map(landmarkListItemHtml).join('') : '<div class="drawer-empty">Nothing marked here yet.</div>'}
+      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openLandmarkModal('${attachKey}')">+ Add Landmark</button>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">NPCs</div>
+      ${npcs.length ? npcs.map(npcListItemHtml).join('') : `<div class="drawer-empty">No NPCs noted directly in ${esc(attachLabel)} yet.</div>`}
+      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openNpcModal('${attachKey}', null, null)">+ Add NPC</button>
+    </div>
+  `;
+}
+
+function openCastleDrawer(){
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">The Royal Seat</span>
+    <div class="drawer-title">The Castle</div>
+    <div class="drawer-sub">King Hector · Royal Chamberlain</div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">King Hector — Leverage</div>
+      ${leverageRowsForNpc('kingHector')}
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Royal Chamberlain — Leverage</div>
+      ${leverageRowsForNpc('royalChamberlain')}
+    </div>
+    ${attachSectionHtml('castle','The Castle')}
+  `);
+}
+function openParkDrawer(){
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">Neutral Ground</span>
+    <div class="drawer-title">City Park</div>
+    <div class="drawer-sub">Neutral ground</div>
+    <div class="drawer-section"><div class="drawer-empty">Belongs to no house — and therefore to everyone. No leverage is tracked here.</div></div>
+    ${attachSectionHtml('park1','City Park')}
+  `);
+}
+function openDistrictDrawer(key){
+  const d = DISTRICTS.find(x=>x.key===key);
+  if(!d) return;
+  const heir = heirForDistrict(d.key);
+  const npcName = d.npcKey ? (WORLD_NPC_NAMES[d.npcKey]||d.npcKey) : 'The Courier Network (no fixed seat)';
   const sigilData = sigilFor(heir);
   const houseBlock = heir ? `
       <div style="overflow:hidden;">
-        ${sigilData?`<img class="sigil-thumb" src="${sigilData}" alt="${heir.house} sigil">`:''}
-        <div><span class="house-swatch" style="background:${houseColorFor(heir)};"></span>${heir.house}</div>
-        <div class="drawer-empty" style="padding-top:.3rem;">${heir.name}${heir.school&&heir.school!=='—'?` · ${heir.school}`:''}</div>
+        ${sigilData?`<img class="sigil-thumb" src="${sigilData}" alt="${esc(heir.house)} sigil">`:''}
+        <div><span class="house-swatch" style="background:${houseColorFor(heir)||GHOST_COLOR};"></span>${esc(heir.house)}</div>
+        <div class="drawer-empty" style="padding-top:.3rem;">${esc(heir.name)}${heir.school&&heir.school!=='—'?` · ${esc(heir.school)}`:''}</div>
       </div>
     ` : `<div class="drawer-empty">No heir has claimed this district yet.</div>`;
   openDrawerRaw(`
-    <span class="drawer-eyebrow">${n.type==='homecity'?'Home City':'District of Shemsara'}</span>
-    <div class="drawer-title">${n.label}</div>
-    <div class="drawer-sub">${n.sub}</div>
+    <span class="drawer-eyebrow">District of Shemsara</span>
+    <div class="drawer-title">${esc(d.label)}</div>
+    <div class="drawer-sub">${esc(d.place)}</div>
     <div class="drawer-section">
       <div class="drawer-section-title">Controlling House</div>
       ${houseBlock}
     </div>
     <div class="drawer-section">
-      <div class="drawer-section-title">${npcName}</div>
-      ${leverageRowsForNpc(n.npcKey)}
+      <div class="drawer-section-title">${esc(npcName)}</div>
+      ${leverageRowsForNpc(d.npcKey)}
     </div>
-    ${n.type==='district' ? attachSectionHtml(n.key, n.label) : ''}
+    ${attachSectionHtml(d.key, d.label)}
+  `);
+}
+function openShemsaraDrawer(){
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">The Capital</span>
+    <div class="drawer-title">Shemsara</div>
+    <div class="drawer-sub">Seat of the Crown</div>
+    <div class="drawer-section"><div class="drawer-empty">Switch to the Shemsara layer above to see its districts, landmarks, and NPCs in detail.</div></div>
+  `);
+}
+function openHomeCityDrawer(key){
+  const d = DISTRICTS.find(x=>x.key===key);
+  if(!d) return;
+  const heir = heirForDistrict(key);
+  const sigilData = sigilFor(heir);
+  const houseBlock = heir ? `
+      <div style="overflow:hidden;">
+        ${sigilData?`<img class="sigil-thumb" src="${sigilData}" alt="${esc(heir.house)} sigil">`:''}
+        <div><span class="house-swatch" style="background:${houseColorFor(heir)||GHOST_COLOR};"></span>${esc(heir.house)}</div>
+        <div class="drawer-empty" style="padding-top:.3rem;">${esc(heir.name)}${heir.school&&heir.school!=='—'?` · ${esc(heir.school)}`:''}</div>
+      </div>
+    ` : `<div class="drawer-empty">No heir has claimed this city yet.</div>`;
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">Home City</span>
+    <div class="drawer-title">${esc(kingdomCityLabel(d))}</div>
+    <div class="drawer-sub">${esc(kingdomCitySub(d))}</div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Controlling House</div>
+      ${houseBlock}
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Exploration Pins Nearby</div>
+      ${pinsForZone(key).length ? pinsForZone(key).map(pinListItemHtml).join('') : '<div class="drawer-empty">No discoveries charted near this city yet.</div>'}
+    </div>
+  `);
+}
+// Note: the original Canvas build gave the Outskirts ring an NPC
+// (outskirtsBroker/"The Tallyman") but then explicitly excluded it from
+// hit-testing — a ring shape was awkward to hit-test reliably on canvas,
+// so it stayed decorative-only even though its own data implies it should
+// be inspectable. A plain DOM cell has no such hit-testing problem, so
+// this redesign restores that access rather than carrying the omission
+// forward: leverage for the Tallyman, plus any exploration pins charted
+// here, are both one click away like every other place on the map.
+function openOutskirtsDrawer(){
+  const pins = pinsForZone('outskirts');
+  openDrawerRaw(`
+    <span class="drawer-eyebrow">Beyond the Wall</span>
+    <div class="drawer-title">The Outskirts</div>
+    <div class="drawer-sub">Contested territory · "The Tallyman"</div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">The Tallyman — Leverage</div>
+      ${leverageRowsForNpc('outskirtsBroker')}
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Exploration Pins Here</div>
+      ${pins.length ? pins.map(pinListItemHtml).join('') : '<div class="drawer-empty">No discoveries charted here yet.</div>'}
+    </div>
   `);
 }
 
@@ -1642,10 +1043,6 @@ function openNodeDrawer(n){
    of it lives in this tool's own mapState (never touches GM Screen's
    schema) and is reachable from the district/castle/park drawer above.
    ═══════════════════════════════════════════ */
-function landmarksForAttach(key){ return mapState.landmarks.filter(l=>l.districtKey===key); }
-function npcsForAttach(key, landmarkId){
-  return mapState.npcs.filter(n => n.districtKey===key && (landmarkId ? n.landmarkId===landmarkId : !n.landmarkId));
-}
 function landmarkListItemHtml(lm){
   const icon = landmarkIcon(lm.icon);
   const thumb = lm.image
@@ -1653,7 +1050,7 @@ function landmarkListItemHtml(lm){
     : `<span class="entity-thumb icon-only" style="background:${icon.color};"></span>`;
   return `<div class="entity-list-item" onclick="openLandmarkDrawer('${lm.id}')">
       ${thumb}
-      <div><div class="entity-list-name">${lm.name||icon.label}</div><div class="entity-list-meta">${icon.label}</div></div>
+      <div><div class="entity-list-name">${esc(lm.name||icon.label)}</div><div class="entity-list-meta">${esc(icon.label)}</div></div>
     </div>`;
 }
 function npcListItemHtml(npc){
@@ -1662,24 +1059,20 @@ function npcListItemHtml(npc){
     : `<span class="entity-thumb icon-only" style="background:#5a4a30;"></span>`;
   return `<div class="entity-list-item" onclick="openNpcDrawer('${npc.id}')">
       ${thumb}
-      <div><div class="entity-list-name">${npc.name||'Unnamed NPC'}</div><div class="entity-list-meta">${npc.role||'&nbsp;'}</div></div>
+      <div><div class="entity-list-name">${esc(npc.name||'Unnamed NPC')}</div><div class="entity-list-meta">${esc(npc.role||'')||'&nbsp;'}</div></div>
     </div>`;
 }
-function attachSectionHtml(attachKey, attachLabel){
-  const lms = landmarksForAttach(attachKey);
-  const npcs = npcsForAttach(attachKey, null);
-  return `
-    <div class="drawer-section">
-      <div class="drawer-section-title">Landmarks</div>
-      ${lms.length ? lms.map(landmarkListItemHtml).join('') : '<div class="drawer-empty">Nothing marked here yet.</div>'}
-      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openLandmarkModal('${attachKey}')">+ Add Landmark</button>
-    </div>
-    <div class="drawer-section">
-      <div class="drawer-section-title">NPCs</div>
-      ${npcs.length ? npcs.map(npcListItemHtml).join('') : `<div class="drawer-empty">No NPCs noted directly in ${attachLabel} yet.</div>`}
-      <button class="tb-btn" style="width:100%;margin-top:.3rem;" onclick="openNpcModal('${attachKey}', null, null)">+ Add NPC</button>
-    </div>
-  `;
+function pinListItemHtml(p){
+  return `<div class="pin-list-item" onclick="openPinDrawer('${p.id}')">
+      <div class="pin-list-name">${esc(p.name)}</div>
+      <div class="pin-list-meta">${esc(CIV_NAMES[p.civ]||'')} · ${esc(p.depth||'')}</div>
+    </div>`;
+}
+function attachPointLabel(key){
+  if(key==='castle') return 'The Castle';
+  if(key==='park1') return 'City Park';
+  const d = DISTRICTS.find(x=>x.key===key);
+  return d ? d.label : key;
 }
 
 function openLandmarkDrawer(id){
@@ -1688,10 +1081,10 @@ function openLandmarkDrawer(id){
   const icon = landmarkIcon(lm.icon);
   const npcs = npcsForAttach(lm.districtKey, lm.id);
   openDrawerRaw(`
-    <span class="drawer-eyebrow">${icon.label} · ${attachPointLabel(lm.districtKey)}</span>
-    <div class="drawer-title">${lm.name||icon.label}</div>
+    <span class="drawer-eyebrow">${esc(icon.label)} · ${esc(attachPointLabel(lm.districtKey))}</span>
+    <div class="drawer-title">${esc(lm.name||icon.label)}</div>
     ${lm.image?`<img class="drawer-photo" src="${lm.image}">`:''}
-    ${lm.note?`<div class="drawer-sub" style="font-style:normal;">${lm.note}</div>`:'<div class="drawer-empty">No note yet.</div>'}
+    ${lm.note?`<div class="drawer-sub" style="font-style:normal;">${esc(lm.note)}</div>`:'<div class="drawer-empty">No note yet.</div>'}
     <div class="drawer-section">
       <div class="drawer-section-title">NPCs Here</div>
       ${npcs.length ? npcs.map(npcListItemHtml).join('') : '<div class="drawer-empty">No NPCs tied to this spot yet.</div>'}
@@ -1703,61 +1096,58 @@ function openLandmarkDrawer(id){
     </div>
   `);
 }
-
 function removeLandmark(id){
   mapState.landmarks = mapState.landmarks.filter(l=>l.id!==id);
   // orphaned NPCs move up to their district's general list rather than
   // vanishing along with the landmark that introduced them
   mapState.npcs.forEach(n=>{ if(n.landmarkId===id) n.landmarkId = null; });
   saveMapState();
-  layoutLandmarks();
   closeDrawer();
-  render();
+  renderMap();
 }
-
 function openNpcDrawer(id){
   const npc = mapState.npcs.find(n=>n.id===id);
   if(!npc) return;
   const fields = (npc.customFields||[]).map(f=>
-    `<div class="drawer-row"><span class="drawer-row-label">${f.label}</span><span class="drawer-row-val">${f.value}</span></div>`
+    `<div class="drawer-row"><span class="drawer-row-label">${esc(f.label)}</span><span class="drawer-row-val">${esc(f.value)}</span></div>`
   ).join('');
   const parentLandmark = npc.landmarkId ? mapState.landmarks.find(l=>l.id===npc.landmarkId) : null;
   const parentLandmarkName = parentLandmark ? (parentLandmark.name || landmarkIcon(parentLandmark.icon).label) : '';
   openDrawerRaw(`
-    <span class="drawer-eyebrow">${attachPointLabel(npc.districtKey)}${parentLandmarkName?' · '+parentLandmarkName:''}</span>
-    <div class="drawer-title">${npc.name||'Unnamed NPC'}</div>
-    <div class="drawer-sub">${npc.role||''}</div>
+    <span class="drawer-eyebrow">${esc(attachPointLabel(npc.districtKey))}${parentLandmarkName?' · '+esc(parentLandmarkName):''}</span>
+    <div class="drawer-title">${esc(npc.name||'Unnamed NPC')}</div>
+    <div class="drawer-sub">${esc(npc.role||'')}</div>
     ${npc.image?`<img class="drawer-photo" src="${npc.image}">`:''}
     <div class="drawer-section">
-      ${npc.want?`<div class="drawer-row"><span class="drawer-row-label">Want</span><span class="drawer-row-val">${npc.want}</span></div>`:''}
-      ${npc.fear?`<div class="drawer-row"><span class="drawer-row-label">Fear</span><span class="drawer-row-val">${npc.fear}</span></div>`:''}
+      ${npc.want?`<div class="drawer-row"><span class="drawer-row-label">Want</span><span class="drawer-row-val">${esc(npc.want)}</span></div>`:''}
+      ${npc.fear?`<div class="drawer-row"><span class="drawer-row-label">Fear</span><span class="drawer-row-val">${esc(npc.fear)}</span></div>`:''}
     </div>
     ${fields ? `<div class="drawer-section"><div class="drawer-section-title">Stats</div>${fields}</div>` : ''}
-    ${npc.notes ? `<div class="drawer-section"><div class="drawer-section-title">Notes</div><div class="drawer-sub" style="font-style:normal;">${npc.notes}</div></div>` : ''}
+    ${npc.notes ? `<div class="drawer-section"><div class="drawer-section-title">Notes</div><div class="drawer-sub" style="font-style:normal;">${esc(npc.notes)}</div></div>` : ''}
     <div class="drawer-btn-row">
       <button class="tb-btn" onclick="openNpcModal('${npc.districtKey}', ${npc.landmarkId?`'${npc.landmarkId}'`:'null'}, '${npc.id}')">Edit</button>
       <button class="tb-btn" onclick="removeNpc('${npc.id}')">Remove</button>
     </div>
   `);
 }
-
 function removeNpc(id){
   mapState.npcs = mapState.npcs.filter(n=>n.id!==id);
   saveMapState();
   closeDrawer();
 }
-
-function openPinDrawer(p){
+function openPinDrawer(id){
+  const p = mapState.pins.find(x=>x.id===id);
+  if(!p) return;
   const r = p.reward;
   const body = r.shape==='document'
-    ? `<div class="reward-desc">${r.desc}</div><div class="drawer-row"><span class="drawer-row-label">Concerns</span><span class="drawer-row-val">${r.subject}</span></div><div class="drawer-row"><span class="drawer-row-label">Implicates</span><span class="drawer-row-val">${r.implicates}</span></div>`
-    : `<div class="reward-name">"${r.name}"</div><div class="drawer-row"><span class="drawer-row-label">School</span><span class="drawer-row-val">${r.schoolName} · Tier ${r.tier}</span></div><div class="reward-desc">${r.desc}</div>`;
+    ? `<div class="reward-desc">${esc(r.desc)}</div><div class="drawer-row"><span class="drawer-row-label">Concerns</span><span class="drawer-row-val">${esc(r.subject)}</span></div><div class="drawer-row"><span class="drawer-row-label">Implicates</span><span class="drawer-row-val">${esc(r.implicates)}</span></div>`
+    : `<div class="reward-name">"${esc(r.name)}"</div><div class="drawer-row"><span class="drawer-row-label">School</span><span class="drawer-row-val">${esc(r.schoolName)} · Tier ${r.tier}</span></div><div class="reward-desc">${esc(r.desc)}</div>`;
   openDrawerRaw(`
-    <span class="drawer-eyebrow">${CIV_NAMES[p.civ]} · ${p.depth}</span>
-    <div class="drawer-title">${p.name}</div>
+    <span class="drawer-eyebrow">${esc(CIV_NAMES[p.civ])} · ${esc(p.depth)}</span>
+    <div class="drawer-title">${esc(p.name)}</div>
     <div class="drawer-section">
       ${body}
-      <div class="reward-danger">Danger: ${r.danger}</div>
+      <div class="reward-danger">Danger: ${esc(r.danger)}</div>
     </div>
     <div class="drawer-section" style="display:flex;gap:.5rem;">
       <button class="tb-btn primary" style="flex:1;" onclick="openExportModalForPin('${p.id}')">Send to Player</button>
@@ -1765,21 +1155,30 @@ function openPinDrawer(p){
     </div>
   `);
 }
-
 function removePin(id){
   mapState.pins = mapState.pins.filter(p=>p.id!==id);
   saveMapState();
-  layoutPins();
   closeDrawer();
-  render();
+  renderMap();
 }
 
 /* ═══════════════════════════════════════════
-   GENERATOR MODAL
+   GENERATOR MODAL — rolling a discovery and placing its pin both happen
+   inside this one modal now: pick a civ/depth, roll, pick which zone it
+   belongs near, place. No separate "click on the map" step — there's no
+   continuous canvas space left to click a coordinate on, and the fixed
+   set of zones (six home cities + the Outskirts) is exactly the same
+   list a GM would have picked from anyway.
    ═══════════════════════════════════════════ */
 let pendingDiscovery = null;
+function zoneOptionsHtml(){
+  const opts = DISTRICTS.map(d=>`<option value="${d.key}">${esc(kingdomCityLabel(d))}${heirForDistrict(d.key)?'':' (awaiting an heir)'}</option>`);
+  opts.push(`<option value="outskirts">The Outskirts / Frontier</option>`);
+  return opts.join('');
+}
 function openGeneratorModal(){
   document.getElementById('gen-result').innerHTML = '';
+  document.getElementById('gen-zone-field').style.display = 'none';
   document.getElementById('gen-place-btn').style.display = 'none';
   document.getElementById('gen-name').value = '';
   pendingDiscovery = null;
@@ -1799,42 +1198,34 @@ function rollDiscovery(){
   const reward = generateReward(civ, depth);
   const resultEl = document.getElementById('gen-result');
   if(!reward || reward.error){
-    resultEl.innerHTML = `<div class="gen-error">${reward ? reward.error : 'Something went wrong generating this discovery.'}</div>`;
+    resultEl.innerHTML = `<div class="gen-error">${esc(reward ? reward.error : 'Something went wrong generating this discovery.')}</div>`;
+    document.getElementById('gen-zone-field').style.display = 'none';
     document.getElementById('gen-place-btn').style.display = 'none';
     pendingDiscovery = null;
     return;
   }
   const body = reward.shape==='document'
-    ? `<div class="reward-desc">${reward.desc}</div><div class="reward-desc">Concerns ${reward.subject}, implicates ${reward.implicates}.</div>`
-    : `<div class="reward-name">"${reward.name}"</div><div class="reward-desc">${reward.schoolName} · Tier ${reward.tier}. ${reward.desc}</div>`;
-  resultEl.innerHTML = `<div class="reward-card">${body}<div class="reward-danger">Danger: ${reward.danger}</div></div>`;
+    ? `<div class="reward-desc">${esc(reward.desc)}</div><div class="reward-desc">Concerns ${esc(reward.subject)}, implicates ${esc(reward.implicates)}.</div>`
+    : `<div class="reward-name">"${esc(reward.name)}"</div><div class="reward-desc">${esc(reward.schoolName)} · Tier ${reward.tier}. ${esc(reward.desc)}</div>`;
+  resultEl.innerHTML = `<div class="reward-card">${body}<div class="reward-danger">Danger: ${esc(reward.danger)}</div></div>`;
   pendingDiscovery = { civ, depth, reward, name: document.getElementById('gen-name').value.trim() };
+  const zoneSel = document.getElementById('gen-zone');
+  zoneSel.innerHTML = zoneOptionsHtml();
+  document.getElementById('gen-zone-field').style.display = '';
   document.getElementById('gen-place-btn').style.display = '';
 }
-function beginPinPlacement(){
+function commitPinPlacement(){
   if(!pendingDiscovery) return;
-  closeGeneratorModal();
-  if(layer!=='kingdom') setLayer('kingdom');
-  placingPin = true;
-  canvas.style.cursor = 'crosshair';
-  const note = document.getElementById('sync-note');
-  note.dataset.prev = note.textContent;
-  note.textContent = 'Click anywhere on the kingdom map to place this discovery…';
-}
-function commitPinPlacement(x,y){
-  if(!pendingDiscovery) return;
+  const zone = document.getElementById('gen-zone').value;
   const id = 'pin_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   const name = pendingDiscovery.name || `${CIV_NAMES[pendingDiscovery.civ].replace('The ','')} Site`;
-  mapState.pins.push({ id, civ: pendingDiscovery.civ, depth: pendingDiscovery.depth, name, reward: pendingDiscovery.reward, x, y });
+  mapState.pins.push({ id, civ: pendingDiscovery.civ, depth: pendingDiscovery.depth, name, reward: pendingDiscovery.reward, zone });
   saveMapState();
-  layoutPins();
-  placingPin = false;
   pendingDiscovery = null;
-  canvas.style.cursor = 'grab';
+  closeGeneratorModal();
+  if(layer!=='kingdom') setLayer('kingdom'); else renderMap();
   updateSyncNote();
-  render();
-  const justPlaced = pinNodes[pinNodes.length-1];
-  if(justPlaced) openPinDrawer(justPlaced);
+  openPinDrawer(id);
 }
 
 /* ═══════════════════════════════════════════
@@ -1855,7 +1246,7 @@ function openExportModalForPin(pinId){
     : `"${r.name}" — ${r.schoolName}, Tier ${r.tier}. ${r.desc}`;
   const sel = document.getElementById('export-heir-select');
   sel.innerHTML = wonderland.heirs.length
-    ? wonderland.heirs.map(h=>`<option value="${h.key}">${h.name}</option>`).join('')
+    ? wonderland.heirs.map(h=>`<option value="${h.key}">${esc(h.name)}</option>`).join('')
     : `<option value="">No heirs imported yet</option>`;
   const overlay = document.getElementById('export-modal');
   overlay.classList.add('show');
@@ -1908,11 +1299,12 @@ function setPhotoPreview(prefix, dataUri){
 }
 // Jumps back to the drawer for whatever a landmark/NPC attaches to, so
 // saving/deleting from a modal returns the GM to a sensible place instead
-// of just closing everything — 'park1' covers both City Park accents since
-// they're the same conceptual place (see LANDMARK_ATTACH_POINTS).
+// of just closing everything — 'park1' covers both City Park cells since
+// they're the same conceptual place.
 function reopenAttachDrawer(districtKey){
-  const n = cityNodes.find(n=>n.key===districtKey);
-  if(n) openNodeDrawer(n);
+  if(districtKey==='castle') openCastleDrawer();
+  else if(districtKey==='park1') openParkDrawer();
+  else openDistrictDrawer(districtKey);
 }
 
 let landmarkModalState = null;
@@ -1921,7 +1313,7 @@ function renderIconPicker(selectedKey){
   el.innerHTML = LANDMARK_ICONS.map(icon => `
     <div class="icon-opt ${icon.key===selectedKey?'selected':''}" onclick="selectLandmarkIcon('${icon.key}')">
       <span class="icon-swatch" style="background:${icon.color};"></span>
-      <span class="icon-opt-label">${icon.label}</span>
+      <span class="icon-opt-label">${esc(icon.label)}</span>
     </div>
   `).join('');
 }
@@ -1974,9 +1366,8 @@ function saveLandmarkFromModal(){
     mapState.landmarks.push({ id:'lm_'+Date.now()+'_'+Math.floor(Math.random()*1000), districtKey, icon, name, note, image });
   }
   saveMapState();
-  layoutLandmarks();
   closeLandmarkModal();
-  render();
+  renderMap();
   if(editId) openLandmarkDrawer(editId);
   else reopenAttachDrawer(districtKey);
 }
@@ -1996,8 +1387,8 @@ function renderNpcCustomFields(){
   const el = document.getElementById('npc-custom-fields');
   el.innerHTML = npcModalState.customFields.map((f,i) => `
     <div class="custom-field-row">
-      <input class="gen-input" placeholder="Label" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="updateNpcCustomField(${i},'label',this.value)">
-      <input class="gen-input" placeholder="Value" value="${(f.value||'').replace(/"/g,'&quot;')}" oninput="updateNpcCustomField(${i},'value',this.value)">
+      <input class="gen-input" placeholder="Label" value="${esc(f.label||'')}" oninput="updateNpcCustomField(${i},'label',this.value)">
+      <input class="gen-input" placeholder="Value" value="${esc(f.value||'')}" oninput="updateNpcCustomField(${i},'value',this.value)">
       <button type="button" class="field-remove-btn" onclick="removeNpcCustomField(${i})" aria-label="Remove stat">✕</button>
     </div>
   `).join('');
@@ -2087,18 +1478,13 @@ function deleteNpcFromModal(){
    ═══════════════════════════════════════════ */
 loadWonderland();
 loadMapState();
-resize();
-seedParticles();
+renderMap();
 updateSyncNote();
 updateEmptyBanner();
-requestAnimationFrame(tick);
 
 // re-sync automatically whenever the tab regains focus, in case GM Screen
 // imported new heirs in another tab in the meantime
 window.addEventListener('focus', ()=>refreshFromWonderland(false));
-document.addEventListener('keydown', (e)=>{
-  if(e.key==='Escape' && placingPin){ placingPin=false; pendingDiscovery=null; canvas.style.cursor='grab'; updateSyncNote(); }
-});
 </script>
 
 <!-- ═══════════════════════════════════════════
