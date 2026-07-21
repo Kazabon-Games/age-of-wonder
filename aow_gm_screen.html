@@ -279,6 +279,13 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 /* ══════ DRAWER ══════ */
 .drawer{position:fixed;right:0;top:0;bottom:0;width:340px;background:var(--night-mid);border-left:1px solid var(--gold-dim);z-index:400;transform:translateX(100%);transition:transform .22s ease;overflow-y:auto;padding:1.1rem;}
 .drawer.open{transform:translateX(0);}
+/* The drawer slides in from the same right edge the Hooks column
+   occupies (340px vs. the column's 310px) and fully covers it while
+   open, on desktop as well as mobile — this badge is the one indicator
+   guaranteed still visible so a GM reading a profile/dossier knows a
+   new hook fired underneath instead of finding out only after closing. */
+.drawer-hook-alert{display:none;margin-left:.6rem;background:var(--crimson-bright);color:#fff;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.06em;padding:.18rem .45rem;border-radius:2px;cursor:pointer;vertical-align:middle;}
+.drawer-hook-alert.show{display:inline-block;}
 .drawer-close{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);cursor:pointer;margin-bottom:.9rem;display:block;}
 .drawer-close:hover{color:var(--gold);}
 .drawer-name{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold-bright);margin-bottom:.18rem;line-height:1.2;}
@@ -359,7 +366,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
   .event-composer{overflow-y:auto;max-height:58vh;flex-shrink:0;}
   .composer-row,.composer-row.three{grid-template-columns:1fr;}
   .hook-panel{flex-direction:column;}
-  .drawer{width:100%;border-left:none;border-top:1px solid var(--gold-dim);}
+  .drawer{width:100%;border-left:none;border-top:1px solid var(--gold-dim);padding-bottom:3.5rem;}
   .modal-box{width:92vw;padding:1rem;}
   .mobile-tab-nav{display:flex;background:var(--night-panel);border-bottom:1px solid var(--panel-border);flex-shrink:0;}
   .mob-tab{flex:1;font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;padding:.52rem .3rem;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--ink-light);cursor:pointer;transition:all .15s;text-align:center;position:relative;}
@@ -994,6 +1001,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 <!-- NPC DRAWER -->
 <div class="drawer" id="npc-drawer" role="dialog" aria-modal="true" aria-label="NPC details">
   <span class="drawer-close" role="button" tabindex="0" aria-label="Close" onclick="closeDrawer()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();}">← Close</span>
+  <span class="drawer-hook-alert" id="drawer-hook-alert" role="button" tabindex="0" aria-label="Close to view new hooks" onclick="closeDrawer()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();}"></span>
   <div id="drawer-content"></div>
 </div>
 
@@ -1945,9 +1953,23 @@ function ingestHeirRecord(data) {
   // matching NPCs by name.
   ['ally','rival','contact','wildCard'].forEach(slot => {
     const npc = heir.npcs[slot];
-    if (!npc?.name) return;
+    // A blank name doesn't mean "no NPC" — a player may have filled in
+    // faction/type/want/etc. and simply left the name blank. Silently
+    // dropping the whole NPC in that case was inconsistent with the
+    // Councillor slot below, which already shows a flagged placeholder
+    // rather than nothing — the GM got zero indication anything was
+    // missing here (found via QA playtest). Fall back to a labeled
+    // placeholder, same spirit as the Councillor's, whenever there's
+    // other data to show even though the name itself is blank.
+    const hasOtherData = npc && Object.entries(npc).some(([k,v]) => k!=='name' && v);
+    if (!npc || (!npc.name && !hasOtherData)) return; // truly empty slot, nothing to show
+    const displayName = npc.name || `Unnamed ${capitalize(slot)}`;
     const ownKey = `${heirKey}__${slot}`;
-    const nameSlug = slugifyName(npc.name);
+    // nameSlug drives cross-heir "same person" matching below — an
+    // empty/placeholder name must never participate in that (two
+    // unrelated heirs who both left this slot blank are not the same
+    // person), so it's only ever set from a real name.
+    const nameSlug = npc.name ? slugifyName(npc.name) : null;
     // A save from before this fix may still have this heir's node filed
     // under its old name-derived key — find and re-key it rather than
     // minting a duplicate on the first re-import after the fix ships.
@@ -1968,8 +1990,9 @@ function ingestHeirRecord(data) {
       // Same heir re-confirming their own NPC on a corrected re-import —
       // always matches now, even if the name itself is what changed.
       ownNode.npcData = npc;
-      ownNode.name = npc.name;
+      ownNode.name = displayName;
       ownNode.nameSlug = nameSlug;
+      ownNode.nameUnconfirmed = !npc.name;
       ownNode.role = `${capitalize(slot)} · ${heir.name}`;
       return;
     }
@@ -1977,7 +2000,7 @@ function ingestHeirRecord(data) {
     // personal NPC already has this exact name, treat it as the same
     // in-world person — record the share on their node — rather than
     // minting a second, disconnected node for someone already tracked.
-    const sameName = Object.values(state.nodes).find(n =>
+    const sameName = nameSlug && Object.values(state.nodes).find(n =>
       n.ownerHeir && n.ownerHeir!==heirKey && n.nameSlug===nameSlug);
     if (sameName) {
       if (!sameName.sharedBy) sameName.sharedBy=[];
@@ -1994,7 +2017,7 @@ function ingestHeirRecord(data) {
     const cluster = isPositioned ? 'positioned' : 'satellite';
     const worldLink = resolveFactionalLink(factionStr);
     state.nodes[ownKey] = {
-      key:ownKey, nameSlug, name:npc.name,
+      key:ownKey, nameSlug, name:displayName,
       role:`${capitalize(slot)} · ${heir.name}`,
       cluster, weight:'personal',
       scores:{[heirKey]: slot==='rival'?-1:1},
@@ -2002,6 +2025,7 @@ function ingestHeirRecord(data) {
       baseThreshold:4,
       worldLink, ownerHeir:heirKey, slot, npcData:npc,
       deployedHooks:[],
+      nameUnconfirmed: !npc.name,
     };
   });
 
@@ -2911,7 +2935,7 @@ function openDrawer(nodeKey) {
   document.getElementById('drawer-content').innerHTML=`
     <div class="drawer-name">${node.name}</div>
     <span class="drawer-role">${node.role}</span>
-    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--gold-bright);"><div class="drawer-text" style="color:var(--gold-bright);">This councillor's personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered (title, reputation, goal) is shown below as written.</div></div>`:''}
+    ${node.nameUnconfirmed?`<div class="drawer-section" style="border-color:var(--gold-bright);"><div class="drawer-text" style="color:var(--gold-bright);">This ${node.slot||'NPC'}'s personal name wasn't recorded in session zero — confirm it with the player directly. Everything else they entered is shown below as written.</div></div>`:''}
     ${node.responds?`<div class="drawer-section"><span class="drawer-section-label">Responds To</span><div class="drawer-text">${node.responds}</div></div>`:''}
     ${renderDossierSection(nodeKey)}
     ${relationsBlocks ? `<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;margin:.5rem 0;">${relationsBlocks}</div>` : ''}
@@ -2953,6 +2977,15 @@ function closeDrawer() {
   untrapFocus(drawerEl);
   drawerEl.classList.remove('open');
   state.drawerNode=null;
+  // Closing the drawer reveals the Hooks panel again (it's what was
+  // covered), so the alert that was surfacing new hooks while the
+  // drawer blocked it has nothing left to warn about. Clears the shared
+  // mobile hook-badge too, since it's the same counter.
+  state._unreadHooks=0;
+  const db=document.getElementById('drawer-hook-alert');
+  if(db){db.classList.remove('show'); db.textContent='';}
+  const mb=document.getElementById('hook-badge');
+  if(mb){mb.classList.remove('show'); mb.textContent='';}
 }
 
 // Everything about one heir in a single view — identity, capstone,
@@ -3109,10 +3142,25 @@ function capitalize(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
 
 function updateBadges() {
   const isMobile=window.innerWidth<=768;
-  if (!isMobile) return;
-  const hooksActive=document.querySelector('.mob-tab:nth-child(3)')?.classList.contains('active');
+  const hooksTabActive=isMobile && document.querySelector('.mob-tab:nth-child(3)')?.classList.contains('active');
   const logActive=document.querySelector('.mob-tab:nth-child(2)')?.classList.contains('active');
-  if (!hooksActive) { state._unreadHooks=(state._unreadHooks||0)+1; const b=document.getElementById('hook-badge'); if(b){b.textContent=state._unreadHooks;b.classList.add('show');} }
+  const drawerOpen=document.getElementById('npc-drawer')?.classList.contains('open');
+  // The Hooks panel is obscured whenever a drawer is open — it slides
+  // in from the same right edge the Hooks column occupies and fully
+  // covers it, on desktop as much as mobile — or, on mobile
+  // specifically, whenever some other tab is showing instead of it.
+  // Either way the GM has no way to know a new hook just fired
+  // underneath. One shared counter, surfaced in whichever indicator is
+  // actually visible right now (found via QA playtest that this was
+  // previously desktop-blind entirely — updateBadges() used to bail
+  // out immediately on non-mobile viewports).
+  const obscured = drawerOpen || (isMobile && !hooksTabActive);
+  if (!obscured) return;
+  state._unreadHooks=(state._unreadHooks||0)+1;
+  const mb=document.getElementById('hook-badge');
+  if(mb){mb.textContent=state._unreadHooks;mb.classList.add('show');}
+  const db=document.getElementById('drawer-hook-alert');
+  if(db && drawerOpen){db.textContent=`${state._unreadHooks} new hook${state._unreadHooks>1?'s':''}`;db.classList.add('show');}
 }
 
 function mobTab(panel, btn) {
