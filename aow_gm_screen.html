@@ -2995,36 +2995,90 @@ function closeDrawer() {
 // node drawers to reassemble the picture. Reuses the same #npc-drawer
 // element as openDrawer() (one drawer, swapped content) rather than a
 // second dialog, so Escape/close/focus-trap behavior is identical.
+// Year labels match the exact convention already used in the Heir
+// Record's own summary strip and Play Sheet (roman numeral + age at
+// that year) — reused here rather than inventing a second numbering.
+const HEIR_YEAR_LABELS = ['I·13','II·14','III·15','IV·16','V·17'];
+
+// Per-slot NPC detail fields worth showing beyond name+standing — the
+// rest of what a player actually entered about that person, which the
+// profile previously dropped entirely (found via GM feedback: "player
+// wants a review... needs hooks and capabilities").
+const HEIR_NPC_DETAIL_FIELDS = {
+  councillor: [['title','Title'],['reputation','Reputation'],['goal','Goal'],['fear','Fear'],['expects','Expects']],
+  ally: [['faction','Faction'],['type','Type'],['want','Wants'],['knows','Knows']],
+  rival: [['faction','Faction'],['type','Type'],['want','Wants'],['leverage','Holds Leverage']],
+  contact: [['faction','Faction'],['expects','Expects']],
+  wildCard: [['category','Category'],['significance','Significance'],['status','Status']],
+};
+
 function openHeirProfile(heirKey) {
   const heir = state.heirs.find(h=>h.key===heirKey); if(!heir) return;
   const raw = heir.raw || {};
   const identity = raw.identity || {};
+  const house = raw.house || {};
   const awakening = raw.awakening || {};
   const combat = raw.combatProfile || {};
   const capstone = raw.capstone;
   const exploration = raw.explorationProfile || {};
+  const caravanProfile = raw.caravanProfile || [];
+  const studyYears = raw.study?.years || [];
   const school = awakening.revealedSchool ? SCHOOLS[awakening.revealedSchool] : null;
 
   const nodesBySlot = {};
   Object.values(state.nodes).forEach(n=>{ if(n.ownerHeir===heirKey && n.slot) nodesBySlot[n.slot]=n; });
-  const npcRow = (label, node) => {
+  const npcRow = (label, node, slot) => {
     if(!node) return '';
     const sc = node.scores?.[heirKey] ?? 0;
     const cls = sc>0?'pos':sc<0?'neg':'zero';
-    return `<div class="drawer-score-row" style="cursor:pointer;" role="button" tabindex="0" aria-label="Open ${node.name}" onclick="closeDrawer();openDrawer('${node.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();openDrawer('${node.key}');}">
+    const npcData = node.npcData || {};
+    const fieldDefs = HEIR_NPC_DETAIL_FIELDS[slot] || [];
+    const details = fieldDefs.map(([k,l])=>npcData[k]?`${l}: ${npcData[k]}`:'').filter(Boolean);
+    if (slot==='councillor' && identity.councillorMethod) details.push(`Access via: ${identity.councillorMethod}`);
+    return `<div class="drawer-score-row" style="cursor:pointer;flex-wrap:wrap;" role="button" tabindex="0" aria-label="Open ${node.name}" onclick="closeDrawer();openDrawer('${node.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();openDrawer('${node.key}');}">
       <span class="drawer-heir-name">${label} — ${node.name}${node.nameUnconfirmed?' <em>(unconfirmed)</em>':''}</span>
       <span class="drawer-score ${cls}">${sc>0?'+':''}${sc}</span>
+      ${details.length?`<div class="drawer-text" style="flex-basis:100%;opacity:.75;font-size:.78rem;margin-top:.15rem;">${details.join(' · ')}</div>`:''}
     </div>`;
   };
   const connectionsHtml = ['councillor','ally','rival','contact','wildCard']
-    .map(slot=>npcRow(capitalize(slot), nodesBySlot[slot])).join('');
+    .map(slot=>npcRow(capitalize(slot), nodesBySlot[slot], slot)).join('');
+
+  // Founding/shadow/wound are the SRD's own three hand-authored backstory
+  // hooks — the "player wants a review" moment is exactly when a GM
+  // needs these in front of them, not buried in a JSON they'd have to
+  // reopen the original export to see.
+  const storyHooks = [
+    house.founding?`<div class="drawer-text"><strong>Founding —</strong> ${house.founding}${house.foundingDetail?` — ${house.foundingDetail}`:''}</div>`:'',
+    house.shadow?`<div class="drawer-text"><strong>Shadow —</strong> ${house.shadow}${house.shadowDetail?` — ${house.shadowDetail}`:''}</div>`:'',
+    house.wound?`<div class="drawer-text"><strong>Wound —</strong> ${house.wound}${house.woundDetail?` — ${house.woundDetail}`:''}</div>`:'',
+  ].filter(Boolean).join('');
+
+  const orientation = house.orientation || {};
+  const orientationBits = [orientation.acquire,orientation.hold,orientation.use].filter(Boolean).join(' · ');
+  const idealsBits = [house.ideal1,house.ideal2].filter(Boolean).join(', ');
+
+  const yearsHtml = HEIR_YEAR_LABELS.map((lbl,i)=>{
+    const d = studyYears[i];
+    if(!d || !d.aspect) return `<div class="drawer-text" style="opacity:.4;">Year ${lbl} — unrecorded</div>`;
+    const picks = [d.subs?.p1,d.subs?.p2,d.subs?.p3].filter(Boolean).join(' → ');
+    return `<div class="drawer-text"><strong>Year ${lbl}</strong> — ${capitalize(d.aspect)}${picks?`: ${picks}`:''}</div>`;
+  }).join('');
 
   document.getElementById('drawer-content').innerHTML = `
     <div class="drawer-name">${heir.name}</div>
     <span class="drawer-role">${identity.succession||'Succession unstated'} · House ${heir.house} · ${heir.district} District</span>
+    ${storyHooks?`<div class="drawer-section" style="background:rgba(139,105,20,0.06);border-left:2px solid var(--gold-dim);padding:.55rem .7rem;">
+      <span class="drawer-section-label">Story Hooks</span>
+      ${storyHooks}
+    </div>`:''}
     <div class="drawer-section">
-      <span class="drawer-section-label">Standing With Hector</span>
-      <div class="drawer-text">${heir.hectorRelation||'Unstated'}</div>
+      <span class="drawer-section-label">House &amp; Standing</span>
+      <div class="drawer-text">Seat: ${house.seat||heir.district||'Unstated'}</div>
+      ${idealsBits?`<div class="drawer-text">Ideals: ${idealsBits}</div>`:''}
+      ${orientationBits?`<div class="drawer-text">Orientation (Acquire/Hold/Use): ${orientationBits}</div>`:''}
+      ${house.heirStanding?`<div class="drawer-text">Standing as Heir: ${house.heirStanding}</div>`:''}
+      <div class="drawer-text">Standing With Hector: ${heir.hectorRelation||'Unstated'}</div>
     </div>
     ${capstone?`<div class="drawer-section">
       <span class="drawer-section-label">Capstone — ${capstone.aspectName}</span>
@@ -3033,6 +3087,10 @@ function openHeirProfile(heirKey) {
       <div class="drawer-text" style="opacity:.8;font-style:italic;">${capstone.usage}</div>
       ${(capstone.leverageBonus||capstone.leveragePenalty?.length)?`<div class="drawer-text">${capstone.leverageBonus?`+${capstone.leverageBonus.amount} leverage with ${state.nodes[FACTION_KEY_MAP[capstone.leverageBonus.key]||capstone.leverageBonus.key]?.name||capstone.leverageBonus.key}`:''}${capstone.leveragePenalty?.length?` · ${capstone.leveragePenalty.map(p=>`-${p.amount} with ${state.nodes[FACTION_KEY_MAP[p.key]||p.key]?.name||p.key}`).join(', ')}`:''}</div>`:''}
     </div>`:''}
+    <div class="drawer-section">
+      <span class="drawer-section-label">Five-Year History</span>
+      ${yearsHtml}
+    </div>
     <div class="drawer-section">
       <span class="drawer-section-label">Magic — ${school?school.name:'No school revealed'}</span>
       ${school?`<div class="drawer-text" style="opacity:.8;font-style:italic;">${school.axiom}</div>`:''}
@@ -3051,6 +3109,7 @@ function openHeirProfile(heirKey) {
     <div class="drawer-section">
       <span class="drawer-section-label">Exploration</span>
       <div class="drawer-text">${exploration.civilizationSpecialty?`Specialty: ${exploration.civilizationSpecialty}`:'No specialty'} · Solo depth capability D${exploration.soloDepthCapability||1}</div>
+      ${caravanProfile.length?`<div class="drawer-text">Caravan-relevant training: ${caravanProfile.join(', ')}</div>`:''}
     </div>
     <div class="drawer-section">
       <span class="drawer-section-label">Connections</span>
