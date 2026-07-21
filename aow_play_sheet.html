@@ -316,6 +316,26 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 .notes-prev-session{background:rgba(201,169,110,0.05);border:1px solid rgba(201,169,110,0.12);border-left:2px solid var(--gold-dim);padding:.7rem .9rem;margin-bottom:1rem;}
 .notes-prev-label{font-family:'Cinzel',serif;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.4rem;display:block;}
 
+/* ── MINI MAP — same read-only grid as aow_heir_record.html's renderMap(),
+   ported verbatim (class names included) so it's visually identical
+   wherever a player sees it. No click handlers: this is orientation only,
+   the GM's World Map/GM Screen hold the live, editable version. ── */
+.map-wrap{background:var(--night-2);border:1px solid rgba(201,169,110,0.25);padding:1.1rem;margin-top:.4rem;}
+.map-title{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold-dim);text-align:center;margin-bottom:.8rem;}
+.map-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;max-width:440px;margin:0 auto;}
+.mc{padding:.42rem .25rem;text-align:center;border:1px solid var(--panel-border);min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .3s;}
+.mc.out{background:var(--panel-border);grid-column:1/-1;}
+.mc.outv{background:var(--night-2);}
+.mc.castle{background:rgba(201,169,110,0.1);border-color:var(--gold-dim);}
+.mc.park{background:rgba(44,74,58,0.25);border-color:rgba(44,74,58,0.4);}
+.mc.dist{background:var(--night-2);}
+.mc-lbl{font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:var(--vellum-faint);display:block;margin-bottom:.1rem;}
+.mc-name{font-family:'Cinzel',serif;font-size:.56rem;color:var(--vellum-dim);display:block;}
+.mc-house{font-family:'EB Garamond',serif;font-size:.58rem;font-style:italic;display:block;margin-top:.1rem;}
+.mc-dot{width:6px;height:6px;border-radius:50%;margin:0 auto .1rem;display:block;}
+@media(max-width:599px){.map-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:420px){.map-grid{grid-template-columns:repeat(2,1fr);}}
+
 /* ══════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════ */
@@ -445,6 +465,10 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
     <div class="ov-row"><span class="ov-label">Origin City</span><span class="ov-val" id="bg-origin">—</span></div>
     <div class="ov-row"><span class="ov-label">Standing With Hector</span><span class="ov-val" id="bg-hector">—</span></div>
     <div class="ov-row"><span class="ov-label">Standing As Heir</span><span class="ov-val" id="bg-standing">—</span></div>
+    <div class="map-wrap">
+      <div class="map-title">Shemsara · Your District Highlighted</div>
+      <div class="map-grid" id="bg-map-grid"></div>
+    </div>
   </div>
   <div class="section">
     <div class="section-title">Story Hooks</div>
@@ -1037,6 +1061,7 @@ function importFromS0(input){
             ideal1:'', ideal2:'', orientation:{acquire:'',hold:'',use:''},
             founding:'', foundingDetail:'', shadow:'', shadowDetail:'', wound:'', woundDetail:'',
             studyYears:[], civilizationSpecialty:'', soloDepthCapability:1, caravanProfile:[],
+            district:'', colorPrimary:'',
           },
           strain:0,stamina:0,wounds:[],phase:'Effort',dissolution:'',secondSchool:'',
           magicCount:0,tier2Available:false,tier2Picked:false,secondSchoolAvailable:false,secondSchoolPicked:false,
@@ -1076,6 +1101,8 @@ function importFromS0(input){
         civilizationSpecialty:expl.civilizationSpecialty||'',
         soloDepthCapability:expl.soloDepthCapability||1,
         caravanProfile:data.caravanProfile||[],
+        district:hse.district||'',
+        colorPrimary:hse.colorPrimary||'',
       };
 
       // Pre-load signature technique from session zero if provided
@@ -2137,6 +2164,43 @@ function renderBackground(){
     if(b.caravanProfile?.length)lines.push(`<div class="ov-row"><span class="ov-label">Caravan Training</span><span class="ov-val">${b.caravanProfile.join(', ')}</span></div>`);
     explEl.innerHTML=lines.join('');
   }
+
+  renderBackgroundMap(b);
+}
+
+// Read-only mini-map — same 5-column plan-view as aow_heir_record.html's
+// renderMap(), same cell data, ported verbatim. No click handlers: this
+// is orientation for the player, not an editable tool. The GM's World
+// Map/GM Screen hold the live, editable version of the same data.
+function renderBackgroundMap(b){
+  const grid=document.getElementById('bg-map-grid');
+  if(!grid)return;
+  const district=b.district||'';
+  const color=b.colorPrimary||'#8b6914';
+  const houseName=state.setup.house||'Your House';
+  const cells=[
+    {t:'out',lbl:'Outskirts',sub:'Contested Territory · The Outskirts Broker'},
+    {t:'dist',key:'Military',lbl:'Garrison',npc:'Watch Commander'},{t:'outv'},{t:'dist',key:'Trade',lbl:'Merchant Quarter',npc:'Merchant Guildmaster'},{t:'outv'},{t:'dist',key:'Religious',lbl:'Temple District',npc:'High Priest of the Axiom'},
+    {t:'park',lbl:'City Park'},{t:'outv'},{t:'castle',lbl:'The Castle',sub:'King Hector · Royal Chamberlain'},{t:'outv'},{t:'park',lbl:'City Park'},
+    {t:'dist',key:'Scholarly',lbl:'Archive',npc:'Archivist General'},{t:'outv'},{t:'dist',key:'Agricultural',lbl:'Granary',npc:'Dockworkers Foreman'},{t:'outv'},{t:'dist',key:'Magical',lbl:'Sanctum'},
+    {t:'out',lbl:'Outskirts',sub:'Contested Territory · The Outskirts Broker'},
+  ];
+  grid.innerHTML='';
+  cells.forEach(cell=>{
+    const div=document.createElement('div');div.className='mc';
+    if(cell.t==='out'){div.classList.add('out');div.style.gridColumn='1/-1';div.innerHTML=`<span class="mc-lbl">${cell.lbl}</span><span class="mc-name" style="font-size:.46rem;opacity:.55;">${cell.sub||''}</span>`;}
+    else if(cell.t==='outv'){div.classList.add('outv');}
+    else if(cell.t==='castle'){div.classList.add('castle');div.innerHTML=`<span class="mc-lbl" style="color:var(--gold-dim);">Royal Seat</span><span class="mc-name" style="color:var(--vellum);opacity:.9;">${cell.lbl}</span><span class="mc-house" style="color:var(--vellum-dim);opacity:.7;">${cell.sub}</span>`;}
+    else if(cell.t==='park'){div.classList.add('park');div.innerHTML=`<span class="mc-lbl" style="color:var(--forest-bright);opacity:.85;">Neutral</span><span class="mc-name" style="color:var(--vellum-dim);opacity:.8;">${cell.lbl}</span>`;}
+    else if(cell.t==='dist'){
+      div.classList.add('dist');
+      const owned=district===cell.key;
+      const npcLine=cell.npc?`<span class="mc-house" style="color:var(--gold-dim);opacity:.85;font-size:.5rem;">${cell.npc}</span>`:'';
+      if(owned){div.style.borderColor=color;div.style.background=color+'22';div.innerHTML=`<span class="mc-dot" style="background:${color};"></span><span class="mc-lbl" style="opacity:.6;">${cell.lbl}</span><span class="mc-name" style="color:var(--vellum);opacity:.95;">${houseName}</span>${npcLine}`;}
+      else{div.innerHTML=`<span class="mc-lbl" style="opacity:.5;">${cell.lbl}</span><span class="mc-name" style="opacity:.3;">—</span>${npcLine}`;}
+    }
+    grid.appendChild(div);
+  });
 }
 
 // ═══════════════════ RENDER ALL ═══════════════════
