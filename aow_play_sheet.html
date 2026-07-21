@@ -70,7 +70,12 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 .import-success.show{display:block;}
 
 /* ══════ SHARED OVERLAY BASE + IMPORT MODAL ══════ */
-.aow-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:500;display:none;align-items:center;justify-content:center;}
+/* z-index above .bugrep-toggle (also 500) — that button's later DOM
+   position let it paint on top and stay clickable while this modal was
+   still open, breaking modal exclusivity (found via QA playtest). The
+   backdrop below covers the full viewport, so raising this above the
+   toggle also blocks clicks from reaching it, not just the paint order. */
+.aow-overlay{position:fixed;inset:0;background:rgba(10,8,5,0.88);z-index:600;display:none;align-items:center;justify-content:center;}
 .aow-overlay.show{display:flex;}
 .modal-box{background:var(--night-2);border:1px solid var(--gold-dim);padding:1.4rem;width:400px;max-width:92vw;text-align:center;}
 .modal-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.4rem;}
@@ -1894,7 +1899,26 @@ function addSpell(){
   document.getElementById('add-spell-area').style.display='none';
   save();renderMagic();renderOverview();
 }
-function removeSpell(i){state.spells.splice(i,1);save();renderMagic();}
+// Rapid double-click hazard: every removeX below bakes a positional
+// index into onclick at render time, and removal re-renders the list
+// synchronously. When two adjacent cards happen to render at the same
+// height (common — most cards are short, single-line fields), a real
+// double-click at one screen position removes two DIFFERENT items,
+// because the second click is its own event, hit-tested against
+// whatever's now at that position after the first item's removal
+// reflowed the list — it lands on whichever card slid up underneath
+// the cursor, not on empty space (found via QA playtest). A short lock
+// after any removal makes a double-click resolve to exactly one
+// removal, matching what a player actually intends; a deliberate
+// second removal a moment later is unaffected.
+let _removeActionLock = false;
+function _guardedRemove(fn){
+  if(_removeActionLock) return;
+  _removeActionLock = true;
+  fn();
+  setTimeout(()=>{ _removeActionLock=false; }, 350);
+}
+function removeSpell(i){_guardedRemove(()=>{state.spells.splice(i,1);save();renderMagic();});}
 
 function showAddTechnique(){document.getElementById('add-technique-area').style.display='block';}
 function addTechnique(){
@@ -1911,10 +1935,10 @@ function addTechnique(){
   document.getElementById('add-technique-area').style.display='none';
   save();renderCombat();
 }
-function removeTechnique(i){state.techniques.splice(i,1);save();renderCombat();}
+function removeTechnique(i){_guardedRemove(()=>{state.techniques.splice(i,1);save();renderCombat();});}
 
-function removeLoot(i){state.loot.splice(i,1);save();renderAssets();renderOverview();}
-function removeDocument(i){state.documents.splice(i,1);save();renderAssets();}
+function removeLoot(i){_guardedRemove(()=>{state.loot.splice(i,1);save();renderAssets();renderOverview();});}
+function removeDocument(i){_guardedRemove(()=>{state.documents.splice(i,1);save();renderAssets();});}
 
 // ═══════════════════════════════════════════
 // IMPORT REWARD FROM GM
@@ -1969,7 +1993,7 @@ function addContact(){
   document.getElementById('add-contact-area').style.display='none';
   save();renderAssets();renderOverview();
 }
-function removeContact(i){state.contacts.splice(i,1);save();renderAssets();}
+function removeContact(i){_guardedRemove(()=>{state.contacts.splice(i,1);save();renderAssets();});}
 function toggleContact(i){state.contacts[i].activated=!state.contacts[i].activated;save();renderAssets();renderOverview();}
 function toggleCapstoneUse(){if(!state.capstone)return;state.capstone.usedThisSession=!state.capstone.usedThisSession;save();renderOverview();}
 
@@ -1982,7 +2006,7 @@ function addDebt(){
   document.getElementById('add-debt-area').style.display='none';
   save();renderLeverage();
 }
-function removeDebt(i){state.debts.splice(i,1);save();renderLeverage();}
+function removeDebt(i){_guardedRemove(()=>{state.debts.splice(i,1);save();renderLeverage();});}
 
 // ═══════════════════ BACKGROUND TAB ═══════════════════
 function renderBackground(){
@@ -2076,6 +2100,17 @@ function init(){
       b.classList.remove('active-0','active-1','active-2','active-3');
       if(i===state.stamina)b.classList.add(`active-${state.stamina}`);
     });
+  } else {
+    // #tab-overview carries class="tab-content active" in the static
+    // markup (so JS-driven tab switching has somewhere to start once a
+    // sheet exists) — but nothing had ever cleared that on a genuinely
+    // fresh load with no heir imported yet, since editSetup() (which
+    // does the same clear) is never called this early. The empty
+    // Overview skeleton rendered visibly underneath the setup screen,
+    // and stayed that way through the import-confirmation modal too,
+    // since showSheet() (which fixes it) only runs once that modal is
+    // dismissed (found via QA playtest).
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   }
 }
 init();
