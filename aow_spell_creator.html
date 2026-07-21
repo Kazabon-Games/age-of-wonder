@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spell Creator — Age of Wonder</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --night:#0f0d0a;
+  --night-mid:#1a1410;
+  --night-panel:#141008;
+  --vellum:#f5eedf;
+  --vellum-dark:#e8dcc8;
+  --vellum-mid:#d4c4a8;
+  --vellum-faint:rgba(245,238,223,0.55);
+  --ink-light:#8a6a48;
+  --gold:#8b6914;
+  --gold-bright:#c9a030;
+  --gold-dim:rgba(139,105,20,0.35);
+  --gold-faint:rgba(139,105,20,0.08);
+  --crimson:#8c3a1a;
+  --crimson-bright:#c9603a;
+  --forest-bright:#3a6b50;
+  --panel-border:rgba(139,105,20,0.18);
+  --page-bg:var(--night);
+  --page-text:var(--vellum);
+}
+html{font-size:15px;scroll-behavior:smooth;}
+body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif;min-height:100vh;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;align-items:center;}
+
+.site-header{width:100%;max-width:820px;padding:3rem 2rem 2rem;text-align:center;position:relative;}
+.back-link{display:inline-block;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);text-decoration:none;margin-bottom:1.6rem;}
+.back-link:hover{color:var(--gold-bright);}
+.header-rule{width:120px;height:1px;background:var(--gold-dim);margin:1.4rem auto 0;}
+.site-eyebrow{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gold-dim);display:block;margin-bottom:1rem;}
+.site-title{font-family:'Cinzel Decorative',serif;font-size:clamp(1.8rem,5vw,2.8rem);color:var(--gold-bright);line-height:1.1;margin-bottom:.7rem;}
+.site-desc{font-family:'EB Garamond',serif;font-size:1rem;color:var(--vellum-mid);line-height:1.8;max-width:560px;margin:0 auto;font-style:italic;}
+
+.main{width:100%;max-width:820px;padding:1rem 2rem 5rem;}
+.section{border:1px solid var(--panel-border);background:rgba(255,255,255,0.018);padding:1.4rem 1.5rem;margin-bottom:1.6rem;}
+.section-title{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-bright);margin-bottom:.4rem;}
+.section-sub{font-size:.86rem;color:var(--ink-light);font-style:italic;line-height:1.6;margin-bottom:1rem;}
+
+.field{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.85rem;}
+.field-label{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-dim);}
+.field-hint{font-size:.72rem;color:var(--ink-light);font-style:italic;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;}
+input[type=text],select,textarea{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--panel-border);color:var(--vellum);font-family:'EB Garamond',serif;font-size:.9rem;padding:.5rem .6rem;}
+select:disabled{opacity:.35;cursor:not-allowed;}
+textarea{min-height:4.5rem;resize:vertical;}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--gold-dim);}
+
+.derived-box{border:1px solid var(--panel-border);background:rgba(255,255,255,0.02);padding:.55rem .7rem;font-size:.85rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem;}
+.derived-label{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim);}
+.derived-val{color:var(--vellum-dark);font-weight:600;}
+.flag-none{color:var(--forest-bright);}
+.flag-1{color:var(--crimson-bright);}
+.flag-2{color:var(--crimson-bright);font-weight:700;}
+.flag-explain{font-size:.74rem;color:var(--ink-light);font-style:italic;margin-top:.3rem;line-height:1.5;}
+
+.syntax-box{font-family:'Courier New',monospace;font-size:.72rem;color:var(--forest-bright);background:rgba(58,107,80,0.08);border:1px solid rgba(58,107,80,0.3);border-left:2px solid var(--forest-bright);padding:.6rem .7rem;line-height:1.7;word-break:break-all;margin-top:.3rem;}
+
+.msg-list{margin-top:.6rem;display:flex;flex-direction:column;gap:.4rem;}
+.msg-error,.msg-warn,.msg-ok{font-size:.8rem;line-height:1.5;padding:.4rem .6rem;border-left:2px solid;}
+.msg-error{color:var(--crimson-bright);border-color:var(--crimson-bright);background:rgba(140,58,26,0.08);}
+.msg-warn{color:#c9a030;border-color:#c9a030;background:rgba(201,160,48,0.07);}
+.msg-ok{color:var(--forest-bright);border-color:var(--forest-bright);background:rgba(58,107,80,0.07);font-style:italic;}
+
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;}
+.btn{font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.6rem 1rem;border:1px solid var(--gold-dim);background:rgba(139,105,20,0.08);color:var(--gold-bright);cursor:pointer;transition:all .15s;flex:1;min-width:150px;text-align:center;}
+.btn:hover:not(:disabled){background:rgba(139,105,20,0.18);border-color:var(--gold);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.btn-primary{background:var(--gold-dim);color:var(--night);border-color:var(--gold-bright);}
+.btn-primary:hover:not(:disabled){background:var(--gold-bright);}
+.btn-quiet{border-color:var(--panel-border);color:var(--vellum-faint);}
+
+.spell-card{border:1px solid var(--panel-border);padding:.7rem .8rem;margin-bottom:.5rem;display:flex;flex-direction:column;gap:.25rem;}
+.spell-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;}
+.spell-card-name{font-family:'Cinzel',serif;font-size:.8rem;color:var(--gold-bright);}
+.spell-card-tag{font-size:.68rem;color:var(--ink-light);}
+.spell-card-syntax{font-family:'Courier New',monospace;font-size:.64rem;color:var(--vellum-faint);word-break:break-all;}
+.spell-card-actions{display:flex;gap:.5rem;margin-top:.2rem;}
+.spell-card-actions span{font-size:.72rem;color:var(--gold-dim);cursor:pointer;text-decoration:underline;}
+.spell-card-actions span:hover{color:var(--gold-bright);}
+.empty-note{font-size:.8rem;color:var(--vellum-faint);font-style:italic;padding:.5rem 0;}
+
+.lib-filters{display:flex;gap:.6rem;margin-bottom:.7rem;}
+.lib-list{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:.4rem;}
+.lib-item{border:1px solid var(--panel-border);padding:.55rem .7rem;font-size:.8rem;}
+.lib-item.restricted{border-left:3px solid var(--crimson-bright);}
+.lib-item-top{display:flex;justify-content:space-between;gap:.5rem;}
+.lib-item-name{font-family:'Cinzel',serif;color:var(--gold-bright);font-size:.78rem;}
+.lib-item-tag{font-size:.68rem;color:var(--ink-light);}
+.lib-item-brief{font-size:.76rem;color:var(--vellum-mid);margin-top:.2rem;line-height:1.5;}
+
+.site-footer{width:100%;max-width:820px;padding:1.5rem 2rem 3rem;border-top:1px solid var(--panel-border);display:flex;align-items:center;justify-content:space-between;}
+.footer-left{font-family:'Cinzel',serif;font-size:.44rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);}
+.footer-right{font-family:'EB Garamond',serif;font-style:italic;font-size:.85rem;color:var(--ink-light);}
+
+@media(max-width:600px){
+  .site-header{padding:2rem 1.2rem 1.2rem;}
+  .main{padding:1rem 1.2rem 4rem;}
+  .field-row{grid-template-columns:1fr;}
+  .site-footer{flex-direction:column;gap:.5rem;text-align:center;}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a class="back-link" href="index.html">← Age of Wonder</a>
+  <span class="site-eyebrow">Player Tool</span>
+  <h1 class="site-title">Spell Creator</h1>
+  <p class="site-desc">Design a custom spell, get it validated against the SRD's own rules as you build it, and export it to send to your GM. What you select locks what else is possible — the tool won't let you assemble something the system doesn't allow.</p>
+  <div class="header-rule"></div>
+</header>
+
+<main class="main">
+
+  <div class="section">
+    <div class="section-title">Attribution</div>
+    <div class="field">
+      <label class="field-label" for="sc-author">Your Name / Heir</label>
+      <input type="text" id="sc-author" placeholder="Whoever the GM should credit this to" oninput="scSaveAuthor()"/>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Spell Builder</div>
+    <div class="section-sub">Only legal spells can be added or exported. Cross-school casting, tier, and moral flags are enforced automatically from what you pick — they are not free choices.</div>
+
+    <div class="field-row">
+      <div class="field">
+        <span class="field-label">Cast State</span>
+        <select id="sc-state" onchange="scBuild()">
+          <option value="OPEN">OPEN — initiating</option>
+          <option value="HOLD">HOLD — sustaining</option>
+          <option value="CLOSE">CLOSE — concluding</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Spell Name</span>
+        <input type="text" id="sc-name" placeholder="e.g. Ghostwall or UNNAMED:stone_passage" oninput="scBuild()"/>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <span class="field-label">Primary School</span>
+        <select id="sc-school1" onchange="scSchoolChanged()">
+          <option value="ALT">ALT — Alteration</option>
+          <option value="CON">CON — Conjuration</option>
+          <option value="NEG">NEG — Negation</option>
+          <option value="DIV">DIV — Divination</option>
+          <option value="TRN">TRN — Transposition</option>
+          <option value="DOM">DOM — Dominion</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Second School</span>
+        <select id="sc-school2" onchange="scBuild()">
+          <option value="">— None —</option>
+          <option value="ALT">ALT</option><option value="CON">CON</option>
+          <option value="NEG">NEG</option><option value="DIV">DIV</option>
+          <option value="TRN">TRN</option><option value="DOM">DOM</option>
+        </select>
+        <span class="field-hint" id="sc-school2-hint"></span>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <span class="field-label">Tier</span>
+        <select id="sc-tier" onchange="scTierChanged()">
+          <option value="1">T1 — Reflexive</option>
+          <option value="2">T2 — Practiced</option>
+          <option value="3">T3 — Disciplined</option>
+          <option value="4">T4 — Expert</option>
+          <option value="5">T5 — Master</option>
+          <option value="6">T6 — Sovereign</option>
+        </select>
+      </div>
+      <div class="field">
+        <span class="field-label">Duration</span>
+        <select id="sc-duration" onchange="scBuild()">
+          <option value="instant">instant</option>
+          <option value="brief">brief</option>
+          <option value="sustained">sustained</option>
+          <option value="permanent">permanent</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Target</span>
+      <input type="text" id="sc-target" placeholder="e.g. material, target_will, defined_area" oninput="scBuild()"/>
+    </div>
+    <div class="field">
+      <span class="field-label">Modifiers — separate with |</span>
+      <input type="text" id="sc-modifiers" placeholder="e.g. small|contact_range|reversible" oninput="scBuild()"/>
+      <span class="field-hint">Add words like "willing" or "consenting" here if the target agrees to the effect — it changes the moral flag below.</span>
+    </div>
+    <div class="field">
+      <span class="field-label">Effect — narrative description</span>
+      <textarea id="sc-effect" placeholder="What the spell produces, in plain language, for your GM to read"></textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="derived-box">
+        <span class="derived-label">Willstrain (from tier)</span>
+        <span class="derived-val" id="sc-strain-out">S1</span>
+      </div>
+      <div class="derived-box">
+        <span class="derived-label">Moral Flag (auto)</span>
+        <span class="derived-val flag-none" id="sc-flag-out">None</span>
+      </div>
+    </div>
+    <div class="flag-explain" id="sc-flag-explain"></div>
+
+    <div class="field">
+      <span class="field-label">Generated Syntax</span>
+      <div class="syntax-box" id="sc-syntax-out">Fill in the fields above to generate syntax.</div>
+    </div>
+
+    <div class="msg-list" id="sc-messages"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="sc-add-btn" onclick="scAddToMySpells()">+ Add to My Spells</button>
+      <button class="btn" onclick="scCopySyntax()">Copy Syntax</button>
+      <button class="btn btn-quiet" onclick="scClearForm()">Clear Form</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">My Spells <span id="sc-my-count" style="color:var(--vellum-faint);font-weight:normal;"></span></div>
+    <div class="section-sub">Saved on this device only. Export one spell at a time from the builder above, or export everything here as a single file to send your GM.</div>
+    <div id="sc-my-list"><div class="empty-note">No spells added yet.</div></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="scExportAll()">⬇ Export All as Batch</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Browse the Existing Library</div>
+    <div class="section-sub">Check here before you build — if it's already in the library, there's nothing new to submit.</div>
+    <div class="lib-filters">
+      <select id="sc-lib-school" onchange="scRenderLibrary()">
+        <option value="">All schools</option>
+        <option value="ALT">Alteration</option><option value="CON">Conjuration</option>
+        <option value="NEG">Negation</option><option value="DIV">Divination</option>
+        <option value="TRN">Transposition</option><option value="DOM">Dominion</option>
+      </select>
+      <select id="sc-lib-tier" onchange="scRenderLibrary()">
+        <option value="">All tiers</option>
+        <option value="T1">Tier 1</option><option value="T2">Tier 2</option><option value="T3">Tier 3</option>
+      </select>
+    </div>
+    <div class="lib-list" id="sc-lib-list"></div>
+  </div>
+
+</main>
+
+<footer class="site-footer">
+  <span class="footer-left">Age of Wonder · Arc One · Shemsara</span>
+  <span class="footer-right">Wonderland State Engine</span>
+</footer>
+
+<script>
+// ═══════════════════ CANONICAL DATA ═══════════════════
+// Duplicated from aow_play_sheet.html by design (same pattern as SCHOOLS
+// already duplicated across GM Screen and Play Sheet) — these are static
+// single-file documents with no shared module to import from.
+const SCHOOLS={
+  ALT:{name:'Alteration',axiom:'Changes the nature of what exists from within.',color:'#c9703a'},
+  CON:{name:'Conjuration',axiom:'Changes absence into presence.',color:'#3a7ac9'},
+  NEG:{name:'Negation',axiom:'Changes existence into absence.',color:'#6a6ac9'},
+  DIV:{name:'Divination',axiom:'Changes ignorance into knowledge.',color:'#c9a93a'},
+  TRN:{name:'Transposition',axiom:'Changes the position of a thing.',color:'#3ac970'},
+  DOM:{name:'Dominion',axiom:'Changes the will of another.',color:'#c93a8a'},
+};
+const SPELL_LIBRARY=[
+  {school:'ALT',tier:'T1',name:'Kindle',flags:0,brief:'Ignite or extinguish a small flame by changing the combustion state of material directly contacted by will.',syntax:'OPEN/ALT.T1:[KINDLE]@material|(small|contact_range|reversible)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'ALT',tier:'T1',name:'Whisperform',flags:0,brief:'Alter the surface texture of an object to be completely silent when moved.',syntax:'OPEN/ALT.T1:[WHISPERFORM]@object_surface|(silence_texture|contact_range|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'ALT',tier:'T1',name:'Mend',flags:0,brief:'Restore a small broken object to its prior structural state by altering the material back to coherence.',syntax:'OPEN/ALT.T1:[MEND]@broken_object|(small|contact_range|structural_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'ALT',tier:'T2',name:'Sealflesh',flags:0,brief:'Alter biological tissue to close a wound — stops bleeding, reduces wound state consequences. Field treatment application.',syntax:'OPEN/ALT.T2:[SEALFLESH]@biological_tissue|(wound_closure|contact_range|living_target)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'ALT',tier:'T2',name:'Dullsense',flags:1,brief:'Alter a willing or unguarded target\'s sensory perception of a specific stimulus — deaden pain, suppress a sound, remove a smell.',syntax:'OPEN/ALT.T2:[DULLSENSE]@target_sensory_apparatus|(specific_stimulus|one_sense|brief)|<WILLSTRAIN:S2>|~brief~|!'},
+  {school:'ALT',tier:'T2',name:'Shapeshift Surface',flags:0,brief:'Alter the visible and tactile surface properties of an object — make stone appear as wood, metal feel like cloth.',syntax:'OPEN/ALT.T2:[SHAPESHIFT_SURFACE]@object_surface|(appearance_and_texture|contact_range|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'ALT',tier:'T3',name:'Restructure',flags:0,brief:'Alter the fundamental material composition of an object — change stone to iron, wood to bone, metal to ceramic.',syntax:'OPEN/ALT.T3:[RESTRUCTURE]@material_object|(composition_change|contact_range|medium_volume)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'ALT',tier:'T3',name:'Rewire',flags:1,brief:'Alter a target\'s habitual physical response pattern — change a reflex, suppress a trained reaction, alter an instinctive behavior.',syntax:'OPEN/ALT.T3:[REWIRE]@target_habitual_response|(single_pattern|sustained_duration|resisted)|<WILLSTRAIN:S3>|~sustained~|!'},
+  {school:'CON',tier:'T1',name:'Fetch',flags:0,brief:'Relocate a small known object from within line of sight into the caster\'s hand.',syntax:'OPEN/CON.T1:[FETCH]@known_object|(line_of_sight|hand_range|small)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'CON',tier:'T1',name:'Calllight',flags:0,brief:'Conjure a sustained palm-sized source of light from ambient luminance beyond the immediate frame.',syntax:'OPEN/CON.T1:[CALLLIGHT]@ambient_luminance|(palm_sized|sustained|non-directed)|<WILLSTRAIN:S1>|~sustained~'},
+  {school:'CON',tier:'T1',name:'Summon Draught',flags:0,brief:'Conjure water from beyond the immediate frame into a contained vessel — a cup, a flask, a cupped hand.',syntax:'OPEN/CON.T1:[SUMMON_DRAUGHT]@water_source_beyond_frame|(contained_vessel|potable|small_volume)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'CON',tier:'T2',name:'Aperture',flags:0,brief:'Open a physical passage between two points within line of sight — not teleportation, a gap through which objects and people can move.',syntax:'OPEN/CON.T2:[APERTURE]@two_spatial_points|(line_of_sight|passage_sized|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'CON',tier:'T2',name:'Callshield',flags:0,brief:'Conjure a sustained physical barrier from material beyond the frame — opaque, solid, roughly door-sized.',syntax:'OPEN/CON.T2:[CALLSHIELD]@material_beyond_frame|(barrier_sized|sustained|stationary)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'CON',tier:'T2',name:'Presence Echo',flags:0,brief:'Conjure a sensory impression of the caster\'s presence at another location — visual only, no sound, no substance.',syntax:'OPEN/CON.T2:[PRESENCE_ECHO]@defined_location|(visual_only|caster_appearance|brief)|<WILLSTRAIN:S2>|~brief~'},
+  {school:'CON',tier:'T3',name:'Gate',flags:0,brief:'Sustain an aperture large enough for a person to pass through, maintained by continuous will for its duration.',syntax:'HOLD/CON.T3:[GATE]@two_spatial_points|(person_sized|sustained_will|line_of_sight_at_open)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'CON',tier:'T3',name:'Deep Summon',flags:0,brief:'Conjure a specific known object from beyond line of sight — requires clear knowledge of the object\'s current location.',syntax:'OPEN/CON.T3:[DEEP_SUMMON]@known_object_beyond_sight|(precise_location_knowledge|medium_size|resisted_if_held)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'NEG',tier:'T1',name:'Snuff',flags:0,brief:'Negate a small active process — a flame, a sound, a minor spell in progress.',syntax:'OPEN/NEG.T1:[SNUFF]@active_process|(small|flame_sound_or_cantrip)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'NEG',tier:'T1',name:'Hush',flags:0,brief:'Negate your own footsteps and breathing sounds for a brief duration.',syntax:'OPEN/NEG.T1:[HUSH]@caster_sound_signature|(self_only|movement_and_breath|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'NEG',tier:'T1',name:'Still',flags:0,brief:'Negate the kinetic energy of a small moving object — arrest an arrow mid-flight, stop a falling item.',syntax:'OPEN/NEG.T1:[STILL]@small_moving_object|(kinetic_negation|brief_duration|line_of_sight)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'NEG',tier:'T2',name:'Silence Zone',flags:0,brief:'Negate all sound production within a defined area for a brief duration — nothing within the zone can be heard from outside or inside it.',syntax:'OPEN/NEG.T2:[SILENCE_ZONE]@defined_area|(complete_sound_negation|room_sized|brief)|<WILLSTRAIN:S2>|~brief~'},
+  {school:'NEG',tier:'T2',name:'Counter',flags:0,brief:'Negate an active spell in progress before it completes — requires accurate Read on the casting to time correctly.',syntax:'OPEN/NEG.T2:[COUNTER]@active_casting|(pre-completion|requires_read|single_spell)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'NEG',tier:'T2',name:'Suppress',flags:0,brief:'Negate a sustained physical process — fire, water flow, a mechanism\'s operation — for a defined duration.',syntax:'OPEN/NEG.T2:[SUPPRESS]@sustained_physical_process|(defined_scope|process_negation|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'NEG',tier:'T3',name:'Void Pocket',flags:0,brief:'Negate the sensory detectability of a defined space — everything within becomes undetectable to standard perception for the duration.',syntax:'OPEN/NEG.T3:[VOID_POCKET]@defined_space|(complete_sensory_negation|room_sized|sustained)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'NEG',tier:'T3',name:'Unmake',flags:0,brief:'Negate a constructed object\'s structural integrity — sustained negation causes physical collapse of the target construction.',syntax:'HOLD/NEG.T3:[UNMAKE]@constructed_object|(structural_integrity|sustained_negation|progressive_collapse)|<WILLSTRAIN:S3>|~sustained~'},
+  {school:'DIV',tier:'T1',name:'Read',flags:0,brief:'Extract the truth of a simple present condition — is this water safe, is this door locked, is this person lying.',syntax:'OPEN/DIV.T1:[READ]@present_condition|(simple|binary_truth|single_query)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T1',name:'Warmth',flags:0,brief:'Sense the resonance signature of living creatures within a short radius without identifying them.',syntax:'OPEN/DIV.T1:[WARMTH]@living_resonance|(short_radius|presence_only|no_identity)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T1',name:'Trace',flags:0,brief:'Follow the resonance trail left by a known person or object — read where they have been within the past hour.',syntax:'OPEN/DIV.T1:[TRACE]@known_resonance_signature|(recent_trail|one_hour|contact_surfaces_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'DIV',tier:'T2',name:'History',flags:0,brief:'Read a significant past event that occurred at the caster\'s current location — what happened here, who was present, what changed.',syntax:'OPEN/DIV.T2:[HISTORY]@current_location_past_event|(significant_event|approximate_time|caster_location)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'DIV',tier:'T2',name:'Probability Read',flags:0,brief:'Assess the weighted likelihood of a defined outcome given current conditions — not certainty, a structured assessment of what is likely.',syntax:'OPEN/DIV.T2:[PROBABILITY_READ]@defined_outcome|(current_conditions|weighted_assessment|single_outcome)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'DIV',tier:'T2',name:'Deep Read',flags:1,brief:'Read the emotional and intentional state of a present person — their dominant feeling and current purpose.',syntax:'OPEN/DIV.T2:[DEEP_READ]@present_person|(emotional_and_intent|dominant_state|single_target)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'DIV',tier:'T3',name:'Witness',flags:0,brief:'Observe a specific past event at any location — requires precise temporal and spatial definition of what you are seeking.',syntax:'OPEN/DIV.T3:[WITNESS]@defined_past_event|(any_location|precise_temporal_definition|observer_only)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'DIV',tier:'T3',name:'Thread',flags:0,brief:'Read the complete causal chain between a current condition and its origin — how did this come to be, what choices produced it.',syntax:'OPEN/DIV.T3:[THREAD]@current_condition|(complete_causal_chain|origin_to_present|no_future)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Step',flags:0,brief:'Transpose the caster a short distance instantaneously within line of sight.',syntax:'OPEN/TRN.T1:[STEP]@caster|(short_distance|line_of_sight|self_only)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Toss',flags:0,brief:'Transpose a small object a short distance without touching it.',syntax:'OPEN/TRN.T1:[TOSS]@small_object|(short_distance|no_contact|line_of_sight)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T1',name:'Swap',flags:0,brief:'Transpose two small known objects within line of sight simultaneously — each ends up where the other was.',syntax:'OPEN/TRN.T1:[SWAP]@two_known_objects|(simultaneous|line_of_sight|small|positions_exchange)|<WILLSTRAIN:S1>|~instant~'},
+  {school:'TRN',tier:'T2',name:'Displace',flags:1,brief:'Transpose a target against their will a short distance — across a room, off a ledge, out of a doorway.',syntax:'OPEN/TRN.T2:[DISPLACE]@target|(short_distance|against_will|resisted)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'TRN',tier:'T2',name:'Anchor',flags:0,brief:'Fix an object\'s position in space — it cannot be moved by physical force for the duration of the casting.',syntax:'OPEN/TRN.T2:[ANCHOR]@object|(position_fixed|physical_force_resisted|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'TRN',tier:'T2',name:'Phase Step',flags:0,brief:'Transpose the caster through a thin solid barrier — a wall, a locked door, a sealed partition.',syntax:'OPEN/TRN.T2:[PHASE_STEP]@caster|(through_solid_barrier|thin_only|self)|<WILLSTRAIN:S2>|~instant~'},
+  {school:'TRN',tier:'T3',name:'Long Step',flags:0,brief:'Transpose the caster to a known location outside line of sight — requires precise knowledge of the destination.',syntax:'OPEN/TRN.T3:[LONG_STEP]@caster|(known_destination|beyond_sight|precise_knowledge_required|self)|<WILLSTRAIN:S3>|~instant~'},
+  {school:'TRN',tier:'T3',name:'Extract',flags:1,brief:'Transpose a target from their current location to the caster\'s location — the target resists in proportion to their will and readiness.',syntax:'OPEN/TRN.T3:[EXTRACT]@target|(to_caster_location|against_will|resisted|single_target)|<WILLSTRAIN:S3>|~instant~|!'},
+  {school:'DOM',tier:'T1',name:'Nudge',flags:1,brief:'Impose a minor suggestion on a weak or distracted will. Effective only on the unguarded.',syntax:'OPEN/DOM.T1:[NUDGE]@weak_or_distracted_will|(minor_suggestion|unguarded_only|single_impulse)|<WILLSTRAIN:S1>|~instant~|!'},
+  {school:'DOM',tier:'T1',name:'Quell',flags:0,brief:'Suppress a surge of strong emotion in a willing target — fear, rage, grief. Requires consent.',syntax:'OPEN/DOM.T1:[QUELL]@willing_target_emotion|(suppress_surge|consent_required|brief)|<WILLSTRAIN:S1>|~brief~'},
+  {school:'DOM',tier:'T1',name:'Read Intent',flags:1,brief:'Perceive the dominant current intention of an unguarded will — what this person is planning to do in the immediate moment.',syntax:'OPEN/DOM.T1:[READ_INTENT]@unguarded_will|(dominant_intention|immediate_moment|single_query)|<WILLSTRAIN:S1>|~instant~|!'},
+  {school:'DOM',tier:'T2',name:'Command',flags:1,brief:'Impose a single specific instruction on a will — the target executes it once and the overlay releases.',syntax:'OPEN/DOM.T2:[COMMAND]@target_will|(single_instruction|executes_once|resisted)|<WILLSTRAIN:S2>|~instant~|!'},
+  {school:'DOM',tier:'T2',name:'Reinforce',flags:0,brief:'Strengthen a willing target\'s resolve against external influence — their will becomes harder to affect for the duration.',syntax:'OPEN/DOM.T2:[REINFORCE]@willing_target_will|(external_resistance|consent_required|sustained)|<WILLSTRAIN:S2>|~sustained~'},
+  {school:'DOM',tier:'T2',name:'Hold',flags:1,brief:'Suppress a specific emotion or impulse in a target for a sustained duration — they experience the suppression but cannot act on what is being held.',syntax:'OPEN/DOM.T2:[HOLD]@target_emotion_or_impulse|(specific_suppression|sustained|resisted)|<WILLSTRAIN:S2>|~sustained~|!'},
+  {school:'DOM',tier:'T3',name:'Rewrite',flags:2,brief:'Alter a specific memory in a target — the memory changes, the target does not know it changed.',syntax:'OPEN/DOM.T3:[REWRITE]@target_specific_memory|(alteration|memory_only|target_unaware|resisted)|<WILLSTRAIN:S3>|~instant~|!!'},
+  {school:'DOM',tier:'T3',name:'Compel',flags:2,brief:'Impose sustained behavioral direction on a target — they act as the caster directs while retaining their internal experience of doing so.',syntax:'HOLD/DOM.T3:[COMPEL]@target_will|(sustained_behavioral_direction|internal_experience_preserved|resisted)|<WILLSTRAIN:S3>|~sustained~|!!'},
+];
+
+// ═══════════════════ CASCADING RULES ═══════════════════
+// Consent language that clears an otherwise-implied moral flag — pulled
+// directly from the library's own consent-required entries (Quell,
+// Reinforce) so the heuristic matches canon rather than inventing new
+// judgment calls.
+const CONSENT_WORDS=['willing','consent','consenting','self','self_only','caster'];
+const PERSON_LIKE_WORDS=['target','person','will','mind','memory','emotion','behavior','intent','identity','presence_of','target_will','present_person'];
+
+function hasWord(haystack,words){
+  const normalized=(haystack||'').replace(/\|/g,' ');
+  return words.some(w=>new RegExp(`(^|[_\\s])${w.replace(/_/g,'[_\\s]')}([_\\s]|$)`).test(normalized));
+}
+
+// Derives the moral flag the same way the shipped library itself is
+// flagged: DOM/ALT/TRN/DIV acting on another will, body, or private state
+// without consent language present carries a flag; a second, harsher tier
+// applies once the effect becomes sustained/identity-level (Rewrite,
+// Compel). The player never sets this directly — it is read off the
+// fields exactly like tier is read off scope/precision/resistance/duration.
+function scDeriveFlag(school1,school2,target,mods,tierNum){
+  const text=(target+' '+mods).toLowerCase();
+  const consented=hasWord(text,CONSENT_WORDS);
+  const personLike=hasWord(text,PERSON_LIKE_WORDS);
+  const schools=[school1,school2].filter(Boolean);
+
+  if(schools.includes('DOM')&&!consented){
+    const severe=tierNum>=3&&hasWord(text,['memory','identity','sustained_behavioral','behavior']);
+    return {flags:severe?2:1,reason:'Dominion acting on a will without "willing"/"consenting"/"self" language in the target or modifiers is Restricted by default — Command, Nudge, and Hold are all flagged this way in the library. Sustained or memory-altering Dominion at tier three or above (Rewrite, Compel) escalates to Banned in Most Houses.'};
+  }
+  if(schools.includes('TRN')&&personLike&&hasWord(text,['against_will','resisted','target'])&&!consented){
+    return {flags:1,reason:'Transposing a person against their will or without consent language is Restricted — matches Displace and Extract in the library.'};
+  }
+  if(schools.includes('ALT')&&hasWord(text,['sensory','pain','sound','smell','perception'])&&personLike&&!consented){
+    return {flags:1,reason:'Altering another\'s sensory perception without "willing"/"unguarded" consent language is Restricted — matches Dullsense in the library.'};
+  }
+  if(schools.includes('ALT')&&hasWord(text,['habitual_response','reflex','instinctive','trained_reaction'])&&!consented){
+    return {flags:1,reason:'Altering someone\'s trained/instinctive response pattern without consent is Restricted — matches Rewire in the library.'};
+  }
+  if(schools.includes('DIV')&&hasWord(text,['emotional','intent','dominant_state','private'])&&hasWord(text,['present_person','person'])){
+    return {flags:1,reason:'Reading a present person\'s emotional or intentional state is Restricted regardless of consent language — matches Deep Read in the library.'};
+  }
+  return {flags:0,reason:''};
+}
+
+const STRAIN_MAP={1:'S1',2:'S1',3:'S2',4:'S2',5:'S3',6:'S4|DISSOLUTION_RISK'};
+const SCHOOL_SIGNALS={
+  ALT:['body','heal','wound','transform','material','flesh','gland','organ','chemical','blood','bone','shape','structure'],
+  CON:['summon','conjure','fetch','bring forth','call forth','materialize'],
+  NEG:['silence','suppress','negate','unmake','counter','cancel','snuff'],
+  DIV:['know','read','sense','detect','truth','reveal','perceive','locate'],
+  TRN:['move','teleport','displace','position','swap','step','gate'],
+  DOM:['will','suggest','command','obey','believe','memory','emotion','behavior','compel','persuade'],
+};
+const BIG_SCOPE_WORDS=['all','every','entire','everyone','everything','city','kingdom','world','irreversible','permanently_unmake'];
+
+function normName(n){ return (n||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function normTarget(t){ return (t||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+
+function scLibTarget(spell){
+  return normTarget((spell.syntax.match(/@([a-zA-Z0-9_]+)/)||[])[1]||'');
+}
+function scTargetsOverlap(a,b){
+  return !!a&&!!b&&(a===b||a.includes(b)||b.includes(a));
+}
+function scCheckDuplicate(school,name,target){
+  const nName=normName(name), nTarget=normTarget(target);
+  const sameSchool=SPELL_LIBRARY.filter(s=>s.school===school);
+  const exactName=sameSchool.find(s=>nName&&normName(s.name)===nName);
+  if(exactName){
+    if(scTargetsOverlap(scLibTarget(exactName),nTarget)){
+      return {status:'exact',match:exactName,note:`Already in the library as ${exactName.name} (${exactName.tier}) — nothing new to submit.`};
+    }
+    return {status:'renamed_or_retargeted',match:exactName,note:`A spell named "${exactName.name}" already exists in the library with a different target — this reads as the same spell retargeted, not a new one.`};
+  }
+  const sameTarget=sameSchool.find(s=>scTargetsOverlap(scLibTarget(s),nTarget));
+  if(sameTarget&&nName){
+    return {status:'renamed_or_retargeted',match:sameTarget,note:`This targets the same thing as "${sameTarget.name}" already in the library, just under a new name — likely a rename rather than a new spell.`};
+  }
+  return {status:'clear',match:null,note:''};
+}
+
+// ═══════════════════ BUILD / VALIDATE ═══════════════════
+function scSchoolChanged(){
+  const tierSel=document.getElementById('sc-tier');
+  const school2=document.getElementById('sc-school2');
+  // A second school is meaningless below tier three (cross-school requires
+  // it), so the control itself is locked rather than left to produce an
+  // error after the fact.
+  scBuild();
+}
+function scTierChanged(){ scBuild(); }
+
+function scUpdateSchool2Lock(){
+  const tier=parseInt(document.getElementById('sc-tier').value);
+  const school2=document.getElementById('sc-school2');
+  const hint=document.getElementById('sc-school2-hint');
+  if(tier<3){
+    if(school2.value){ /* keep the user's pick but it will error until they act — surfaced below */ }
+    hint.textContent='Cross-school casting requires tier three or above.';
+  } else {
+    hint.textContent='';
+  }
+}
+
+function scBuild(){
+  scUpdateSchool2Lock();
+  const state=document.getElementById('sc-state').value;
+  const school1=document.getElementById('sc-school1').value;
+  const school2=document.getElementById('sc-school2').value;
+  const tierNum=parseInt(document.getElementById('sc-tier').value);
+  const name=(document.getElementById('sc-name').value||'').trim();
+  const nameFormatted=name.toUpperCase().replace(/\s+/g,'_')||'SPELL_NAME';
+  const target=(document.getElementById('sc-target').value||'').trim();
+  const targetFormatted=target.toLowerCase().replace(/\s+/g,'_')||'target';
+  const rawMods=(document.getElementById('sc-modifiers').value||'').trim();
+  const modsFormatted=rawMods.toLowerCase().replace(/\s+/g,'_');
+  const duration=document.getElementById('sc-duration').value;
+
+  const isCross=school2&&school2!==school1;
+  const schoolStr=isCross?`${school1}+${school2}`:school1;
+  const crossStr=isCross?'|*multiplicative_overhead*':'';
+  const strain=STRAIN_MAP[tierNum]||'S1';
+
+  const flagInfo=scDeriveFlag(school1,school2,targetFormatted,modsFormatted,tierNum);
+  const flagStr=flagInfo.flags===2?'|!!':flagInfo.flags===1?'|!':'';
+
+  const syntax=`${state}/${schoolStr}.T${tierNum}:[${nameFormatted}]@${targetFormatted}|(${modsFormatted})|<WILLSTRAIN:${strain}>|~${duration}~${crossStr}${flagStr}`;
+  document.getElementById('sc-syntax-out').textContent=syntax;
+  document.getElementById('sc-strain-out').textContent=strain;
+
+  const flagOut=document.getElementById('sc-flag-out');
+  const flagExplain=document.getElementById('sc-flag-explain');
+  if(flagInfo.flags===0){
+    flagOut.textContent='None';
+    flagOut.className='derived-val flag-none';
+    flagExplain.textContent='';
+  } else if(flagInfo.flags===1){
+    flagOut.textContent='! Restricted';
+    flagOut.className='derived-val flag-1';
+    flagExplain.textContent=flagInfo.reason;
+  } else {
+    flagOut.textContent='!! Banned in Most Houses';
+    flagOut.className='derived-val flag-2';
+    flagExplain.textContent=flagInfo.reason;
+  }
+
+  // ── Legality: hard errors block Add/Export. Warnings inform only. ──
+  const errors=[];
+  const warnings=[];
+
+  if(!name) errors.push('Spell needs a name.');
+  if(!target) errors.push('Spell needs a target.');
+  if(school2&&school2===school1) errors.push('Second school cannot be the same as the primary school — remove it or pick a different one.');
+  if(isCross&&tierNum<3) errors.push('Cross-school casting requires tier three minimum due to multiplicative willstrain overhead — raise the tier or drop the second school.');
+
+  const targetAndMods=(targetFormatted+' '+modsFormatted);
+  const hitScope=BIG_SCOPE_WORDS.find(w=>hasWord(targetAndMods,[w]));
+  if(hitScope&&tierNum<=2) errors.push(`Target/modifiers mention "${hitScope}", a far larger scope than tier ${tierNum} covers — raise the tier or narrow the scope.`);
+  if(duration==='permanent'&&tierNum<=2&&!targetAndMods.includes('small')&&!targetAndMods.includes('minor')) errors.push('Permanent effects at tier one or two are only legal when the target is explicitly small/minor — add that or raise the tier.');
+
+  let dup={status:'clear',match:null,note:''};
+  if(name&&target){
+    dup=scCheckDuplicate(school1,name,target);
+    if(dup.status==='exact') errors.push(dup.note);
+    else if(dup.status==='renamed_or_retargeted') warnings.push(dup.note);
+  }
+
+  Object.entries(SCHOOL_SIGNALS).forEach(([sch,words])=>{
+    if(sch===school1)return;
+    const hit=words.find(w=>hasWord(targetAndMods,[w]));
+    if(hit&&!isCross){
+      warnings.push(`Target/modifiers mention "${hit}", which reads as ${sch} territory rather than ${school1}. Double-check the school is the one actually producing this effect.`);
+    }
+  });
+
+  const msgBox=document.getElementById('sc-messages');
+  const msgs=[];
+  errors.forEach(e=>msgs.push(`<div class="msg-error">⚠ ${e}</div>`));
+  warnings.forEach(w=>msgs.push(`<div class="msg-warn">◆ ${w}</div>`));
+  if(!errors.length&&!warnings.length&&name&&target){
+    msgs.push(`<div class="msg-ok">✦ Internally consistent and legal to submit. Tier is still your own read of scope/precision/resistance/duration — confirm with your GM.</div>`);
+  }
+  msgBox.innerHTML=msgs.join('');
+
+  document.getElementById('sc-add-btn').disabled=errors.length>0||!name||!target;
+
+  scCurrent={state,school1,school2,tier:tierNum,name,target,modifiers:rawMods,duration,willstrain:strain,flags:flagInfo.flags,syntax,effect:document.getElementById('sc-effect').value.trim(),duplicateCheck:dup};
+}
+let scCurrent=null;
+
+function scClearForm(){
+  document.getElementById('sc-name').value='';
+  document.getElementById('sc-target').value='';
+  document.getElementById('sc-modifiers').value='';
+  document.getElementById('sc-effect').value='';
+  document.getElementById('sc-school2').value='';
+  document.getElementById('sc-duration').value='instant';
+  document.getElementById('sc-tier').value='1';
+  document.getElementById('sc-state').value='OPEN';
+  scBuild();
+}
+
+function scCopySyntax(){
+  const text=document.getElementById('sc-syntax-out').textContent||'';
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=event.target;
+    const orig=btn.textContent;
+    btn.textContent='Copied!';
+    setTimeout(()=>{btn.textContent=orig;},1200);
+  }).catch(()=>{});
+}
+
+// ═══════════════════ MY SPELLS (localStorage) ═══════════════════
+const SC_KEY='aow-spell-creator-v1';
+const SC_AUTHOR_KEY='aow-spell-creator-author';
+function scLoadMine(){ try{ return JSON.parse(localStorage.getItem(SC_KEY)||'[]'); }catch(e){ return []; } }
+function scStoreMine(list){ try{ localStorage.setItem(SC_KEY,JSON.stringify(list)); }catch(e){} }
+function scSaveAuthor(){ try{ localStorage.setItem(SC_AUTHOR_KEY,document.getElementById('sc-author').value); }catch(e){} }
+function scLoadAuthor(){ try{ return localStorage.getItem(SC_AUTHOR_KEY)||''; }catch(e){ return ''; } }
+
+function scAddToMySpells(){
+  if(!scCurrent||document.getElementById('sc-add-btn').disabled)return;
+  const list=scLoadMine();
+  list.push(Object.assign({},scCurrent,{addedAt:new Date().toISOString()}));
+  scStoreMine(list);
+  scRenderMine();
+}
+function scRenderMine(){
+  const list=scLoadMine();
+  const box=document.getElementById('sc-my-list');
+  const count=document.getElementById('sc-my-count');
+  count.textContent=list.length?`(${list.length})`:'';
+  if(!list.length){
+    box.innerHTML='<div class="empty-note">No spells added yet.</div>';
+    return;
+  }
+  box.innerHTML=list.map((s,i)=>{
+    const dupNote=s.duplicateCheck&&s.duplicateCheck.status==='renamed_or_retargeted'?`<div class="field-hint" style="color:var(--crimson-bright);">◆ ${s.duplicateCheck.note}</div>`:'';
+    return `<div class="spell-card">
+      <div class="spell-card-top">
+        <span class="spell-card-name">${s.name}</span>
+        <span class="spell-card-tag">${s.school}${s.school2?'+'+s.school2:''} · T${s.tier}${s.flags?' · '+(s.flags===2?'!!':'!'):''}</span>
+      </div>
+      <div class="spell-card-syntax">${s.syntax}</div>
+      ${dupNote}
+      <div class="spell-card-actions">
+        <span onclick="scExportOne(${i})">export</span>
+        <span onclick="scRemoveMine(${i})">remove</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function scRemoveMine(i){
+  const list=scLoadMine();
+  list.splice(i,1);
+  scStoreMine(list);
+  scRenderMine();
+}
+function scDownload(payload,filename){
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+function scExportOne(i){
+  const list=scLoadMine();
+  const s=list[i];
+  if(!s)return;
+  scDownload({
+    version:'1.0',
+    exportedAt:new Date().toISOString(),
+    submittedBy:scLoadAuthor()||'(unspecified)',
+    spell:s,
+  },`aow_spell_${(s.name||'spell').toLowerCase().replace(/\s+/g,'_')}.json`);
+}
+function scExportAll(){
+  const list=scLoadMine();
+  if(!list.length){ alert('No spells saved to export yet — add at least one below the builder first.'); return; }
+  scDownload({
+    version:'1.0',
+    exportedAt:new Date().toISOString(),
+    submittedBy:scLoadAuthor()||'(unspecified)',
+    spellCount:list.length,
+    spells:list,
+  },`aow_spells_${(scLoadAuthor()||'batch').toLowerCase().replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.json`);
+}
+
+// ═══════════════════ LIBRARY BROWSER ═══════════════════
+function scRenderLibrary(){
+  const schoolF=document.getElementById('sc-lib-school').value;
+  const tierF=document.getElementById('sc-lib-tier').value;
+  let spells=SPELL_LIBRARY;
+  if(schoolF)spells=spells.filter(s=>s.school===schoolF);
+  if(tierF)spells=spells.filter(s=>s.tier===tierF);
+  const list=document.getElementById('sc-lib-list');
+  if(!spells.length){
+    list.innerHTML='<div class="empty-note">No spells match this filter.</div>';
+    return;
+  }
+  list.innerHTML=spells.map(s=>`<div class="lib-item ${s.flags>0?'restricted':''}">
+    <div class="lib-item-top"><span class="lib-item-name">${s.name}</span><span class="lib-item-tag">${s.school} · ${s.tier}${s.flags?' · '+(s.flags===2?'!!':'!'):''}</span></div>
+    <div class="lib-item-brief">${s.brief}</div>
+  </div>`).join('');
+}
+
+// ═══════════════════ INIT ═══════════════════
+function scInit(){
+  document.getElementById('sc-author').value=scLoadAuthor();
+  scRenderMine();
+  scRenderLibrary();
+  scBuild();
+}
+scInit();
+</script>
+
+<!-- ═══════════════════════════════════════════
+     BUG REPORTER WIDGET — identical across all documents.
+     Each document saves to its own localStorage key (DOC_ID below is the
+     only thing that changes per file). Reports export as a single JSON
+     file formatted for direct handoff.
+     ═══════════════════════════════════════════ -->
+<style>
+.bugrep-toggle{position:fixed;bottom:.8rem;left:.8rem;z-index:500;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;padding:.45rem .7rem;border:1px solid var(--crimson,#8c3a1a);background:rgba(140,58,26,0.1);color:var(--crimson,#8c3a1a);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.35rem;}
+.bugrep-toggle:hover{background:rgba(140,58,26,0.2);}
+.bugrep-badge{background:var(--crimson,#8c3a1a);color:#fff;border-radius:50%;width:1.1rem;height:1.1rem;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-family:'EB Garamond',serif;}
+.bugrep-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;display:none;align-items:center;justify-content:center;padding:1rem;}
+.bugrep-overlay.show{display:flex;}
+.bugrep-panel{background:var(--page-bg,var(--night,#161310));border:1px solid var(--gold-dim,rgba(139,105,20,0.4));max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:1.3rem;color:var(--page-text,var(--vellum,#eee3cc));}
+.bugrep-panel h3{font-family:'Cinzel',serif;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold,#8b6914);margin-bottom:.9rem;display:flex;justify-content:space-between;align-items:center;}
+.bugrep-close{cursor:pointer;font-size:1.1rem;opacity:.6;line-height:1;}
+.bugrep-tabs{display:flex;gap:.4rem;margin-bottom:1rem;}
+.bugrep-tab{flex:1;text-align:center;padding:.4rem;border:1px solid var(--gold-dim,rgba(139,105,20,0.3));cursor:pointer;font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;opacity:.6;}
+.bugrep-tab.active{opacity:1;background:rgba(139,105,20,0.1);border-color:var(--gold,#8b6914);}
+.bugrep-field-label{font-family:'Cinzel',serif;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-dim,#9e7a48);display:block;margin-bottom:.3rem;margin-top:.7rem;}
+.bugrep-cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.bugrep-cat-btn{padding:.5rem;border:1px solid var(--gold-dim,rgba(139,105,20,0.3));background:transparent;cursor:pointer;text-align:center;font-size:.78rem;color:inherit;font-family:inherit;}
+.bugrep-cat-btn.sel{border-color:var(--gold,#8b6914);background:rgba(139,105,20,0.12);}
+.bugrep-input,.bugrep-textarea{width:100%;background:rgba(255,255,255,0.04);border:none;border-bottom:1px solid var(--gold-dim,rgba(139,105,20,0.3));color:inherit;font-family:inherit;font-size:.85rem;padding:.45rem .2rem;}
+.bugrep-textarea{min-height:5rem;resize:vertical;}
+.bugrep-save-btn{width:100%;margin-top:1rem;padding:.55rem;border:1px solid var(--gold,#8b6914);background:rgba(139,105,20,0.1);color:var(--gold,#8b6914);font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;}
+.bugrep-list-item{border:1px solid var(--gold-dim,rgba(139,105,20,0.25));padding:.6rem .7rem;margin-bottom:.5rem;font-size:.8rem;}
+.bugrep-list-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.25rem;}
+.bugrep-list-cat{font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:var(--crimson,#8c3a1a);}
+.bugrep-list-del{cursor:pointer;opacity:.5;font-size:.75rem;}
+.bugrep-list-empty{text-align:center;opacity:.5;font-style:italic;font-size:.8rem;padding:1.5rem 0;}
+.bugrep-export-btn{width:100%;margin-top:.8rem;padding:.5rem;border:1px solid var(--gold,#8b6914);background:var(--gold,#8b6914);color:var(--page-bg,#161310);font-family:'Cinzel',serif;font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;}
+@media(max-width:860px){.bugrep-toggle{bottom:.6rem;left:.6rem;font-size:.44rem;padding:.35rem .55rem;}}
+</style>
+
+<button class="bugrep-toggle" onclick="bugrepOpen()">⚑ Report <span class="bugrep-badge" id="bugrep-badge" style="display:none;">0</span></button>
+
+<div class="bugrep-overlay" id="bugrep-overlay" role="dialog" aria-modal="true" aria-labelledby="bugrep-heading">
+  <div class="bugrep-panel">
+    <h3 id="bugrep-heading">Report an Issue <span class="bugrep-close" role="button" tabindex="0" aria-label="Close bug report panel" onclick="bugrepClose()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();bugrepClose();}">✕</span></h3>
+    <div class="bugrep-tabs">
+      <div class="bugrep-tab active" id="bugrep-tab-new" onclick="bugrepShowTab('new')">New Report</div>
+      <div class="bugrep-tab" id="bugrep-tab-list" onclick="bugrepShowTab('list')">Saved (<span id="bugrep-count">0</span>)</div>
+    </div>
+
+    <div id="bugrep-view-new">
+      <div class="bugrep-field-label">What kind of issue?</div>
+      <div class="bugrep-cat-grid">
+        <button class="bugrep-cat-btn sel" data-cat="Bug" onclick="bugrepSelectCat(this)">🐛 Bug</button>
+        <button class="bugrep-cat-btn" data-cat="Suggestion" onclick="bugrepSelectCat(this)">💡 Suggestion</button>
+        <button class="bugrep-cat-btn" data-cat="Confusing" onclick="bugrepSelectCat(this)">❓ Confusing</button>
+        <button class="bugrep-cat-btn" data-cat="Other" onclick="bugrepSelectCat(this)">… Other</button>
+      </div>
+      <div class="bugrep-field-label">Short title</div>
+      <input class="bugrep-input" id="bugrep-title" type="text" placeholder="e.g. Toggle button overlaps text on mobile"/>
+      <div class="bugrep-field-label">What happened? What were you doing right before?</div>
+      <textarea class="bugrep-textarea" id="bugrep-details" placeholder="Be as specific as you can — what you clicked, what you expected, what actually happened."></textarea>
+      <button class="bugrep-save-btn" onclick="bugrepSave()">Save Report</button>
+    </div>
+
+    <div id="bugrep-view-list" style="display:none;">
+      <div id="bugrep-list-items"></div>
+      <button class="bugrep-export-btn" onclick="bugrepExport()">⬇ Export All as JSON</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BUGREP_DOC_ID = 'spell_creator';
+const BUGREP_KEY = 'aow-bugreports-' + BUGREP_DOC_ID;
+let bugrepSelectedCat = 'Bug';
+
+let _aowOverlayStack = [];
+let _aowFocusReturnEl = null;
+function trapFocus(overlayEl){
+  if (overlayEl._aowKeyHandler) untrapFocus(overlayEl);
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = document.activeElement;
+  _aowOverlayStack.push(overlayEl);
+  const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+  if(focusables.length) focusables[0].focus();
+  overlayEl._aowKeyHandler = function(e){
+    if(e.key==='Escape'){ e.stopPropagation(); overlayEl._aowOnEscape && overlayEl._aowOnEscape(); return; }
+    if(e.key!=='Tab' || !focusables.length) return;
+    const first=focusables[0], last=focusables[focusables.length-1];
+    if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._aowKeyHandler);
+}
+function untrapFocus(overlayEl){
+  if(overlayEl._aowKeyHandler) overlayEl.removeEventListener('keydown', overlayEl._aowKeyHandler);
+  const idx = _aowOverlayStack.indexOf(overlayEl);
+  if(idx!==-1) _aowOverlayStack.splice(idx,1);
+  if (_aowOverlayStack.length > 0) {
+    const parent = _aowOverlayStack[_aowOverlayStack.length-1];
+    const parentFocusables = parent.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (parentFocusables.length) parentFocusables[0].focus();
+  } else if (_aowFocusReturnEl && _aowFocusReturnEl.focus) {
+    _aowFocusReturnEl.focus();
+  }
+  if (_aowOverlayStack.length === 0) _aowFocusReturnEl = null;
+}
+
+function bugrepLoad(){
+  try{ return JSON.parse(localStorage.getItem(BUGREP_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function bugrepStore(list){
+  try{ localStorage.setItem(BUGREP_KEY, JSON.stringify(list)); }catch(e){}
+}
+function bugrepUpdateBadge(){
+  const list = bugrepLoad();
+  const badge = document.getElementById('bugrep-badge');
+  const count = document.getElementById('bugrep-count');
+  if(badge){ badge.style.display = list.length ? 'flex' : 'none'; badge.textContent = list.length; }
+  if(count) count.textContent = list.length;
+}
+function bugrepOpen(){
+  const overlay = document.getElementById('bugrep-overlay');
+  overlay.classList.add('show');
+  overlay._aowOnEscape = bugrepClose;
+  trapFocus(overlay);
+  bugrepUpdateBadge();
+}
+function bugrepClose(){
+  const overlay = document.getElementById('bugrep-overlay');
+  untrapFocus(overlay);
+  overlay.classList.remove('show');
+}
+function bugrepShowTab(tab){
+  document.getElementById('bugrep-tab-new').classList.toggle('active', tab==='new');
+  document.getElementById('bugrep-tab-list').classList.toggle('active', tab==='list');
+  document.getElementById('bugrep-view-new').style.display = tab==='new' ? 'block' : 'none';
+  document.getElementById('bugrep-view-list').style.display = tab==='list' ? 'block' : 'none';
+  if(tab==='list') bugrepRenderList();
+}
+function bugrepSelectCat(btn){
+  document.querySelectorAll('.bugrep-cat-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  bugrepSelectedCat = btn.dataset.cat;
+}
+function bugrepSave(){
+  const title = document.getElementById('bugrep-title').value.trim();
+  const details = document.getElementById('bugrep-details').value.trim();
+  if(!title && !details){
+    alert('Add at least a title or some details before saving.');
+    return;
+  }
+  const list = bugrepLoad();
+  list.push({
+    category: bugrepSelectedCat,
+    title: title || '(no title)',
+    details: details,
+    document: BUGREP_DOC_ID,
+    timestamp: new Date().toISOString(),
+    url: window.location.href,
+  });
+  bugrepStore(list);
+  document.getElementById('bugrep-title').value='';
+  document.getElementById('bugrep-details').value='';
+  bugrepUpdateBadge();
+  bugrepShowTab('list');
+}
+function bugrepRenderList(){
+  const list = bugrepLoad();
+  const el = document.getElementById('bugrep-list-items');
+  if(!list.length){
+    el.innerHTML = '<div class="bugrep-list-empty">No reports saved yet.</div>';
+    return;
+  }
+  el.innerHTML = list.map((r,i)=>`<div class="bugrep-list-item">
+    <div class="bugrep-list-top"><span class="bugrep-list-cat">${r.category}</span><span class="bugrep-list-del" onclick="bugrepDelete(${i})">remove</span></div>
+    <strong>${r.title}</strong>
+    ${r.details?`<div style="opacity:.8;margin-top:.2rem;">${r.details}</div>`:''}
+  </div>`).join('');
+}
+function bugrepDelete(i){
+  const list = bugrepLoad();
+  list.splice(i,1);
+  bugrepStore(list);
+  bugrepRenderList();
+  bugrepUpdateBadge();
+}
+function bugrepExport(){
+  const list = bugrepLoad();
+  if(!list.length){
+    alert('No reports to export yet.');
+    return;
+  }
+  const payload = {
+    exportedFrom: 'Age of Wonder — ' + BUGREP_DOC_ID,
+    exportedAt: new Date().toISOString(),
+    reportCount: list.length,
+    reports: list,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aow_bugreports_${BUGREP_DOC_ID}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+bugrepUpdateBadge();
+</script>
+
+</body>
+</html>
