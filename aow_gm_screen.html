@@ -993,7 +993,7 @@ html,body{height:100%;font-size:15px;background:var(--night);color:var(--vellum)
 
 <!-- NPC DRAWER -->
 <div class="drawer" id="npc-drawer" role="dialog" aria-modal="true" aria-label="NPC details">
-  <span class="drawer-close" onclick="closeDrawer()">← Close</span>
+  <span class="drawer-close" role="button" tabindex="0" aria-label="Close" onclick="closeDrawer()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();}">← Close</span>
   <div id="drawer-content"></div>
 </div>
 
@@ -1604,6 +1604,16 @@ const STORAGE_KEY = 'aow-gm-screen-v1';
 let _aowOverlayStack = [];
 let _aowFocusReturnEl = null;
 function trapFocus(overlayEl){
+  // Re-invoking trapFocus on an element that's already the active,
+  // trapped overlay — e.g. swapping #drawer-content's HTML for a
+  // different heir/NPC without an intervening close, which the heir-
+  // profile pill-switching workflow does routinely — must not push a
+  // second stack entry or bind a second keydown listener for the same
+  // element; either leaves a bug no single close call can ever fully
+  // unwind (found via QA playtest: switching heirs repeatedly grew the
+  // stack without bound). Untrap first if already trapped, then re-trap
+  // fresh so exactly one entry/listener exists per open element, always.
+  if (overlayEl._aowKeyHandler) untrapFocus(overlayEl);
   if (_aowOverlayStack.length === 0) _aowFocusReturnEl = document.activeElement;
   _aowOverlayStack.push(overlayEl);
   const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
@@ -2550,8 +2560,12 @@ function filterWeb(key, btn) {
   // everything about them in one place — connections, spells, capstone —
   // without hunting through node drawers one at a time. Surface the full
   // profile in the same tap that narrows the web, rather than requiring
-  // a second action to get there.
+  // a second action to get there. Going back to "All" must close it —
+  // found via QA playtest: without this, "All" reset the web but left
+  // whichever heir's profile was open showing stale content while the
+  // "All" pill sat highlighted as active, an inconsistent state.
   if(key!=='all') openHeirProfile(key);
+  else closeDrawer();
 }
 
 function filterHooks(type, btn) {
@@ -2964,7 +2978,7 @@ function openHeirProfile(heirKey) {
     if(!node) return '';
     const sc = node.scores?.[heirKey] ?? 0;
     const cls = sc>0?'pos':sc<0?'neg':'zero';
-    return `<div class="drawer-score-row" style="cursor:pointer;" onclick="closeDrawer();openDrawer('${node.key}')">
+    return `<div class="drawer-score-row" style="cursor:pointer;" role="button" tabindex="0" aria-label="Open ${node.name}" onclick="closeDrawer();openDrawer('${node.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeDrawer();openDrawer('${node.key}');}">
       <span class="drawer-heir-name">${label} — ${node.name}${node.nameUnconfirmed?' <em>(unconfirmed)</em>':''}</span>
       <span class="drawer-score ${cls}">${sc>0?'+':''}${sc}</span>
     </div>`;
@@ -2984,7 +2998,7 @@ function openHeirProfile(heirKey) {
       <div class="drawer-text"><strong>${capstone.title}</strong></div>
       <div class="drawer-text">${capstone.description}</div>
       <div class="drawer-text" style="opacity:.8;font-style:italic;">${capstone.usage}</div>
-      ${(capstone.leverageBonus||capstone.leveragePenalty)?`<div class="drawer-text">${capstone.leverageBonus?`+${capstone.leverageBonus} leverage bonus`:''}${capstone.leveragePenalty?` · -${capstone.leveragePenalty} leverage penalty`:''}</div>`:''}
+      ${(capstone.leverageBonus||capstone.leveragePenalty?.length)?`<div class="drawer-text">${capstone.leverageBonus?`+${capstone.leverageBonus.amount} leverage with ${state.nodes[FACTION_KEY_MAP[capstone.leverageBonus.key]||capstone.leverageBonus.key]?.name||capstone.leverageBonus.key}`:''}${capstone.leveragePenalty?.length?` · ${capstone.leveragePenalty.map(p=>`-${p.amount} with ${state.nodes[FACTION_KEY_MAP[p.key]||p.key]?.name||p.key}`).join(', ')}`:''}</div>`:''}
     </div>`:''}
     <div class="drawer-section">
       <span class="drawer-section-label">Magic — ${school?school.name:'No school revealed'}</span>

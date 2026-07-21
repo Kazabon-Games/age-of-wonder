@@ -2380,6 +2380,15 @@ let bugrepSelectedCat = 'Bug';
 let _aowOverlayStack = [];
 let _aowFocusReturnEl = null;
 function trapFocus(overlayEl){
+  // Re-invoking trapFocus on an element that's already the active,
+  // trapped overlay must not push a second stack entry or bind a second
+  // keydown listener for the same element — either leaves a bug no
+  // single close call can ever fully unwind (found via QA playtest on a
+  // sibling document's heir-profile drawer, which re-traps its own
+  // element routinely by design when switching selections). Untrap
+  // first if already trapped, then re-trap fresh so exactly one entry/
+  // listener exists per open element, always.
+  if (overlayEl._aowKeyHandler) untrapFocus(overlayEl);
   if (_aowOverlayStack.length === 0) _aowFocusReturnEl = document.activeElement;
   _aowOverlayStack.push(overlayEl);
   const focusables = overlayEl.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
