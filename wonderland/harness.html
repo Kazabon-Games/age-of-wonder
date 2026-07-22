@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wonderland Checkpoint 1 — Engine Test Harness</title>
+</head>
+<body>
+<!--
+  Not a game screen. This page exists only so Playwright has something to
+  load that pulls in schema.js/engine.js/persistence.js exactly the way a
+  real page eventually will (plain <script> tags, no bundler, per the
+  studio's no-build convention) and exposes a Wonderland._test hook for
+  tests/wonderland-engine-adversarial.js to drive — same shape as the
+  Game._test hooks the arcade games already use.
+-->
+<p>Wonderland Checkpoint 1 engine test harness. See tests/wonderland-engine-adversarial.js.</p>
+<script src="schema.js"></script>
+<script src="engine.js"></script>
+<script src="persistence.js"></script>
+<script>
+  window.Wonderland = {
+    schema: window.WonderlandSchema,
+    engine: window.WonderlandEngine,
+    persistence: window.WonderlandPersistence,
+  };
+  window.Wonderland._test = {
+    resolve: window.WonderlandEngine.resolve,
+    ready: true,
+  };
+</script>
+</body>
+</html>
