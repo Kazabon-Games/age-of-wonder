@@ -989,6 +989,232 @@ function approxEqual(a, b) {
   ok(worldStateResults.blockedWithoutHydration, 'Sanity check: the same Transformation is blocked in a session that never hydrated the flag — proves the prior result came from real carried-over state, not a trivially-true condition');
   ok(worldStateResults.badKindRejected, 'importWorldState throws on an unrecognized WorldStateRecord kind rather than silently dropping it');
 
+  console.log('21. Checkpoint 7 — prototype-pollution adversarial pass');
+  // Real bug found during this pass: `state.characters['__proto__']` (and
+  // the equivalent for politicalNodes) resolves through the JS prototype
+  // chain to the real, shared Object.prototype — which is truthy, so the
+  // old `if (!character) throw` guard never fired. A caller passing
+  // characterId: '__proto__' got the live Object.prototype handed back as
+  // "the character", and the next field write on it (e.g. SET_STAMINA's
+  // `.stamina = 'winded'`) mutated Object.prototype for the whole
+  // process. Fixed by gating findCharacter/findPoliticalNode on
+  // Object.prototype.hasOwnProperty.call instead of a truthy check.
+  const pollutionResults = await page.evaluate(() => {
+    const { resolve } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord, createPoliticalNode } = window.Wonderland.schema;
+    const { importWorldState } = window.Wonderland.worldStateBridge;
+
+    let save = createSaveState();
+    save.characters.char_real = createCharacterRecord({ id: 'char_real' });
+    save.politicalNodes.node_real = createPoliticalNode({ id: 'node_real' });
+
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+
+    const results = {};
+
+    results.setStaminaProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'SET_STAMINA', characterId: '__proto__', stamina: 'winded' }));
+    // The real regression check: even if the guard above were somehow
+    // wrong, this proves the shared global prototype itself was never
+    // touched — a false pass on setStaminaProtoBlocked would still be
+    // caught here.
+    results.globalPrototypeStillClean = ({}).stamina === undefined;
+
+    results.modifyLeverageTargetProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'MODIFY_LEVERAGE', targetId: '__proto__', actorId: 'char_real', delta: 1 }));
+    results.modifyLeverageActorProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'MODIFY_LEVERAGE', targetId: 'node_real', actorId: '__proto__', delta: 1 }));
+    results.logPoliticalActionActorProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'LOG_POLITICAL_ACTION', targetId: 'node_real', actorId: '__proto__', tier: 3, direction: 'favorable' }));
+    results.setWorldFlagProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'SET_WORLD_FLAG', flagId: '__proto__', value: 'x' }));
+    results.grantTechniqueCharacterProtoBlocked = !!threw(() =>
+      resolve(save, { type: 'GRANT_TECHNIQUE', characterId: '__proto__', technique: { id: 't1', name: 'x', principle: 'x' } }));
+
+    results.importWorldStateChoiceProtoBlocked = !!threw(() =>
+      importWorldState([{ record: { kind: 'choice', id: '__proto__', data: { value: { polluted: true } } } }]));
+    results.importWorldStateEntityProtoBlocked = !!threw(() =>
+      importWorldState([{ record: { kind: 'entity', id: '__proto__', data: { evil: true } } }]));
+
+    // A legitimate, non-dangerous id must still work after all the above —
+    // proves the fix rejects specific dangerous keys, not strings in general.
+    results.legitimateFlagStillWorks = (() => {
+      const next = resolve(save, { type: 'SET_WORLD_FLAG', flagId: 'legit_flag', value: true });
+      return next.worldFlags.legit_flag === true;
+    })();
+
+    return results;
+  });
+  ok(pollutionResults.setStaminaProtoBlocked, 'SET_STAMINA with characterId "__proto__" throws instead of returning Object.prototype as "the character"');
+  ok(pollutionResults.globalPrototypeStillClean, 'Object.prototype carries no leaked "stamina" field after the attempted attack');
+  ok(pollutionResults.modifyLeverageTargetProtoBlocked, 'MODIFY_LEVERAGE with targetId "__proto__" throws (findPoliticalNode hasOwn gate)');
+  ok(pollutionResults.modifyLeverageActorProtoBlocked, 'MODIFY_LEVERAGE with actorId "__proto__" throws (dynamic-key guard, since actorId can create a new scores entry)');
+  ok(pollutionResults.logPoliticalActionActorProtoBlocked, 'LOG_POLITICAL_ACTION with actorId "__proto__" throws');
+  ok(pollutionResults.setWorldFlagProtoBlocked, 'SET_WORLD_FLAG with flagId "__proto__" throws');
+  ok(pollutionResults.grantTechniqueCharacterProtoBlocked, 'GRANT_TECHNIQUE with characterId "__proto__" throws');
+  ok(pollutionResults.importWorldStateChoiceProtoBlocked, 'worldStateBridge.importWorldState rejects a choice record id of "__proto__" (would have replaced the local worldFlags object\'s own prototype)');
+  ok(pollutionResults.importWorldStateEntityProtoBlocked, 'worldStateBridge.importWorldState rejects an entity record id of "__proto__"');
+  ok(pollutionResults.legitimateFlagStillWorks, 'A legitimate flagId still works after the dangerous-key guard is in place — the fix rejects specific keys, not all strings');
+
+  console.log('22. Checkpoint 7 — malformed-input adversarial pass');
+  // Real gaps found during this pass, both fixed:
+  //   (a) woundCountAtLeast's `count` was never range-checked — a negative
+  //       count (e.g. -5) made `wounds.length >= -5` true for EVERY
+  //       character, silently auto-unlocking a Transformation meant to
+  //       require real cost. Fixed with an explicit finite/non-negative
+  //       check.
+  //   (b) GRANT_TECHNIQUE/ACTIVATE_TRANSFORMATION accepted a technique/
+  //       transformationForm payload containing function values or a
+  //       circular self-reference without complaint (schema.js's
+  //       createTechnique/createTransformationForm is a bare
+  //       Object.assign, it doesn't filter or validate). The bad value
+  //       landed byte-for-byte inside the returned "state" object,
+  //       silently breaking this codebase's own "state is always plain,
+  //       serializable data" rule. Fixed with assertPlainSerializable(),
+  //       which walks the payload and throws before it's ever accepted.
+  const malformedResults = await page.evaluate(() => {
+    const { resolve, evaluateUnlockCondition } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord, createPoliticalNode } = window.Wonderland.schema;
+
+    function makeSave() {
+      const s = createSaveState();
+      s.characters.char_x = createCharacterRecord({ id: 'char_x' });
+      s.politicalNodes.node_x = createPoliticalNode({ id: 'node_x' });
+      return s;
+    }
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+
+    const results = {};
+
+    results.negativeWoundCountRejected = !!threw(() =>
+      evaluateUnlockCondition({ type: 'woundCountAtLeast', count: -5 }, { wounds: [] }, makeSave()));
+    results.nanWoundCountRejected = !!threw(() =>
+      evaluateUnlockCondition({ type: 'woundCountAtLeast', count: NaN }, { wounds: [] }, makeSave()));
+    results.legitimateWoundCountStillWorks = evaluateUnlockCondition(
+      { type: 'woundCountAtLeast', count: 2 }, { wounds: [1, 2] }, makeSave()) === true;
+
+    results.nonFiniteLeverageScoreRejected = !!threw(() =>
+      evaluateUnlockCondition({ type: 'leverageAtLeast', nodeId: 'node_x', score: Infinity }, { id: 'char_x' }, makeSave()));
+
+    const circularTechnique = { id: 't_circular', name: 'Circular Move', principle: 'x' };
+    circularTechnique.self = circularTechnique;
+    results.circularTechniqueRejected = !!threw(() =>
+      resolve(makeSave(), { type: 'GRANT_TECHNIQUE', characterId: 'char_x', technique: circularTechnique }));
+
+    const fnTechnique = { id: 't_fn', name: 'Function Move', principle: 'x', evil: function () { return 'pwned'; } };
+    results.functionValuedTechniqueRejected = !!threw(() =>
+      resolve(makeSave(), { type: 'GRANT_TECHNIQUE', characterId: 'char_x', technique: fnTechnique }));
+
+    const fnForm = {
+      id: 'form_fn',
+      name: 'Bad Form',
+      unlockCondition: null,
+      grantedTechnique: { id: 't2', name: 'x', principle: 'x', hook: function () {} },
+    };
+    results.nestedFunctionInTransformationRejected = !!threw(() =>
+      resolve(makeSave(), { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_x', transformationForm: fnForm }));
+
+    const goodTechnique = { id: 't_good', name: 'Good Move', principle: 'x', trigger: null, slotCost: ['act'], effect: 'does a thing' };
+    results.legitimateTechniqueStillWorks = (() => {
+      const next = resolve(makeSave(), { type: 'GRANT_TECHNIQUE', characterId: 'char_x', technique: goodTechnique });
+      return next.characters.char_x.techniques.some((t) => t.id === 't_good');
+    })();
+
+    return results;
+  });
+  ok(malformedResults.negativeWoundCountRejected, 'woundCountAtLeast rejects a negative count instead of silently auto-satisfying the gate for every character');
+  ok(malformedResults.nanWoundCountRejected, 'woundCountAtLeast rejects a NaN count with a clear error rather than a silent always-false result');
+  ok(malformedResults.legitimateWoundCountStillWorks, 'woundCountAtLeast still evaluates correctly for a legitimate, well-formed count');
+  ok(malformedResults.nonFiniteLeverageScoreRejected, 'leverageAtLeast rejects a non-finite (Infinity) score');
+  ok(malformedResults.circularTechniqueRejected, 'GRANT_TECHNIQUE rejects a technique payload containing a circular self-reference');
+  ok(malformedResults.functionValuedTechniqueRejected, 'GRANT_TECHNIQUE rejects a technique payload with a function-valued field');
+  ok(malformedResults.nestedFunctionInTransformationRejected, 'ACTIVATE_TRANSFORMATION rejects a transformationForm whose nested grantedTechnique contains a function value');
+  ok(malformedResults.legitimateTechniqueStillWorks, 'A legitimate, plain-data technique payload still grants correctly after the serializability guard is in place');
+
+  console.log('23. Checkpoint 7 — persistence.js key injection + importHeirRecord.js hostile input');
+  // persistence.js's KEY_PATTERN was already correctly anchored and
+  // charset-restricted (rejects newlines, extra colons, path-traversal
+  // chars, null bytes, empty ids) — the one real gap found was no length
+  // bound (a 100,000-char id passed validation outright), fixed with a
+  // {1,200} bound on the id portion. "entity:__proto__"-shaped keys are
+  // syntactically valid and stay that way: IndexedDB stores keys as
+  // opaque strings, not JS object properties, so there's no prototype
+  // chain for that key to exploit there.
+  //
+  // importHeirRecord.js: JSON.parse and object-spread both produce inert
+  // OWN properties for a "__proto__" JSON key (verified — neither
+  // triggers the real accessor), so hostile heir-record JSON can't
+  // pollute Object.prototype through this file. The real bug found was
+  // unrelated to pollution: `awakening.startingSpells` being a string
+  // (which has its own truthy `.length`) slipped past the old
+  // `!x.length` guard and crashed on `.forEach` with a raw native
+  // TypeError; a non-string element in an otherwise-valid array crashed
+  // the same way on `.includes`. Both now throw this module's own clear,
+  // namespaced error instead.
+  const hostileInputResults = await page.evaluate(async () => {
+    const P = window.Wonderland.persistence;
+    const { importHeirRecord } = window.Wonderland.importHeirRecord;
+    const results = {};
+
+    async function threwAsync(fn) {
+      try { await fn(); return null; }
+      catch (e) { return e.message; }
+    }
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+
+    results.oversizedKeyRejected = !!(await threwAsync(() => P.getEntity('entity:' + 'a'.repeat(100000))));
+    // A syntactically valid key that was never written correctly throws
+    // "no record found" (assertValidKey passed) rather than "invalid key"
+    // (assertValidKey failed) — that specific message is the pass signal.
+    results.reasonableKeyPassesValidation =
+      (await threwAsync(() => P.getEntity('entity:legit_id_123'))) === 'wonderland/persistence: no record found for key "entity:legit_id_123"';
+
+    const hostileJson = JSON.parse(JSON.stringify({
+      identity: { givenName: 'Evil Heir', __proto__: { polluted: 'yes' } },
+      awakening: { revealedSchool: 'Evocation', startingSpells: ['Fireball'] },
+      house: { name: 'House Proto Test', ideal1: 'a', __proto__: { polluted2: 'yes' } },
+      capstone: { __proto__: { polluted3: 'yes' }, name: 'Cap' },
+      npcs: { councillor: { name: 'C', __proto__: { polluted4: 'yes' } } },
+    }));
+    results.hostileProtoJsonImportsWithoutThrowing = !threw(() => importHeirRecord(hostileJson));
+    results.globalPrototypeCleanAfterHostileImport =
+      ({}).polluted === undefined && ({}).polluted2 === undefined && ({}).polluted3 === undefined && ({}).polluted4 === undefined;
+
+    results.stringStartingSpellsRejected = !!threw(() => importHeirRecord({
+      identity: { givenName: 'A' },
+      awakening: { revealedSchool: 'X', startingSpells: 'Fireball' },
+    }));
+    results.nonStringSpellElementRejected = !!threw(() => importHeirRecord({
+      identity: { givenName: 'B' },
+      awakening: { revealedSchool: 'X', startingSpells: [12345] },
+    }));
+    results.legitimateStartingSpellsStillWork = (() => {
+      const r = importHeirRecord({
+        identity: { givenName: 'C' },
+        awakening: { revealedSchool: 'X', startingSpells: ['Fireball', 'Old Grant (adjacent)'] },
+      });
+      return r.character.spells.length === 1 && r.character.spells[0].name === 'Fireball';
+    })();
+
+    return results;
+  });
+  ok(hostileInputResults.oversizedKeyRejected, 'persistence.js rejects a 100,000-char key instead of accepting an unbounded id length');
+  ok(hostileInputResults.reasonableKeyPassesValidation, 'persistence.js still accepts a normal, reasonably-sized key (fails only on "not found", not on validation)');
+  ok(hostileInputResults.hostileProtoJsonImportsWithoutThrowing, 'importHeirRecord imports a heir record whose JSON is laced with "__proto__" keys without crashing');
+  ok(hostileInputResults.globalPrototypeCleanAfterHostileImport, 'Object.prototype carries no leaked fields after importing __proto__-laced heir JSON — JSON.parse/spread both produce inert own-properties, not real pollution');
+  ok(hostileInputResults.stringStartingSpellsRejected, 'importHeirRecord rejects awakening.startingSpells being a string instead of an array, with a clear message (previously crashed on .forEach)');
+  ok(hostileInputResults.nonStringSpellElementRejected, 'importHeirRecord rejects a non-string element inside startingSpells, with a clear message (previously crashed on .includes)');
+  ok(hostileInputResults.legitimateStartingSpellsStillWork, 'A legitimate startingSpells array still imports correctly after the type-validation fix');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

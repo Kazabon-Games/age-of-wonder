@@ -146,10 +146,27 @@ function importSignatureTechnique(combatProfile) {
 }
 
 function importStartingSpells(awakening, warnings) {
-  if (!awakening?.startingSpells?.length) return [];
+  if (!awakening?.startingSpells) return [];
+  // A malformed export (or a hand-edited/hostile one) could carry
+  // startingSpells as something other than an array — a bare string has
+  // its own truthy `.length`, so a naive `!x.length` guard lets it
+  // through and `.forEach` then throws a raw, unhelpful native TypeError
+  // far from this file's own error-message discipline. Fail loudly here
+  // instead, with a message that actually says what's wrong.
+  if (!Array.isArray(awakening.startingSpells)) {
+    throw new Error(
+      `wonderland/importHeirRecord: awakening.startingSpells must be an array, got ${typeof awakening.startingSpells}`
+    );
+  }
+  if (awakening.startingSpells.length === 0) return [];
   const schoolKey = awakening.revealedSchool;
   const spells = [];
-  awakening.startingSpells.forEach((spellName) => {
+  awakening.startingSpells.forEach((spellName, i) => {
+    if (typeof spellName !== 'string') {
+      throw new Error(
+        `wonderland/importHeirRecord: awakening.startingSpells[${i}] must be a string, got ${typeof spellName}`
+      );
+    }
     // A retired auto-grant rule (see aow_play_sheet.html's own comment on
     // this) tagged some older exports' spells "(adjacent)" or "*" — never
     // part of the real SRD, which has no adjacent-school concept. Skipped

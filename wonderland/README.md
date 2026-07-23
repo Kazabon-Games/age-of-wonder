@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-6
+# Wonderland: First Principles — Checkpoints 1-7
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -481,3 +481,173 @@ autosave, etc.) — that's game-loop policy for whenever a presentation
 layer exists.
 
 135/135 checks pass.
+
+## Checkpoint 7: worldbreaker pass, reinterpreted — there's no UI yet
+
+The roadmap's line 7 is "Worldbreaker pass + pre-ship checklist," which the
+handover doc frames in terms of a player mashing buttons in a real game
+screen. That screen doesn't exist yet — Checkpoints 1-6 built the engine,
+not a presentation layer. Reinterpreted for what actually exists: an
+adversarial pass against the engine's real API surface (`resolve()`,
+`evaluateUnlockCondition()`, `importHeirRecord()`, `persistence.js`'s
+key-validated IndexedDB layer) — the same worldbreaker spirit, aimed at
+the boundary a future UI will actually call through, since a bug there is
+a bug no amount of good UI code downstream can paper over.
+
+This pass found and fixed four real, previously-shipped bugs, none of
+them hypothetical:
+
+- **Prototype pollution via `characterId`/`nodeId`/`flagId` of
+  `"__proto__"`.** `findCharacter`/`findPoliticalNode` used a truthy
+  check (`if (!character) throw`) to detect an unknown id.
+  `state.characters['__proto__']` resolves through the JS prototype
+  chain to the real, shared `Object.prototype` — which is truthy — so
+  the check never fired, and the next field write (e.g. `SET_STAMINA`'s
+  `.stamina = 'winded'`) mutated `Object.prototype` for the entire
+  process. Confirmed with a real repro (`({}).stamina` came back
+  `"winded"` after the attack) before fixing. Fixed by gating both
+  functions on `Object.prototype.hasOwnProperty.call(obj, key)` instead
+  of truthiness. A related but lower-severity variant lived in
+  `worldStateBridge.js`'s `importWorldState`, which builds fresh
+  `worldFlags`/`politicalNodes` objects keyed by an external
+  `record.id` — assigning an *object* value (not engine.js's
+  primitives-only `applySetWorldFlag`) to a `"__proto__"` key really
+  does replace that object's own prototype. Fixed by rejecting
+  `"__proto__"` outright at the one place new entries get created
+  (`MODIFY_LEVERAGE`'s/`LOG_POLITICAL_ACTION`'s `actorId`,
+  `SET_WORLD_FLAG`'s `flagId`, `importWorldState`'s `record.id`).
+  Deliberately does **not** reject `"constructor"`/`"prototype"` too —
+  verified those have no special setter behavior on a plain object
+  (`obj.constructor = x` just creates an ordinary own property), so a
+  real id that happens to be one of those words isn't a threat and
+  rejecting it would just be a false positive.
+- **A malformed `unlockCondition.count`/`.score` silently misbehaved
+  instead of erroring.** `woundCountAtLeast`'s `character.wounds.length
+  >= condition.count` treated a negative `count` (e.g. `-5`) as
+  satisfied by *any* character, silently auto-unlocking a Transformation
+  meant to require real cost; a `NaN` count made it silently
+  never-satisfiable. Fixed with an explicit finite/non-negative check
+  (and the equivalent finite check on `leverageAtLeast`'s `score`).
+- **`GRANT_TECHNIQUE`/`ACTIVATE_TRANSFORMATION` accepted non-serializable
+  payloads.** `schema.js`'s `createTechnique`/`createTransformationForm`
+  are a bare `Object.assign(defaults, overrides)` — no filtering, no
+  validation. A technique payload containing a function-valued field, or
+  a field holding a circular self-reference, was accepted without
+  complaint and landed byte-for-byte inside the returned "state" object,
+  silently breaking this codebase's own §0 rule that state is always
+  plain, serializable data — until some unrelated later consumer (a save
+  export, an IndexedDB write) would choke on it far from the actual
+  mistake. Fixed with `assertPlainSerializable()`, a recursive walk that
+  throws on any function/symbol value or circular reference, run against
+  both payloads before they're accepted. Re-verified all six real
+  houses' abilities/Transformations in `houses.js` still pass this check
+  — the guard rejects hostile shapes, not real content.
+- **`importHeirRecord.js`'s `startingSpells` crashed on a wrong-typed
+  value instead of erroring clearly.** `!awakening?.startingSpells?.length`
+  used a bare-string's own truthy `.length` as its guard, so a malformed
+  export with `startingSpells: "Fireball"` (string, not array) slipped
+  past it and crashed on `.forEach` with a raw, unhelpful native
+  `TypeError`; a non-string element in an otherwise-valid array crashed
+  the same way on `.includes`. Fixed with explicit `Array.isArray()` and
+  per-element `typeof === 'string'` checks that throw this module's own
+  namespaced error instead.
+
+**What was checked and found to already be safe, or a non-issue** (verified
+empirically, not assumed):
+- `MODIFY_LEVERAGE`'s `delta`, `LOG_POLITICAL_ACTION`'s `tier` — already
+  rejected `NaN`/`Infinity`/out-of-range values with a clear error before
+  this pass.
+- `applySetWorldFlag`'s `next.worldFlags[flagId] = value` — safe by
+  construction: assigning a non-object value to a `"__proto__"` key is a
+  documented, verified no-op (the accessor setter on `Object.prototype`
+  requires an `Object` or `null`, silently ignoring anything else), and
+  the function's own type check already restricts `value` to
+  boolean/string/number. Hardened anyway with the same explicit
+  `"__proto__"`-rejection used elsewhere, so the protection doesn't
+  depend on a future edit loosening that value-type check without
+  noticing the implication.
+- `persistence.js`'s `KEY_PATTERN` — already correctly anchored
+  (`^...$`) and charset-restricted (rejects newlines, extra colons,
+  path-traversal characters, null bytes, empty ids, wrong casing). The
+  one real gap was an unbounded id length (a 100,000-character key
+  passed validation); fixed with a `{1,200}` bound.
+  `"entity:__proto__"`-shaped keys are syntactically valid and stay
+  that way on purpose: IndexedDB stores keys as opaque strings, not JS
+  object properties, so there's no prototype chain for that key to
+  exploit there.
+- `importHeirRecord.js` and hostile `"__proto__"`-laced JSON — confirmed
+  both `JSON.parse` and object-spread (`{ ...raw.capstone }`, used for
+  the capstone field) produce an inert *own* property literally named
+  `"__proto__"`, never the real prototype-changing accessor. Object
+  literal shorthand (`{ __proto__: x }`, written directly in source) is
+  the only syntax that actually triggers it, and this file never does
+  that with external data.
+- Circular references and huge arrays in general — `structuredClone`
+  (used by `engine.js`'s `deepClone`) natively supports cyclic
+  structures without throwing, and a large-but-reasonable array (tested
+  to 100k elements) clones and processes without incident. Not a gap;
+  just confirmed rather than assumed.
+
+25 new checks added (135 → 160 passing).
+
+## Pre-ship checklist (for whoever builds the UI/content layer next)
+
+**Stable action-type list** — the only vocabulary `resolve(state, action)`
+understands: `INIT_ENCOUNTER`, `DECLARE_ACTION`, `RESOLVE_EXCHANGE`,
+`APPLY_WOUND`, `SET_STAMINA`, `MODIFY_LEVERAGE`, `LOG_POLITICAL_ACTION`,
+`APPLY_CAPSTONE`, `RESET_CAPSTONE_USAGE`, `GRANT_TECHNIQUE`,
+`ACTIVATE_TRANSFORMATION`, `SET_WORLD_FLAG`. Every one throws a
+namespaced `wonderland/engine: ...` error on a malformed payload rather
+than silently defaulting — treat any caught exception as a real bug to
+fix in the caller, never something to swallow.
+
+**Invariants that must never be violated:**
+- `resolve()` never mutates its `state` argument — always returns a new
+  object (`deepClone` under the hood). Don't rely on `state === newState`
+  ever holding; don't assume the old reference is safe to keep using
+  after calling `resolve()` on it.
+- All state is plain, JSON-serializable data — no functions, no
+  `Symbol`s, no circular references, no class instances. `engine.js`
+  enforces this on the payloads it directly accepts (`technique`,
+  `transformationForm`), but a UI layer building other content-shaped
+  objects (houses, world NPCs) should hold itself to the same rule,
+  since nothing downstream re-checks it.
+- Every id (`characterId`, `nodeId`, `flagId`, `actorId`) must be a real
+  key already present in `state` before being referenced by an action
+  that expects it to exist — `findCharacter`/`findPoliticalNode` throw a
+  clear error otherwise, by design; don't pre-seed a fake entry just to
+  dodge the error.
+- `SaveState.schemaVersion` (currently `2`) must match
+  `persistence.js`'s `getSaveState(slot, expectedSchemaVersion)` call —
+  a version bump means every existing save is intentionally
+  incompatible, not something to migrate silently.
+- `persistence.js` is the only module allowed to touch IndexedDB — keep
+  routing all reads/writes through it, even from new UI code.
+
+**Known gaps, left for the content/UI layer on purpose (not oversights):**
+- No numeric Read-accuracy/initiative formula beyond Dagger's
+  unconditional override — the SRD leaves that to GM judgment, and this
+  engine refuses to invent one.
+- Wound severity and stamina-stage transitions are never auto-computed
+  from hit counts — always an explicit `APPLY_WOUND`/`SET_STAMINA`
+  action, by the same "don't invent what the SRD leaves to the GM" rule.
+- `worldStateBridge.js` doesn't decide *when* export/import should run
+  in a real game loop (session start/end, autosave) — that's game-loop
+  policy.
+- The Badgerhold house-id mismatch between `importHeirRecord.js`'s
+  `slugify()` output (`badgerhold`) and `houses.js`'s canonical id
+  (`house_badgerhold`) is real and still unresolved — matching by id
+  across those two files isn't something either currently attempts.
+- No narrative branch content (roadmap line 5) exists yet — `houses.js`
+  carries mechanical identity (abilities, Transformations, ideals,
+  shadow) transcribed from real player records, not written scenes.
+
+**How to run the test suite:** `npx http-server -p 8935` from the repo
+root, then in a second terminal
+`NODE_PATH=/opt/node22/lib/node_modules node tests/wonderland-engine-adversarial.js`
+(the `NODE_PATH` points at wherever Playwright is actually installed in
+your environment — adjust if it differs). Expect `160 passed, 0 failed`.
+The suite drives a real Chromium instance against `harness.html` and real
+IndexedDB — nothing in it is mocked.
+
+160/160 checks pass.

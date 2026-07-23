@@ -29,7 +29,14 @@
   const DB_NAME = 'wonderland';
   const DB_VERSION = 1;
   const STORE_NAME = 'kv';
-  const KEY_PATTERN = /^(entity|choice|save):[A-Za-z0-9_-]+$/;
+  // The id portion has no inherent length limit in IndexedDB itself, so
+  // without a cap here a caller (or hostile input laundered through
+  // importHeirRecord.js) could stash an arbitrarily large key string —
+  // found during the Checkpoint 7 adversarial pass, where a 100,000-char
+  // id passed validation outright. Every real id in this codebase (a
+  // character/house/node slug) is well under this; 200 is a generous cap
+  // that only rejects pathological input, never a legitimate one.
+  const KEY_PATTERN = /^(entity|choice|save):[A-Za-z0-9_-]{1,200}$/;
 
   let dbPromise = null;
 

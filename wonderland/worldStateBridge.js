@@ -46,6 +46,33 @@ function worldStateKeyForPoliticalNode(nodeId) {
   return `entity:${nodeId}`;
 }
 
+/*
+ * importWorldState builds worldFlags/politicalNodes by assigning to a
+ * plain {}-literal object keyed by record.id, an external/caller-supplied
+ * string. Unlike engine.js's applySetWorldFlag (which only ever assigns a
+ * boolean/string/number — a value type the `__proto__` accessor's setter
+ * silently ignores, per spec, leaving the object's prototype untouched),
+ * this file assigns whole objects (a politicalNode record, or an
+ * unrestricted worldFlag value). Object.prototype.hasOwnProperty.call
+ * won't save us here the way it does in engine.js's findCharacter/
+ * findPoliticalNode: the danger isn't a false-positive lookup, it's that
+ * `target['__proto__'] = someObject` really does replace target's own
+ * prototype with someObject, silently corrupting every later lookup on
+ * that specific worldFlags/politicalNodes object (Object.keys/
+ * JSON.stringify/structuredClone would just silently lose the entry
+ * rather than throw). Reject '__proto__' outright instead of relying on
+ * a subtler distinction elsewhere. Deliberately NOT rejecting
+ * 'constructor'/'prototype' too — verified those have no special setter
+ * behavior on a plain object, `target.constructor = x` just creates an
+ * ordinary own property, so a real flagId/nodeId that happens to be one
+ * of those words isn't a threat.
+ */
+function assertSafeStateId(id, context) {
+  if (id === '__proto__') {
+    throw new Error(`wonderland/worldStateBridge: "${id}" cannot be used as a ${context} id — it collides with JavaScript's own object prototype chain`);
+  }
+}
+
 /**
  * Turns a live SaveState's worldFlags and politicalNodes into an array of
  * { key, record } pairs, each ready to hand to persistence.js's
@@ -94,8 +121,10 @@ function importWorldState(records) {
 
   records.forEach(({ record }) => {
     if (record.kind === 'choice') {
+      assertSafeStateId(record.id, 'worldFlag');
       worldFlags[record.id] = record.data.value;
     } else if (record.kind === 'entity') {
+      assertSafeStateId(record.id, 'politicalNode');
       politicalNodes[record.id] = record.data;
     } else {
       throw new Error(`wonderland/worldStateBridge: unknown WorldStateRecord kind "${record.kind}"`);

@@ -120,6 +120,88 @@ function deepClone(value) {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
+/*
+ * A plain `{}`-keyed lookup table (state.characters, state.politicalNodes)
+ * has a real prototype chain like any other object. `table['__proto__']`
+ * does NOT read an own property named "__proto__" — it resolves through
+ * the chain to the actual shared Object.prototype, which is truthy, so a
+ * naive `if (!table[key])` guard never fires. A caller passing
+ * characterId: '__proto__' (or 'constructor', 'toString', etc.) would
+ * then have that shared prototype handed back as "the character", and any
+ * subsequent field assignment on it (e.g. `.stamina = 'winded'`) mutates
+ * Object.prototype itself for the entire process. hasOwnProperty is the
+ * only check that distinguishes "an own entry at this key" from "the
+ * prototype chain resolved to something truthy" — always gate lookups
+ * through it before trusting a caller-supplied key.
+ */
+function hasOwn(obj, key) {
+  return typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+/*
+ * Some ids (actorId in MODIFY_LEVERAGE/LOG_POLITICAL_ACTION, flagId in
+ * SET_WORLD_FLAG) key into node.scores/node.fractional/state.worldFlags
+ * WITHOUT first requiring an existing own entry — that's the point, a new
+ * actor's first-ever leverage score or a brand-new world flag has to be
+ * creatable. hasOwn can't gate those writes the way it gates
+ * findCharacter/findPoliticalNode. They're safe today only because the
+ * values ever assigned through them are plain numbers/booleans/strings —
+ * assigning a non-object value to `obj['__proto__']` is a documented,
+ * verified no-op (the accessor setter on Object.prototype requires an
+ * Object or null, silently ignoring anything else) — but that safety is
+ * incidental to the value-type checks already next to each call site, not
+ * to this guard. Reject '__proto__' outright so the protection doesn't
+ * depend on every future edit remembering that. Deliberately NOT
+ * rejecting 'constructor'/'prototype' too: verified those have no
+ * special accessor behavior on a plain object — `obj.constructor = x`
+ * just creates an ordinary own property shadowing the inherited one, no
+ * different from any other key — so a real id that happens to be one of
+ * those words (a spell literally named "Constructor") isn't a threat and
+ * shouldn't be rejected as if it were.
+ */
+function assertSafeDynamicKey(key, context) {
+  if (key === '__proto__') {
+    throw new Error(`wonderland/engine: "${key}" cannot be used as a ${context} — it collides with JavaScript's own object prototype chain`);
+  }
+}
+
+/*
+ * GRANT_TECHNIQUE and ACTIVATE_TRANSFORMATION take a whole technique/
+ * transformationForm object as their payload and hand it to schema.js's
+ * createTechnique/createTransformationForm, which is a plain
+ * Object.assign(defaults, overrides) — it does not filter unknown fields
+ * or check that they're serializable. Found during the Checkpoint 7
+ * adversarial pass: a technique payload with a function-valued field, or
+ * a field holding a circular reference back to itself, was accepted
+ * without complaint and landed byte-for-byte inside the returned "state"
+ * object — silently breaking this codebase's own §0 non-negotiable ("all
+ * state is plain, serializable data") until some unrelated later
+ * consumer (a JSON save export, an IndexedDB write) chokes on it far from
+ * the actual mistake. Walk the payload up front and fail loudly here
+ * instead, at the one place that actually knows what was just accepted.
+ */
+function assertPlainSerializable(value, context, seen) {
+  if (value === null || typeof value === 'undefined') return;
+  const t = typeof value;
+  if (t === 'function') {
+    throw new Error(`wonderland/engine: ${context} contains a function value — state must stay plain, serializable data`);
+  }
+  if (t === 'symbol') {
+    throw new Error(`wonderland/engine: ${context} contains a symbol value — state must stay plain, serializable data`);
+  }
+  if (t !== 'object') return; // string/number/boolean already fine
+  seen = seen || new Set();
+  if (seen.has(value)) {
+    throw new Error(`wonderland/engine: ${context} contains a circular reference — state must stay plain, serializable data`);
+  }
+  seen.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => assertPlainSerializable(item, `${context}[${i}]`, seen));
+    return;
+  }
+  Object.keys(value).forEach((key) => assertPlainSerializable(value[key], `${context}.${key}`, seen));
+}
+
 function findCombatant(encounter, characterId) {
   const combatant = encounter.combatants.find((c) => c.characterId === characterId);
   if (!combatant) {
@@ -129,11 +211,10 @@ function findCombatant(encounter, characterId) {
 }
 
 function findCharacter(state, characterId) {
-  const character = state.characters[characterId];
-  if (!character) {
+  if (!hasOwn(state.characters, characterId)) {
     throw new Error(`wonderland/engine: unknown characterId "${characterId}" in state.characters`);
   }
-  return character;
+  return state.characters[characterId];
 }
 
 function staminaIndex(stage) {
@@ -520,11 +601,10 @@ function isCombatOver(character, location) {
 }
 
 function findPoliticalNode(state, nodeId) {
-  const node = state.politicalNodes[nodeId];
-  if (!node) {
+  if (!hasOwn(state.politicalNodes, nodeId)) {
     throw new Error(`wonderland/engine: unknown political node "${nodeId}" — add it to state.politicalNodes before referencing it (see schema.js createPoliticalNode)`);
   }
-  return node;
+  return state.politicalNodes[nodeId];
 }
 
 // aow_srd.html ch3-leverage: "No score can exceed +5 or fall below -5."
@@ -540,6 +620,7 @@ function applyModifyLeverage(state, action) {
   if (typeof actorId !== 'string' || !actorId) {
     throw new Error('wonderland/engine: MODIFY_LEVERAGE requires an actorId string — leverage is per-heir, not party-wide (aow_srd.html ch3-leverage)');
   }
+  assertSafeDynamicKey(actorId, 'actorId');
   if (typeof delta !== 'number' || !Number.isFinite(delta)) {
     throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a numeric delta');
   }
@@ -712,6 +793,7 @@ function applyLogPoliticalAction(state, action) {
   if (typeof actorId !== 'string' || !actorId) {
     throw new Error('wonderland/engine: LOG_POLITICAL_ACTION requires an actorId string');
   }
+  assertSafeDynamicKey(actorId, 'actorId');
   const node = findPoliticalNode(state, targetId); // throws loudly if unknown
   const effect = computePoliticalActionEffect(node, actorId, tier, direction); // throws loudly on a bad tier/direction
 
@@ -795,6 +877,14 @@ function evaluateUnlockCondition(condition, character, state) {
     case 'staminaAtLeast':
       return staminaIndex(character.stamina) >= staminaIndex(condition.stage);
     case 'woundCountAtLeast':
+      // A non-finite or negative count would otherwise auto-satisfy this
+      // gate for every character (any wounds.length >= -5 is true) or
+      // silently never satisfy it (>= NaN is always false) — either way a
+      // malformed content-authored threshold would silently misbehave
+      // instead of surfacing the authoring mistake.
+      if (!Number.isFinite(condition.count) || condition.count < 0) {
+        throw new Error(`wonderland/engine: "woundCountAtLeast" unlock condition requires a non-negative finite count, got "${condition.count}"`);
+      }
       return character.wounds.length >= condition.count;
     case 'leverageAtLeast': {
       // Ties a Transformation form's unlock to political standing — a
@@ -805,6 +895,9 @@ function evaluateUnlockCondition(condition, character, state) {
       // omitted) fails loudly rather than silently treating it as unmet.
       if (!state) {
         throw new Error('wonderland/engine: "leverageAtLeast" unlock condition requires state (political standing isn\'t on the character record)');
+      }
+      if (!Number.isFinite(condition.score)) {
+        throw new Error(`wonderland/engine: "leverageAtLeast" unlock condition requires a finite score, got "${condition.score}"`);
       }
       const node = findPoliticalNode(state, condition.nodeId); // throws loudly if unknown
       return (node.scores[character.id] || 0) >= condition.score;
@@ -838,6 +931,7 @@ function applyGrantTechnique(state, action) {
   if (!technique || typeof technique !== 'object' || !technique.id || !technique.name) {
     throw new Error('wonderland/engine: GRANT_TECHNIQUE requires a technique object with at least id and name');
   }
+  assertPlainSerializable(technique, 'GRANT_TECHNIQUE technique payload');
   if (character.techniques.some((t) => t.id === technique.id)) {
     throw new Error(`wonderland/engine: "${characterId}" already has technique "${technique.id}"`);
   }
@@ -859,6 +953,7 @@ function applyActivateTransformation(state, action) {
   if (!transformationForm || typeof transformationForm !== 'object' || !transformationForm.id) {
     throw new Error('wonderland/engine: ACTIVATE_TRANSFORMATION requires a transformationForm object with at least an id');
   }
+  assertPlainSerializable(transformationForm, 'ACTIVATE_TRANSFORMATION transformationForm payload');
   if (character.activeTransformationId === transformationForm.id) {
     throw new Error(`wonderland/engine: "${characterId}" has already activated transformation "${transformationForm.id}"`);
   }
@@ -900,6 +995,7 @@ function applySetWorldFlag(state, action) {
   if (typeof flagId !== 'string' || !flagId) {
     throw new Error('wonderland/engine: SET_WORLD_FLAG requires a flagId string');
   }
+  assertSafeDynamicKey(flagId, 'flagId');
   if (typeof value !== 'boolean' && typeof value !== 'string' && typeof value !== 'number') {
     throw new Error(`wonderland/engine: SET_WORLD_FLAG value must be a boolean, string, or number, got ${typeof value}`);
   }
