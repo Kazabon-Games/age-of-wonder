@@ -704,3 +704,80 @@ authored content, not a mistake to discard:
   sequencing, still correctly unbuilt.
 
 6 new checks added (160 → 166 passing).
+
+## Tech stack doc, checked against what's built — one intentional divergence, kept as-is
+
+`WONDERLAND_RPG_TECH_STACK.md`, the second companion doc flagged as
+missing since Checkpoint 1, was also supplied. Checked component by
+component against what actually exists:
+
+**Confirmed matches:** vanilla JS with no build step; the diceless
+engine's "verify against hand-worked SRD cases before any UI exists"
+discipline (§1.4), which is exactly Checkpoints 1-7's own practice;
+`importHeirRecord.js`'s fail-loudly-on-malformed-data rule (§1.6); none
+of the doc's explicitly-excluded components (AudioWorklet, WebGL2 shader
+VFX, OffscreenCanvas/Worker, IK/Verlet, server/WASM SQL) show up anywhere
+in this codebase.
+
+**Expected gaps, not contradictions** — nothing built yet because no UI
+work has started: DOM/CSS screens, Canvas 2D map/portrait/FX rendering,
+WebAudio, keyboard/touch input, and the full inventory/equipment system
+(`schema.js` only has `startingEquipment: []`, a bare array of id
+strings — no `Item` shape, no equipment mechanics). All of this is
+explicit Phase 2/3 work in the flagship design doc's own sequencing, so
+being unbuilt right now is on schedule, not a miss.
+
+**One real divergence, deliberately kept rather than "fixed":** §1.5
+specifies a per-entity relational-shaped IndexedDB key scheme —
+`characters:{id}`, `inventory:{characterId}`, `items:{itemId}`,
+`faction:{characterId}:{houseId}` — one row per character, one row per
+character-house leverage pair. What's actually built (`persistence.js`'s
+`entity:`/`choice:`/`save:` namespaces, inherited from Checkpoint 1's own
+earlier doc) stores the entire `SaveState` — every character, every
+political node, every world flag — as **one blob per save slot**, and
+models leverage as `politicalNodes`: one shared node per NPC/faction
+holding an embedded map of every character's score against it, not a row
+per character-house pair.
+
+This tech-stack doc was written before the ripple-propagation algorithm
+(`getNodeConductors`/`rankConductors`/`propagateWeight`, ported from
+`aow_gm_screen.html`) existed, and that algorithm is the reason the
+divergence is being kept rather than reconciled the way the First
+Principles one was. Ripple propagation needs to treat each political
+node as a first-class graph vertex — traverse its conductors, rank its
+neighbors — which only works cleanly if a node's full state (including
+every character's score against it) lives in one record. A
+`faction:{characterId}:{houseId}`-per-pair scheme would mean
+reassembling the whole relationship graph from scattered rows on every
+political action, actively working against an already-built, already
+hand-verified system (see "Ripple propagation" above) for a benefit
+that's theoretical rather than tied to any concrete need this project has
+actually hit. The general `entity:`/`choice:`/`save:` namespace is also
+more extensible as new content types get added later: a future item is
+just another `entity:` record, no new key prefix or `persistence.js`
+change required — where the tech-stack doc's scheme would need a new
+namespace (`items:`) per content category.
+
+The whole-blob-per-slot design does have one real cost, named here
+rather than glossed over: even a one-character stamina change rewrites
+the entire save. Not a concern at this project's actual scale (a
+single-player party's characters/nodes/flags is small by IndexedDB
+standards), and the one class of data that genuinely needs a lifecycle
+independent of any single save slot — state meant to outlive one session
+or one game — already has a purpose-built escape hatch: `worldStateBridge.js`'s
+`entity:`/`choice:` records exist specifically to pull that content out
+of the save blob. Revisit only if a concrete access pattern actually
+needs per-character partial writes, not preemptively.
+
+**Also flagged, not yet acted on:** §1.9 describes the "real" test
+discipline as driving the diceless engine "through the actual UI" — the
+same UI-only philosophy as this studio's own `worldbreaker` testing
+standard (drive the real UI, never inject data via `page.evaluate()`).
+The current 166-check suite does the opposite by necessity: zero
+`page.click`/`fill`, all engine calls made directly via `page.evaluate()`
+into `window.Wonderland`, because there's no UI yet to click through.
+That was the correct call given the project's current state, but it's
+worth naming plainly: this test suite does not "graduate" into the
+doc's intended UI-driven one once a real screen exists — a genuine
+UI-driven pass will need to be built from scratch at that point, not
+just extended.
