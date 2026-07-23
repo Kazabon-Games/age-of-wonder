@@ -664,6 +664,82 @@ function ok(cond, label) {
   ok(importResults.jsonRoundTripsCleanly, 'The imported character is exactly as plain/JSON-serializable as one built directly through createCharacterRecord');
   ok(importResults.missingRequiredFieldsRejected, 'importHeirRecord throws on a record missing name/revealed school, matching the real tool\'s own validation');
 
+  console.log('18. Checkpoint 4 — house content vertical slice (PLACEHOLDER content, real mechanics)');
+  const houseResults = await page.evaluate(() => {
+    const { createSaveState, createCharacterRecord } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    const { placeholderHouse } = window.Wonderland.placeholderHouse;
+    const results = {};
+
+    results.everyNameFlaggedPlaceholder =
+      placeholderHouse.name.includes('[PLACEHOLDER]') &&
+      placeholderHouse.abilities[0].name.includes('[PLACEHOLDER]') &&
+      placeholderHouse.transformationForms[0].name.includes('[PLACEHOLDER]') &&
+      placeholderHouse.transformationForms[0].grantedTechnique.name.includes('[PLACEHOLDER]');
+
+    let state = createSaveState();
+    state.characters.char_mira = createCharacterRecord({ id: 'char_mira', houseId: placeholderHouse.id });
+    state.characters.char_davan = createCharacterRecord({ id: 'char_davan' });
+
+    // Step 1: grant the house ability (content-agnostic engine action).
+    state = resolve(state, { type: 'GRANT_TECHNIQUE', characterId: 'char_mira', technique: placeholderHouse.abilities[0] });
+    results.abilityGranted = state.characters.char_mira.techniques.some((t) => t.id === 'tech_placeholder_warding_stance');
+
+    let dupeGrant = 'allowed';
+    try { resolve(state, { type: 'GRANT_TECHNIQUE', characterId: 'char_mira', technique: placeholderHouse.abilities[0] }); }
+    catch (e) { dupeGrant = 'threw'; }
+    results.duplicateGrantRejected = dupeGrant === 'threw';
+
+    // Step 2: the granted ability actually resolves through a real exchange —
+    // not just sitting inert in the array. Davan basic-strikes; Mira uses
+    // the granted Warding Stance (trigger: null, so always available).
+    state = resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_mira', 'char_davan'], location: 'insideBarrier' });
+    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act'] });
+    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_mira', slots: ['react'], techniqueId: 'tech_placeholder_warding_stance' });
+    state = resolve(state, { type: 'RESOLVE_EXCHANGE' });
+    const miraAction = state.currentEncounter.log[0].resolvedActions.find((a) => a.characterId === 'char_mira');
+    results.grantedAbilityResolvedInCombat = miraAction.techniqueId === 'tech_placeholder_warding_stance' && miraAction.triggerMet === true;
+
+    // Step 3: Transformation form is gated by a real unlock condition —
+    // blocked before, allowed after.
+    let blockedBeforeWounds = 'allowed';
+    try { resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] }); }
+    catch (e) { blockedBeforeWounds = 'threw'; }
+    results.transformationBlockedBeforeCondition = blockedBeforeWounds === 'threw';
+
+    state = resolve(state, { type: 'APPLY_WOUND', characterId: 'char_mira', location: 'legs' });
+    state = resolve(state, { type: 'APPLY_WOUND', characterId: 'char_mira', location: 'torso' });
+    state = resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] });
+    results.transformationActivated = state.characters.char_mira.activeTransformationId === 'form_placeholder_awakened_testbed';
+    results.bonusTechniqueGranted = state.characters.char_mira.techniques.some((t) => t.id === 'tech_placeholder_testbed_surge');
+
+    let reActivate = 'allowed';
+    try { resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] }); }
+    catch (e) { reActivate = 'threw'; }
+    results.reActivationRejected = reActivate === 'threw';
+
+    // Step 4: the Transformation-granted technique ALSO resolves through a
+    // real exchange, including its real structured trigger (not a
+    // trivial always-available one this time) — the full vertical slice,
+    // house ability through to combat resolution.
+    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act', 'react'] });
+    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_mira', slots: ['act'], techniqueId: 'tech_placeholder_testbed_surge' });
+    state = resolve(state, { type: 'RESOLVE_EXCHANGE' });
+    const surgeAction = state.currentEncounter.log[1].resolvedActions.find((a) => a.characterId === 'char_mira');
+    results.grantedTransformationTechniqueResolvedInCombat = surgeAction.techniqueId === 'tech_placeholder_testbed_surge' && surgeAction.triggerMet === true;
+
+    return results;
+  });
+  ok(houseResults.everyNameFlaggedPlaceholder, 'Every placeholder house/ability/transformation name is explicitly flagged [PLACEHOLDER] — cannot be mistaken for real content');
+  ok(houseResults.abilityGranted, 'GRANT_TECHNIQUE attaches the house ability onto the character as a real Technique');
+  ok(houseResults.duplicateGrantRejected, 'GRANT_TECHNIQUE rejects granting the same technique id twice');
+  ok(houseResults.grantedAbilityResolvedInCombat, 'The granted house ability actually resolves through a real DECLARE_ACTION/RESOLVE_EXCHANGE, not just sitting inert in the techniques array');
+  ok(houseResults.transformationBlockedBeforeCondition, 'ACTIVATE_TRANSFORMATION is blocked before the unlock condition (2 wounds) is met');
+  ok(houseResults.transformationActivated, 'ACTIVATE_TRANSFORMATION succeeds once the condition is met, setting activeTransformationId');
+  ok(houseResults.bonusTechniqueGranted, 'Activating the transformation grants its bonus technique onto the character');
+  ok(houseResults.reActivationRejected, 'The same transformation cannot be activated twice');
+  ok(houseResults.grantedTransformationTechniqueResolvedInCombat, 'The Transformation-granted technique resolves through a real exchange too, including evaluating its real structured trigger — the full vertical slice, house content through to combat resolution');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

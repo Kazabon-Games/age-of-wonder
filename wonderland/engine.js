@@ -680,6 +680,79 @@ function applyResetCapstoneUsage(state, action) {
   return next;
 }
 
+/**
+ * Structured, engine-evaluable unlock conditions for a house
+ * TransformationForm (checkpoint doc §1, Checkpoint 4). Deliberately
+ * small — this engine supports exactly the condition types real house
+ * content has been built against so far; a new condition type is a
+ * schema+engine addition, not something callers can invent inline. `null`
+ * means always met, same semantic as a Technique's `trigger: null`.
+ */
+function evaluateUnlockCondition(condition, character) {
+  if (!condition) return true;
+  switch (condition.type) {
+    case 'staminaAtLeast':
+      return staminaIndex(character.stamina) >= staminaIndex(condition.stage);
+    case 'woundCountAtLeast':
+      return character.wounds.length >= condition.count;
+    default:
+      throw new Error(`wonderland/engine: unknown unlock condition type "${condition.type}"`);
+  }
+}
+
+/**
+ * Adds a technique to a character — how a house ability (Checkpoint 4)
+ * actually becomes usable through the existing DECLARE_ACTION/
+ * RESOLVE_EXCHANGE flow. Content-agnostic on purpose: this function
+ * doesn't know what a "house" is, only how to attach a well-formed
+ * Technique to a character record, exactly like a combat-trained
+ * technique. Runs the payload through Schema.createTechnique so a
+ * caller's partial object still gets full, valid defaults.
+ */
+function applyGrantTechnique(state, action) {
+  const { characterId, technique } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!technique || typeof technique !== 'object' || !technique.id || !technique.name) {
+    throw new Error('wonderland/engine: GRANT_TECHNIQUE requires a technique object with at least id and name');
+  }
+  if (character.techniques.some((t) => t.id === technique.id)) {
+    throw new Error(`wonderland/engine: "${characterId}" already has technique "${technique.id}"`);
+  }
+  const next = deepClone(state);
+  next.characters[characterId].techniques.push(Schema.createTechnique(technique));
+  return next;
+}
+
+/**
+ * A house TransformationForm (checkpoint doc §1): an empowered state
+ * unlocked once its condition is met, granting one bonus technique.
+ * Content-agnostic like GRANT_TECHNIQUE above — the actual form object
+ * (with its unlockCondition and grantedTechnique) is the action's
+ * payload, not looked up from a registry this engine doesn't keep.
+ */
+function applyActivateTransformation(state, action) {
+  const { characterId, transformationForm } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!transformationForm || typeof transformationForm !== 'object' || !transformationForm.id) {
+    throw new Error('wonderland/engine: ACTIVATE_TRANSFORMATION requires a transformationForm object with at least an id');
+  }
+  if (character.activeTransformationId === transformationForm.id) {
+    throw new Error(`wonderland/engine: "${characterId}" has already activated transformation "${transformationForm.id}"`);
+  }
+  if (!evaluateUnlockCondition(transformationForm.unlockCondition, character)) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" does not meet the unlock condition for transformation "${transformationForm.id}"`
+    );
+  }
+  const next = deepClone(state);
+  const nextCharacter = next.characters[characterId];
+  nextCharacter.activeTransformationId = transformationForm.id;
+  if (transformationForm.grantedTechnique && !nextCharacter.techniques.some((t) => t.id === transformationForm.grantedTechnique.id)) {
+    nextCharacter.techniques.push(Schema.createTechnique(transformationForm.grantedTechnique));
+  }
+  return next;
+}
+
 function applySetStamina(state, action) {
   const { characterId, stamina } = action;
   findCharacter(state, characterId);
@@ -718,6 +791,10 @@ function resolve(currentState, action) {
       return applyCapstone(currentState, action);
     case 'RESET_CAPSTONE_USAGE':
       return applyResetCapstoneUsage(currentState, action);
+    case 'GRANT_TECHNIQUE':
+      return applyGrantTechnique(currentState, action);
+    case 'ACTIVATE_TRANSFORMATION':
+      return applyActivateTransformation(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }
@@ -733,6 +810,7 @@ const api = {
   isCombatOver,
   effectiveThreshold,
   computePoliticalActionEffect,
+  evaluateUnlockCondition,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

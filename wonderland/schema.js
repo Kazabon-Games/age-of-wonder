@@ -69,6 +69,13 @@ function createCharacterRecord(overrides = {}) {
       // { aspect, aspectName, title, description, usage, leverageBonus:
       // {key,amount}, leveragePenalty: [{key,amount}], usedThisSession }
       capstone: null,
+      // Checkpoint 4: which house TransformationForm (if any) this
+      // character has activated. Set by ACTIVATE_TRANSFORMATION; a
+      // character can only have one active at a time (engine.js throws on
+      // re-activating while one's already set) — this schema doesn't
+      // define how or when it clears, since no house content specifies
+      // that duration yet.
+      activeTransformationId: null,
       // Player-tracked resources — real fields from aow_play_sheet.html's
       // state, generalized from that tool's single-heir assumption to
       // per-character here since a Wonderland SaveState holds a full party.
@@ -109,6 +116,13 @@ function createTechnique(overrides = {}) {
       // on import rather than guessing a predicate from this string.
       rawTriggerText: '',
       dependency: 'none', // free-text stamina/presence dependency note from the real tool; not enforced here
+      // Set only on techniques that originate from a house ability
+      // (Checkpoint 4) — the checkpoint doc's "Principle-tagged
+      // abilities." A house ability is otherwise a plain Technique: same
+      // trigger/slotCost/effect shape, usable through the same
+      // DECLARE_ACTION/RESOLVE_EXCHANGE flow as any combat-trained
+      // technique, once granted onto a character via GRANT_TECHNIQUE.
+      principle: null,
     },
     overrides
   );
@@ -158,11 +172,45 @@ function createHouseRecord(overrides = {}) {
       kitDescription: '',
       factionId: null, // links to World State faction entity, e.g. "faction:house_axiom"
       // Abilities tagged with which in-world Principle they express — the
-      // checkpoint doc calls these "Principle-tagged abilities"; the actual
-      // Principle vocabulary is design content, not defined by this schema.
-      abilities: [], // array of { id, name, principle, description }
-      transformationForms: [], // array of { id, name, description, unlockCondition }
+      // checkpoint doc calls these "Principle-tagged abilities." As of
+      // Checkpoint 4 these are full Technique objects (see
+      // createTechnique's `principle` field) rather than the lighter
+      // {id,name,principle,description} shape Checkpoint 1 sketched —
+      // needed to actually make an ability usable through
+      // DECLARE_ACTION/RESOLVE_EXCHANGE, not just descriptive. The
+      // Principle vocabulary itself is design content this schema doesn't
+      // define — each ability's `principle` string is free-form.
+      abilities: [], // array of Technique (see createTechnique)
+      transformationForms: [], // array of TransformationForm, see createTransformationForm
       startingEquipment: [], // array of equipment id strings
+    },
+    overrides
+  );
+}
+
+/**
+ * A house's Transformation form (checkpoint doc §1) — an empowered state
+ * unlocked once a structured condition is met, granting one bonus
+ * technique. unlockCondition mirrors a Technique trigger's shape
+ * discipline: structured and engine-evaluable, not prose a GM has to
+ * interpret. engine.js's evaluateUnlockCondition() is the only place that
+ * reads it. grantedTechnique is embedded directly (not an id-reference
+ * into the house's own abilities list) so engine.js never needs access to
+ * a house registry to activate one — it only ever sees the single action
+ * payload.
+ * @param {Object} [overrides]
+ */
+function createTransformationForm(overrides = {}) {
+  return Object.assign(
+    {
+      id: null, // e.g. "form_awakened"
+      name: '',
+      description: '',
+      // { type: 'staminaAtLeast', stage: 'winded' } or
+      // { type: 'woundCountAtLeast', count: 2 } — see engine.js
+      // evaluateUnlockCondition() for the full set this engine supports.
+      unlockCondition: null,
+      grantedTechnique: null, // a Technique object (see createTechnique), or null
     },
     overrides
   );
@@ -306,6 +354,7 @@ const api = {
   createTechnique,
   createSpell,
   createHouseRecord,
+  createTransformationForm,
   createCombatantState,
   createDeclaration,
   createEncounterState,

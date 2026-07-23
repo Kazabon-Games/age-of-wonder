@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-3
+# Wonderland: First Principles — Checkpoints 1-4
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -6,11 +6,15 @@ digging through the *rest* of the AOW suite — not just the SRD — for real,
 already-shipped mechanics and a real heir-import boundary (Checkpoint 3,
 mapped loosely onto "one house vertical-sliced" from
 `WONDERLAND_RPG_HANDOVER_CHECKPOINT1.md`'s roadmap, `Studio-Internal-`
-repo — see the Checkpoint 3 section below for what that mapping actually
-means here). Not a game yet — no UI, no narrative prose. This is the pure
-resolution engine, the data shapes it operates on, and the adapter that
-imports real player-created content, verified against real rules and real
-shipped tools, not read and judged plausible.
+repo). Checkpoint 4 ("remaining five houses") hit a hard wall — no house
+Kit/Principle/Transformation content exists anywhere yet, real or
+otherwise — so it proved the pipeline with one explicitly-labeled
+placeholder house instead of fabricating six houses' worth of invented
+lore (see its own section below). Not a game yet — no UI, no narrative
+prose. This is the pure resolution engine, the data shapes it operates on,
+and the adapters that import real player-created content, verified against
+real rules, real shipped tools, and real (if placeholder) mechanical
+proof — not read and judged plausible.
 
 ## Files
 
@@ -32,7 +36,13 @@ shipped tools, not read and judged plausible.
   header for why its required-vs-default field discipline deliberately
   mirrors `aow_play_sheet.html`'s proven `importFromS0()` rather than
   reinventing that split.
-- **`harness.html`** — not a game screen; loads all four modules above via
+- **`placeholderHouse.js`** — Checkpoint 4: ONE explicitly-labeled
+  placeholder house (every name flagged `[PLACEHOLDER]`) proving
+  `HouseRecord`/`TransformationForm` and the `GRANT_TECHNIQUE`/
+  `ACTIVATE_TRANSFORMATION` actions work end-to-end. Not real content —
+  see its own header. Delete this file, don't extend it, once real house
+  content exists.
+- **`harness.html`** — not a game screen; loads all five modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
 
@@ -85,9 +95,42 @@ Run for real, not read and judged plausible — see
   from `aow_heir_record.html`'s real content, and the heir-import adapter
   run against a fixture built from that tool's actual export shape (not an
   invented one).
-- 93/93 checks pass as of this commit. Re-run: serve the repo
+- **Checkpoint 4** (§18 of the test file) adds `GRANT_TECHNIQUE` and
+  `ACTIVATE_TRANSFORMATION`, driven end-to-end through the placeholder
+  house: a house ability is granted, then actually resolves through a
+  real combat exchange (not just checked for presence in an array); a
+  Transformation form's unlock condition blocks activation before it's
+  met and allows it after; the granted bonus technique then ALSO resolves
+  through a real exchange, including evaluating a real structured
+  trigger.
+- 102/102 checks pass as of this commit. Re-run: serve the repo
   (`npx http-server -p 8935`), then
   `node ../tests/wonderland-engine-adversarial.js`.
+
+## Checkpoint 4: why one placeholder house instead of five real ones
+
+The roadmap's line 4 is "remaining five houses." Before writing any code,
+searched the entire AOW suite for "Kit," "Principle-tagged ability," or
+"Transformation form" content — the same search discipline Checkpoint 3
+used to find the real heir-import pipeline. Found nothing. Unlike
+Checkpoint 3, where a real, analogous system already existed to adapt,
+house Kit/Principle/Transformation content doesn't exist anywhere yet —
+`aow_heir_record.html`'s "house" is a player-customized political family
+(free-text name/colors/sigil/ideals), a different concept entirely from
+this checkpoint's class-like Kit/Transformation system. This is genuinely
+new creative design, explicitly reserved as Kazabon's own material by the
+checkpoint doc's own §0/§1 and by the (still-unreceived)
+`WONDERLAND_RPG_FLAGSHIP_DESIGN.md` companion doc it names.
+
+Asked how to proceed rather than fabricate six houses' worth of invented
+lore. Chose: one house, explicitly and unmissably labeled `[PLACEHOLDER]`
+throughout (see `placeholderHouse.js`), built to prove the mechanical
+pipeline actually works — `HouseRecord`/`TransformationForm` schema
+shapes, `GRANT_TECHNIQUE`, `ACTIVATE_TRANSFORMATION`, and both a house
+ability and a Transformation-granted technique resolving through real
+combat exchanges — without claiming to be real design. When real house
+content exists, `placeholderHouse.js` gets deleted, not extended; the
+schema/engine additions it exercises stay.
 
 ## Checkpoint 2 scope decision
 
@@ -172,7 +215,11 @@ content exist and are real, but weren't imported wholesale this round —
   fractional carry at exactly 1.0, threshold escalation floored at 2); the
   heir-import adapter, run against a fixture built from the real export
   shape read directly out of `aow_heir_record.html`'s own code, not
-  invented.
+  invented; the Checkpoint 4 house-content pipeline (`GRANT_TECHNIQUE`,
+  `ACTIVATE_TRANSFORMATION`, unlock-condition gating), driven end-to-end
+  including both a granted house ability AND a Transformation-granted
+  technique resolving through real combat exchanges — not just checked
+  for presence in an array.
 - **Not yet verified**: Torso's "stamina degrades faster" is implemented as
   a documented fact only — this engine does not auto-accelerate stamina
   stage transitions from a Torso wound (that timing is explicitly
@@ -185,8 +232,13 @@ content exist and are real, but weren't imported wholesale this round —
   the same encounter, remain unexercised. The import adapter has been run
   against one hand-built fixture, not a real file the user actually
   exports from `aow_heir_record.html` — that's the next real test, not
-  this one.
-- **Explicitly out of scope here**: house content, narrative branches, the
+  this one. The Checkpoint 4 house content is placeholder by design —
+  `evaluateUnlockCondition`'s two condition types (`staminaAtLeast`,
+  `woundCountAtLeast`) are the only ones any content exercises; real house
+  design may need more, which means more engine work, not just more data.
+- **Explicitly out of scope here**: real house content (six houses' worth
+  of Kit/Principle-tagged-ability/Transformation-form design — Kazabon's
+  own creative material, not fabricated here), narrative branches, the
   Essence-ledger-style World State *behavior* beyond Leverage (the schema
   exists for entities/choices; no behavior drives them yet), Caravan and
   Exploration encounter types entirely, ripple propagation, and narrative
