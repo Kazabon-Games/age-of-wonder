@@ -42,7 +42,11 @@ proof — not read and judged plausible.
   `ACTIVATE_TRANSFORMATION` actions work end-to-end. Not real content —
   see its own header. Delete this file, don't extend it, once real house
   content exists.
-- **`harness.html`** — not a game screen; loads all five modules above via
+- **`worldNpcs.js`** — REAL content (not placeholder), the mechanical
+  fields of `aow_gm_screen.html`'s own `WORLD_NPCS` array: nine named,
+  already-authored individuals and their relationship-graph edges to each
+  other. Used to seed `politicalNodes` for ripple propagation — see below.
+- **`harness.html`** — not a game screen; loads all six modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
 
@@ -172,10 +176,63 @@ here, not acted on unprompted): if authoring six houses' worth of
 political content takes a while, it may be worth building a minimal,
 clearly-temporary faction *stub* — mirroring `placeholderHouse.js`'s own
 pattern — so combat/reputation systems downstream of `politicalNodes`
-(ripple propagation, the narrative hook layer, anything in a future
-checkpoint that assumes real factions exist) can keep being tested
-without waiting on final content. Nobody has asked for this yet; flagging
-it here so it doesn't get lost.
+(the narrative hook layer, anything in a future checkpoint that assumes
+real factions exist) can keep being tested without waiting on final
+content. **Partially overtaken by events**: ripple propagation itself
+(below) turned out not to need this stub — `aow_gm_screen.html` has real,
+already-authored `WORLD_NPCS` content (nine named individuals, not the
+six houses) that tests it against real data instead. The suggestion still
+stands for anything that specifically needs the *six houses* to exist as
+political nodes, which `worldNpcs.js` does not provide.
+
+## Ripple propagation (post-Checkpoint-4): real relationship-graph content, ported faithfully
+
+Checkpoint 3 surveyed `aow_gm_screen.html`'s ripple propagation
+(`propagateWeight`/`getNodeConductors`/`rankConductors`) and deliberately
+left it out, "needs the relationship graph not yet imported." That graph
+turned out to be real, already-authored content — `WORLD_NPCS`, nine named
+individuals (King Hector, his Royal Chamberlain, six faction heads, and
+the Outskirts Broker) with real relationship edges to each other — not
+gated on the six-houses design question at all, so this was ungated work,
+done directly:
+
+- **`worldNpcs.js`**: the real `WORLD_NPCS` content (key/name/weight/
+  conductors), not the much larger narrative `NPC_DOSSIER` object the same
+  file also holds (per-NPC voice/tell/private-wants-and-fears/secrets,
+  gated behind real leverage tiers) — that's presentation/GM-table content
+  for a future UI layer, not pure engine data.
+- **`engine.js`**: `getNodeConductors`, `rankConductors`, `propagateWeight`,
+  faithfully ported — depth caps at 2 hops, weight halves each hop and
+  stops below 0.3, top-3-ranked conductors per call (ranked by current
+  accumWeight + the acting character's existing standing), a small
+  0.25-fractional "sentiment ripple" only on the first hop across an
+  `allied` edge, and the same escalating-threshold trigger/reset logic
+  recursively. Wired into `LOG_POLITICAL_ACTION` — every political action
+  now ripples, not just moving its direct target.
+- **NOT ported**: the narrative ripple-hook text (`generateRippleHook` and
+  friends) — GM-facing prose, not engine logic, same standing rule as
+  everywhere else in this file.
+
+**Verification**: every number in the test suite is hand-traced against
+the real algorithm using real data — the actual `kingHector` ↔
+`royalChamberlain` mutual-`allied` edge, and the full real 9-node graph
+driven through the Outskirts Broker's real `'all'`-conductors shorthand,
+including a genuine double-trigger-in-one-action case the hand-trace
+predicted before the code confirmed it (a node revisited through a
+different path within the same cascade, faithful to the real algorithm's
+lack of a cycle guard — bounded only by the depth/weight cutoffs, not
+by a visited-set). Synthetic fixtures (a 4-node chain, a 5-conductor
+fan-out) isolate the depth/weight cutoffs and the top-3 ranking from the
+trigger-and-reset behavior, which is tested separately.
+
+One real bug surfaced and got fixed during this pass, in the test file,
+not the engine: two hand-computed expected values (`6*0.6`, chained
+further through `*0.5`) used exact `===` against a value that isn't
+exactly representable in IEEE-754 (`6*0.6 === 3.5999999999999996`, not
+`3.6`). Fixed with an `approxEqual` epsilon helper, used consistently
+across the ripple math's float comparisons from then on.
+
+122/122 checks pass as of this commit.
 
 ## Checkpoint 2 scope decision
 
@@ -264,7 +321,10 @@ content exist and are real, but weren't imported wholesale this round —
   `ACTIVATE_TRANSFORMATION`, unlock-condition gating), driven end-to-end
   including both a granted house ability AND a Transformation-granted
   technique resolving through real combat exchanges — not just checked
-  for presence in an array.
+  for presence in an array; ripple propagation, hand-traced against the
+  real algorithm using the real `WORLD_NPCS` relationship graph, including
+  a genuine double-trigger cascade the hand-trace predicted before the
+  code confirmed it.
 - **Not yet verified**: Torso's "stamina degrades faster" is implemented as
   a documented fact only — this engine does not auto-accelerate stamina
   stage transitions from a Torso wound (that timing is explicitly
@@ -272,9 +332,12 @@ content exist and are real, but weren't imported wholesale this round —
   for a worked case to check numerically. Multi-exchange sequences beyond
   two exchanges, sustained T5/T6 casting across exchanges (marked
   `sustained: true` but not driven through a real multi-exchange sequence
-  yet), ripple propagation, and ANY interaction between the Weight
-  Engine's political-node state and combat's initiative/technique logic in
-  the same encounter, remain unexercised. The import adapter has been run
+  yet), and ANY interaction between the Weight Engine's political-node
+  state (including ripple propagation) and combat's initiative/technique
+  logic in the same encounter, remain unexercised. The narrative
+  ripple-hook text generation is deliberately not ported (presentation
+  layer, see above) — nothing here produces GM-facing prose from a ripple,
+  only the underlying numbers. The import adapter has been run
   against one hand-built fixture, not a real file the user actually
   exports from `aow_heir_record.html` — that's the next real test, not
   this one. The Checkpoint 4 house content is placeholder by design —
@@ -284,7 +347,8 @@ content exist and are real, but weren't imported wholesale this round —
 - **Explicitly out of scope here**: real house content (six houses' worth
   of Kit/Principle-tagged-ability/Transformation-form design — Kazabon's
   own creative material, not fabricated here), narrative branches, the
-  Essence-ledger-style World State *behavior* beyond Leverage (the schema
-  exists for entities/choices; no behavior drives them yet), Caravan and
-  Exploration encounter types entirely, ripple propagation, and narrative
-  hook-text generation.
+  Essence-ledger-style World State *behavior* beyond Leverage/ripple (the
+  schema exists for entities/choices; no behavior drives them yet), Caravan
+  and Exploration encounter types entirely, `aow_gm_screen.html`'s larger
+  `NPC_DOSSIER` content (real, but presentation/GM-table layer, not pure
+  engine data), and all narrative hook-text generation.

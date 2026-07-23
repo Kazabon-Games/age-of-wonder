@@ -559,9 +559,8 @@ function applyModifyLeverage(state, action) {
 /**
  * The real Weight Engine, ported from aow_gm_screen.html's
  * applyWeightAndGenerateHooks() (action-event branch). That tool also
- * generates GM-facing narrative hook text and ripples the weight out to
- * "conductor" NPCs via a relationship graph (WORLD_NPCS) this repo hasn't
- * imported — both deliberately left out here. What's ported is the
+ * generates GM-facing narrative hook text — deliberately NOT ported, that's
+ * presentation content, not pure engine logic. What's ported is the
  * mechanical core: a political action of a given tier and direction adds
  * weight to a node, moves the acting character's score with that node
  * (by a whole point at tier 3-4, two points at tier 5, or a fractional
@@ -570,6 +569,12 @@ function applyModifyLeverage(state, action) {
  * once accumulated weight crosses the node's threshold. A node that
  * keeps firing gets a lower effective threshold each time (floored at 2),
  * modeling escalation rather than requiring identical pressure every time.
+ *
+ * As of the ripple-propagation pass below, this also ripples that same
+ * weight outward through the real relationship graph (see
+ * wonderland/worldNpcs.js) — a political action doesn't just move the
+ * directly-targeted node, it reaches that node's known associates too,
+ * faintly.
  */
 function effectiveThreshold(node) {
   return Math.max(2, node.baseThreshold - (node.fireCount || 0));
@@ -608,7 +613,95 @@ function computePoliticalActionEffect(node, actorId, tier, direction) {
     fractional,
     triggered,
     fireCount: (node.fireCount || 0) + (triggered ? 1 : 0),
+    baseWeight, // exposed so callers can drive ripple propagation from the same number
+    sign,
   };
+}
+
+/**
+ * The relationship-graph edges for one node — ported from
+ * aow_gm_screen.html's real getNodeConductors(). `conductors: 'all'` is
+ * one real NPC's shorthand (the Outskirts Broker) meaning every other
+ * node is a conductor; otherwise it's the node's own explicit list.
+ */
+function getNodeConductors(node, allNodeIds) {
+  if (node.conductors === 'all') {
+    return allNodeIds.filter((id) => id !== node.id).map((key) => ({ key, type: 'neutral' }));
+  }
+  if (Array.isArray(node.conductors)) {
+    return node.conductors.map((c) => (typeof c === 'string' ? { key: c, type: 'neutral' } : c));
+  }
+  return [];
+}
+
+/**
+ * Ranks conductors by how "in play" they currently are — a node already
+ * accumulating weight, or one with existing standing (positive or
+ * negative) with the acting character, is more likely to actually be
+ * affected by a ripple than whichever conductor happens to be listed
+ * first. Ported from aow_gm_screen.html's real rankConductors(), which
+ * fixed a dead-edge bug where only the first N declared conductors ever
+ * fired.
+ */
+function rankConductors(conductors, nodes, actorId) {
+  return conductors
+    .map((c) => {
+      const cNode = nodes[c.key];
+      if (!cNode) return null;
+      const attention = cNode.accumWeight || 0;
+      const standing = Math.abs(cNode.scores?.[actorId] || 0);
+      return { ...c, _rank: attention + standing };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b._rank - a._rank);
+}
+
+/**
+ * Ripples political weight outward from a node into its top-3 (by
+ * rankConductors) relationship-graph neighbors, and their neighbors in
+ * turn — ported from aow_gm_screen.html's real propagateWeight(). Mutates
+ * `nodes` in place; callers pass an already-cloned politicalNodes map
+ * (see applyLogPoliticalAction), consistent with how the rest of this
+ * file's action handlers work on a `next` clone.
+ *
+ * NOT ported: the GM-facing narrative ripple-hook text
+ * (generateRippleHook et al.) — that's presentation content, not pure
+ * engine logic, same discipline as everywhere else in this file.
+ *
+ * Faithful to the real numbers: depth caps at 2 hops, weight halves each
+ * hop and the ripple stops once it drops below 0.3, and a "sentiment"
+ * ripple (a small fractional score nudge, not a whole-point delta) only
+ * ever applies on the FIRST hop across an 'allied' edge — reflected
+ * goodwill/ill-will doesn't reach as far or as strongly as the
+ * accumulating threshold-weight does.
+ */
+function propagateWeight(nodes, nodeKey, weight, actorId, sign, depth) {
+  if (depth > 2 || weight < 0.3) return;
+  const node = nodes[nodeKey];
+  if (!node) return;
+  const allNodeIds = Object.keys(nodes);
+  const ranked = rankConductors(getNodeConductors(node, allNodeIds), nodes, actorId).slice(0, 3);
+
+  ranked.forEach(({ key: cKey, type }) => {
+    const cNode = nodes[cKey];
+    if (!cNode) return;
+    cNode.accumWeight = (cNode.accumWeight || 0) + weight;
+
+    if (depth === 1 && type === 'allied') {
+      cNode.fractional[actorId] = (cNode.fractional[actorId] || 0) + sign * 0.25;
+      if (Math.abs(cNode.fractional[actorId]) >= 1) {
+        cNode.scores[actorId] = clampLeverageScore((cNode.scores[actorId] || 0) + Math.sign(cNode.fractional[actorId]));
+        cNode.fractional[actorId] = 0;
+      }
+    }
+
+    if (cNode.accumWeight >= effectiveThreshold(cNode)) {
+      cNode.fireCount = (cNode.fireCount || 0) + 1;
+      cNode.accumWeight = 0;
+    }
+
+    propagateWeight(nodes, cKey, weight * 0.5, actorId, sign, depth + 1);
+  });
 }
 
 function applyLogPoliticalAction(state, action) {
@@ -632,6 +725,14 @@ function applyLogPoliticalAction(state, action) {
   // data out stays the only contract (§0). A caller that needs to know
   // compares fireCount between the state it passed in and the state
   // resolve() returned: an increase means this action crossed threshold.
+
+  // Ripple outward from the directly-affected node into its own
+  // relationship-graph conductors, at the real call site's own weight
+  // (baseWeight*0.6) and starting depth (1). A node with no conductors
+  // (the common case for anything other than the real WORLD_NPCS content)
+  // is a no-op here — getNodeConductors returns [] for it.
+  propagateWeight(next.politicalNodes, targetId, effect.baseWeight * 0.6, actorId, effect.sign, 1);
+
   return next;
 }
 
@@ -811,6 +912,9 @@ const api = {
   effectiveThreshold,
   computePoliticalActionEffect,
   evaluateUnlockCondition,
+  getNodeConductors,
+  rankConductors,
+  propagateWeight,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

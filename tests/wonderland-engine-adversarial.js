@@ -17,6 +17,14 @@ function ok(cond, label) {
   if (cond) { pass++; console.log('  ok   -', label); }
   else { fail++; console.log('  FAIL -', label); }
 }
+// The ripple-propagation math chains multiplications by 0.6/0.5 (e.g.
+// 6*0.6 === 3.5999999999999996, not exactly 3.6 in a float) — exact ===
+// on those derived values is fragile by construction, not a real
+// precision requirement, so comparisons against a hand-computed expected
+// value use this instead.
+function approxEqual(a, b) {
+  return Math.abs(a - b) < 1e-9;
+}
 
 (async () => {
   const browser = await chromium.launch({ executablePath: CHROMIUM_PATH });
@@ -739,6 +747,144 @@ function ok(cond, label) {
   ok(houseResults.bonusTechniqueGranted, 'Activating the transformation grants its bonus technique onto the character');
   ok(houseResults.reActivationRejected, 'The same transformation cannot be activated twice');
   ok(houseResults.grantedTransformationTechniqueResolvedInCombat, 'The Transformation-granted technique resolves through a real exchange too, including evaluating its real structured trigger — the full vertical slice, house content through to combat resolution');
+
+  console.log('19. Ripple propagation, ported from aow_gm_screen.html\'s real propagateWeight() — real WORLD_NPCS content, not placeholder');
+  const rippleResults = await page.evaluate(() => {
+    const { createSaveState } = window.Wonderland.schema;
+    const { resolve, getNodeConductors } = window.Wonderland.engine;
+    const { WORLD_NPCS, createPoliticalNodeFromWorldNpc } = window.Wonderland.worldNpcs;
+    const results = {};
+
+    function seedAllNpcs() {
+      let s = createSaveState();
+      WORLD_NPCS.forEach((npc) => { s.politicalNodes[npc.key] = createPoliticalNodeFromWorldNpc(npc); });
+      return s;
+    }
+
+    // Hand-traced case #1: the real mutual-ally edge kingHector <-> royalChamberlain.
+    // T4 favorable on kingHector: baseWeight=6, direct score +1, direct
+    // accumWeight=6 (threshold 8, no trigger). Ripple depth1 weight=6*0.6=3.6
+    // to royalChamberlain (its only conductor, allied) -> accumWeight 3.6,
+    // sentiment fractional += 0.25 (no carry yet). Depth2 ripple back to
+    // kingHector at 3.6*0.5=1.8 -> kingHector accumWeight 6+1.8=7.8 (still
+    // under threshold 8), no sentiment ripple at depth2 (allied-only-at-depth-1 rule).
+    let s1 = seedAllNpcs();
+    s1 = resolve(s1, { type: 'LOG_POLITICAL_ACTION', targetId: 'kingHector', actorId: 'char_mira', tier: 4, direction: 'favorable' });
+    results.kingHectorAccumWeight = s1.politicalNodes.kingHector.accumWeight; // 7.8
+    results.kingHectorScore = s1.politicalNodes.kingHector.scores.char_mira; // 1 (direct only, ripple never touched its own score)
+    results.chamberlainAccumWeight = s1.politicalNodes.royalChamberlain.accumWeight; // 3.6
+    results.chamberlainFractional = s1.politicalNodes.royalChamberlain.fractional.char_mira; // 0.25
+    results.chamberlainScoreUntouched = (s1.politicalNodes.royalChamberlain.scores.char_mira || 0) === 0; // fractional hasn't carried yet
+
+    // Hand-traced case #2: outskirtsBroker's real 'all' conductors shorthand,
+    // driven through the full real 9-node graph, tier 5 favorable.
+    // Direct effect: baseWeight=7.5 >= threshold 3 (special) -> triggers
+    // immediately, fireCount 1, accumWeight resets to 0, score +2 (tier 5).
+    // Ripple depth1 weight = 7.5*0.6=4.5 to its top-3 ranked conductors —
+    // with all scores/weights tied at 0, ties break by declaration order:
+    // kingHector, royalChamberlain, merchantConsortium (the other 5 real
+    // NPCs are NOT reached by this specific cascade).
+    let s2 = seedAllNpcs();
+    s2 = resolve(s2, { type: 'LOG_POLITICAL_ACTION', targetId: 'outskirtsBroker', actorId: 'char_mira', tier: 5, direction: 'favorable' });
+    results.brokerFireCount = s2.politicalNodes.outskirtsBroker.fireCount; // 2 — fires AGAIN mid-cascade, see below
+    results.brokerAccumWeight = s2.politicalNodes.outskirtsBroker.accumWeight; // 0
+    results.brokerScore = s2.politicalNodes.outskirtsBroker.scores.char_mira; // 2, direct effect only
+    results.kingHectorViaAll = s2.politicalNodes.kingHector.accumWeight; // 6.75 (4.5 depth1 + 2.25 depth2-back via royalChamberlain)
+    results.chamberlainViaAll = s2.politicalNodes.royalChamberlain.accumWeight; // 6.75, symmetric
+    results.merchantViaAll = s2.politicalNodes.merchantConsortium.accumWeight; // 4.5, depth1 only (its depth2 targets differ)
+    results.dockworkersViaAll = s2.politicalNodes.dockworkersForeman.accumWeight; // 2.25, reached at depth2 via merchantConsortium
+    results.watchCommanderUntouched = s2.politicalNodes.watchCommander.accumWeight === 0;
+    results.courierMasterUntouched = s2.politicalNodes.courierMaster.accumWeight === 0;
+    results.highPriestUntouched = s2.politicalNodes.highPriest.accumWeight === 0;
+    results.archivistUntouched = s2.politicalNodes.archivistGeneral.accumWeight === 0;
+    // outskirtsBroker's OWN accumWeight got hit again mid-cascade (via
+    // merchantConsortium's depth-2 branch, since outskirtsBroker is one of
+    // merchantConsortium's declared conductors) — crossing its escalated
+    // threshold (max(2, 3-1)=2) a second time in the same action. This is
+    // real, faithfully-ported behavior, not a bug: a node can be revisited
+    // through a different path within the same cascade.
+    results.brokerDoubleTriggered = s2.politicalNodes.outskirtsBroker.fireCount === 2;
+
+    // getNodeConductors: the 'all' shorthand excludes self and types everyone 'neutral'.
+    const brokerConductors = getNodeConductors(s2.politicalNodes.outskirtsBroker, Object.keys(s2.politicalNodes));
+    results.allShorthandExcludesSelf = !brokerConductors.some((c) => c.key === 'outskirtsBroker');
+    results.allShorthandCount = brokerConductors.length === 8; // 9 real NPCs minus itself
+    results.allShorthandTypedNeutral = brokerConductors.every((c) => c.type === 'neutral');
+
+    // Depth/weight cutoffs, isolated from the real graph — a synthetic
+    // 4-node chain (A -> B -> C -> D) to prove propagation stops at depth 2
+    // and never reaches D, and that a too-small starting weight is a no-op.
+    const { createSaveState: createSave2, createPoliticalNode } = window.Wonderland.schema;
+    const { propagateWeight } = window.Wonderland.engine;
+    let chain = createSave2();
+    chain.politicalNodes.A = createPoliticalNode({ id: 'A', conductors: [{ key: 'B', type: 'neutral' }] });
+    // baseThreshold set high on all three so this test isolates the
+    // depth/weight cutoffs from the trigger-and-reset behavior (already
+    // covered above) — otherwise B would cross the default threshold of
+    // 5, fire, and reset its own accumWeight back to 0 before we could
+    // observe it.
+    chain.politicalNodes.B = createPoliticalNode({ id: 'B', baseThreshold: 1000, conductors: [{ key: 'C', type: 'neutral' }] });
+    chain.politicalNodes.C = createPoliticalNode({ id: 'C', baseThreshold: 1000, conductors: [{ key: 'D', type: 'neutral' }] });
+    chain.politicalNodes.D = createPoliticalNode({ id: 'D', baseThreshold: 1000, conductors: [] });
+    propagateWeight(chain.politicalNodes, 'A', 10, 'char_x', 1, 1); // depth1: B; depth2: C; depth3 would be D but is blocked
+    results.chainReachesB = chain.politicalNodes.B.accumWeight === 10;
+    results.chainReachesC = chain.politicalNodes.C.accumWeight === 5; // 10*0.5
+    results.chainNeverReachesD = chain.politicalNodes.D.accumWeight === 0;
+
+    let weakChain = createSave2();
+    weakChain.politicalNodes.A = createPoliticalNode({ id: 'A', conductors: [{ key: 'B', type: 'neutral' }] });
+    weakChain.politicalNodes.B = createPoliticalNode({ id: 'B', conductors: [] });
+    propagateWeight(weakChain.politicalNodes, 'A', 0.29, 'char_x', 1, 1); // below the 0.3 floor
+    results.tooWeakToRippleAtAll = weakChain.politicalNodes.B.accumWeight === 0;
+
+    // Top-3-per-call cutoff: a node with 5 conductors, pre-seeded so their
+    // rank (accumWeight + |score|) is strictly ordered — only the top 3
+    // should receive this call's ripple weight.
+    let fanOut = createSave2();
+    fanOut.politicalNodes.hub = createPoliticalNode({
+      id: 'hub',
+      conductors: [
+        { key: 'n1', type: 'neutral' }, { key: 'n2', type: 'neutral' }, { key: 'n3', type: 'neutral' },
+        { key: 'n4', type: 'neutral' }, { key: 'n5', type: 'neutral' },
+      ],
+    });
+    // baseThreshold set high here too, same reason as the chain test above
+    // — n1's pre-seeded accumWeight(5) plus this call's weight(1) would
+    // otherwise cross the default threshold of 5 and reset to 0.
+    fanOut.politicalNodes.n1 = createPoliticalNode({ id: 'n1', baseThreshold: 1000, accumWeight: 5 });
+    fanOut.politicalNodes.n2 = createPoliticalNode({ id: 'n2', baseThreshold: 1000, accumWeight: 4 });
+    fanOut.politicalNodes.n3 = createPoliticalNode({ id: 'n3', baseThreshold: 1000, accumWeight: 3 });
+    fanOut.politicalNodes.n4 = createPoliticalNode({ id: 'n4', baseThreshold: 1000, accumWeight: 2 });
+    fanOut.politicalNodes.n5 = createPoliticalNode({ id: 'n5', baseThreshold: 1000, accumWeight: 1 });
+    propagateWeight(fanOut.politicalNodes, 'hub', 1, 'char_x', 1, 1);
+    results.top3Ranked = fanOut.politicalNodes.n1.accumWeight === 6 && fanOut.politicalNodes.n2.accumWeight === 5 && fanOut.politicalNodes.n3.accumWeight === 4;
+    results.bottom2NotRippled = fanOut.politicalNodes.n4.accumWeight === 2 && fanOut.politicalNodes.n5.accumWeight === 1;
+
+    return results;
+  });
+  ok(approxEqual(rippleResults.kingHectorAccumWeight, 7.8), 'kingHector: direct accumWeight(6) + depth-2 ripple-back(1.8) = 7.8, hand-traced against the real formula');
+  ok(rippleResults.kingHectorScore === 1, 'kingHector: score moves only from the direct effect (+1), never from ripple to itself');
+  ok(approxEqual(rippleResults.chamberlainAccumWeight, 3.6), 'royalChamberlain: depth-1 ripple weight = baseWeight(6)*0.6 = 3.6, its only conductor');
+  ok(rippleResults.chamberlainFractional === 0.25, 'royalChamberlain: sentiment ripple on the allied edge at depth 1 adds a 0.25 fractional nudge');
+  ok(rippleResults.chamberlainScoreUntouched, 'royalChamberlain: the 0.25 fractional hasn\'t carried into a whole score point yet');
+  ok(rippleResults.brokerAccumWeight === 0 && rippleResults.brokerScore === 2, 'outskirtsBroker: direct T5 effect triggers immediately (weight 7.5 >= threshold 3) and moves score by the full deltaMag(2)');
+  ok(approxEqual(rippleResults.kingHectorViaAll, 6.75), 'Full 9-node graph: kingHector reached via the \'all\' shorthand (4.5 depth-1 + 2.25 depth-2 back through royalChamberlain) = 6.75');
+  ok(approxEqual(rippleResults.chamberlainViaAll, 6.75), 'Full 9-node graph: royalChamberlain symmetric to kingHector, same 6.75');
+  ok(approxEqual(rippleResults.merchantViaAll, 4.5), 'Full 9-node graph: merchantConsortium reached at depth 1 only = 4.5');
+  ok(approxEqual(rippleResults.dockworkersViaAll, 2.25), 'Full 9-node graph: dockworkersForeman reached at depth 2 via merchantConsortium\'s own conductor list = 2.25');
+  ok(
+    rippleResults.watchCommanderUntouched && rippleResults.courierMasterUntouched && rippleResults.highPriestUntouched && rippleResults.archivistUntouched,
+    'Full 9-node graph: the 4 real NPCs outside this specific cascade\'s reach stay completely untouched — ripple doesn\'t flood the whole graph'
+  );
+  ok(rippleResults.brokerDoubleTriggered, 'outskirtsBroker fires TWICE in one action: once from the direct effect, once more mid-cascade via merchantConsortium\'s depth-2 branch looping back — real, faithfully-ported behavior, not a bug');
+  ok(rippleResults.allShorthandExcludesSelf, "getNodeConductors('all'): excludes the node itself");
+  ok(rippleResults.allShorthandCount, "getNodeConductors('all'): returns all 8 other real NPCs");
+  ok(rippleResults.allShorthandTypedNeutral, "getNodeConductors('all'): every edge types as 'neutral', regardless of the other node's own declared relationship");
+  ok(rippleResults.chainReachesB && rippleResults.chainReachesC, 'Synthetic A->B->C->D chain: weight halves and reaches exactly 2 hops (B at depth1, C at depth2)');
+  ok(rippleResults.chainNeverReachesD, 'Synthetic A->B->C->D chain: D (depth 3) is never reached — the depth>2 cutoff is real');
+  ok(rippleResults.tooWeakToRippleAtAll, 'A starting weight below 0.3 never ripples at all');
+  ok(rippleResults.top3Ranked, 'Fan-out of 5 conductors: only the top 3 by rank (accumWeight+|score|) receive this call\'s ripple weight');
+  ok(rippleResults.bottom2NotRippled, 'Fan-out of 5 conductors: the bottom 2 by rank are untouched by this call');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();

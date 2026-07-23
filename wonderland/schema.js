@@ -294,6 +294,13 @@ function createPoliticalNode(overrides = {}) {
       fireCount: 0,
       scores: {}, // characterId -> integer -5..5, this actor's leverage with this node
       fractional: {}, // characterId -> internal fractional carry, engine.js-only concern
+      // The relationship graph edge — ported from aow_gm_screen.html's
+      // real WORLD_NPCS content (see wonderland/worldNpcs.js). Either an
+      // array of { key: <other nodeId>, type: 'allied'|'neutral'|'rival' }
+      // or the string 'all' (one real NPC — the Outskirts Broker — has
+      // this shorthand meaning "every other node is a conductor").
+      // engine.js's getNodeConductors() is the only place that reads this.
+      conductors: [],
     },
     overrides
   );
