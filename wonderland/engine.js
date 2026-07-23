@@ -41,6 +41,26 @@
  * a Presence wound drops all three components immediately. Fixed by
  * checking hasWound(character, 'presence') directly, first, in
  * presenceStage().
+ *
+ * Checkpoint 2 additions (2026-07-23): magic-in-combat's tier->slot-cost
+ * table (T1-T6, with Wand's -1-tier slot acceleration); the three
+ * remaining weapon specialties with deterministic mechanics — Sword
+ * (free React alongside Act), Spear (opponent must spend Move+React to
+ * close), Staff (once-per-encounter wound-absorbing barrier); the
+ * inside-the-barrier combat-end threshold (Spent stamina or 3 wounds);
+ * and a Leverage clamp to [-5, +5] resolving the factionStanding gap
+ * Checkpoint 1 flagged (schema existed, no behavior). Deliberately NOT
+ * touched this checkpoint, surveyed and scoped out because the SRD
+ * itself leaves them to GM adjudication or they belong to a different
+ * encounter type entirely: Willstrain stage progression, Dissolution,
+ * Advancement (all narratively signaled, no formula given), Projectile's
+ * reload/ammo state (underspecified — "costs the Move slot" without a
+ * clear loaded/unloaded state machine), hybrid casting (needs a
+ * bridging-fighting-style field this schema doesn't have yet), and the
+ * Caravan Momentum / Exploration Depth systems (real deterministic
+ * numbers exist there too — starting Momentum is
+ * round((Route+Cohesion+Cover)/1.2) — but they're separate encounter
+ * types, not combat, and deserve their own dedicated pass).
  */
 
 (function (root) {
@@ -133,7 +153,79 @@ function effectiveSlotCount(character, slots) {
   let count = slots.length;
   if (slots.includes('act') && hasWound(character, 'weaponArm')) count += 1;
   if (slots.includes('move') && hasWound(character, 'legs')) count += 1;
+  // Sword's Range of Response (aow_srd.html ch4-weapons): "split their Act
+  // slot — using it for both an offensive action and a defensive response
+  // ... without needing to spend the React slot for the defensive element."
+  // Modeled as: React is free when declared alongside Act by a Sword
+  // fighter. The declaration model here doesn't distinguish *why* React was
+  // declared, so this discount applies whenever both are present together —
+  // a documented simplification, not a claim the SRD spells out the exact
+  // mechanism this way.
+  if (character.weaponSpecialty === 'sword' && slots.includes('act') && slots.includes('react')) {
+    count -= 1;
+  }
   return count;
+}
+
+/**
+ * Magic-in-combat tier -> slot-cost table (aow_srd.html ch2-combat). The
+ * Wand's cast acceleration ("all spells are treated one tier lower for
+ * slot cost only") is applied here, before the table lookup — willstrain
+ * is explicitly untouched by it per the same passage, and this engine
+ * doesn't track willstrain as a number anyway (see module header).
+ *
+ * T5/T6 are marked `sustained: true` rather than given an invented
+ * per-tier exchange count — the SRD says these "span multiple exchanges"
+ * without specifying how many; that duration is the spell's own property
+ * (ch2-tiers: Duration is one of the four qualities that sets tier in the
+ * first place), not a number this engine should guess at.
+ */
+function castingSlotCost(tier, weaponSpecialty) {
+  if (!Number.isInteger(tier) || tier < 1 || tier > 6) {
+    throw new Error(`wonderland/engine: spell tier must be an integer 1-6, got "${tier}"`);
+  }
+  const effectiveTier = weaponSpecialty === 'wand' ? Math.max(1, tier - 1) : tier;
+  if (effectiveTier === 1) return { requiredSlots: ['act'], flexibleCount: 0, sustained: false };
+  if (effectiveTier === 2) return { requiredSlots: ['act', 'move'], flexibleCount: 0, sustained: false };
+  if (effectiveTier === 3) return { requiredSlots: ['act'], flexibleCount: 1, sustained: false };
+  return { requiredSlots: ['act', 'move', 'react'], flexibleCount: 0, sustained: effectiveTier >= 5 };
+}
+
+/**
+ * Validates a declared slots array against a spell's tier requirement.
+ * T3's "Act plus one other slot" is the one case with a real choice — the
+ * caller picks Move or React and it must show up as the one extra slot.
+ */
+function validateCastSlots(tier, weaponSpecialty, slots) {
+  const cost = castingSlotCost(tier, weaponSpecialty);
+  const missingRequired = cost.requiredSlots.filter((s) => !slots.includes(s));
+  if (missingRequired.length > 0) {
+    throw new Error(
+      `wonderland/engine: casting tier ${tier} requires slot(s) [${missingRequired.join(', ')}] that were not declared`
+    );
+  }
+  const extras = slots.filter((s) => !cost.requiredSlots.includes(s));
+  if (extras.length !== cost.flexibleCount) {
+    throw new Error(
+      `wonderland/engine: casting tier ${tier} needs exactly ${cost.flexibleCount} additional slot(s) beyond [${cost.requiredSlots.join(', ')}], got [${extras.join(', ')}]`
+    );
+  }
+  return cost;
+}
+
+/**
+ * Spear's Reach Dominance (aow_srd.html ch4-weapons): "An opponent who
+ * wants to close to striking range against a Spear fighter must spend
+ * both their Move and React slots to do so." Checked against every other
+ * combatant in the encounter — if any of them is Spear-specialized and
+ * this declaration includes Move without React, it's an illegal closing
+ * attempt.
+ */
+function violatesSpearReachDominance(declaringSlots, opponentCharacters) {
+  if (!declaringSlots.includes('move')) return false;
+  return opponentCharacters.some(
+    (opp) => opp.weaponSpecialty === 'spear' && !declaringSlots.includes('react')
+  );
 }
 
 /**
@@ -218,7 +310,7 @@ function applyInitEncounter(state, action) {
 }
 
 function applyDeclareAction(state, action) {
-  const { characterId, slots, techniqueId, engagementDenialActive } = action;
+  const { characterId, slots, techniqueId, castTier, engagementDenialActive } = action;
   if (!state.currentEncounter) {
     throw new Error('wonderland/engine: DECLARE_ACTION with no currentEncounter in state');
   }
@@ -228,12 +320,27 @@ function applyDeclareAction(state, action) {
   slots.forEach((s) => {
     if (!ENGINE_ACTION_SLOTS.includes(s)) throw new Error(`wonderland/engine: unknown slot "${s}"`);
   });
+  if (techniqueId && castTier) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" declared both a technique and a cast — hybrid casting is not implemented in this checkpoint (aow_srd.html ch2-combat "Hybrid Casting" requires a bridging fighting style this schema doesn't track yet); the choice is weapon or spell, not both`
+    );
+  }
 
   const character = findCharacter(state, characterId);
-  if (character.stamina === 'spent' && techniqueId) {
+  if (character.stamina === 'spent' && (techniqueId || castTier)) {
     throw new Error(`wonderland/engine: "${characterId}" is Spent — no techniques available (aow_srd.html ch4-stamina)`);
   }
   if (techniqueId) findTechnique(character, techniqueId); // throws loudly if unknown
+  if (castTier) validateCastSlots(castTier, character.weaponSpecialty, slots); // throws loudly on a mismatched declaration
+
+  const opponentCharacters = state.currentEncounter.combatants
+    .filter((c) => c.characterId !== characterId)
+    .map((c) => findCharacter(state, c.characterId));
+  if (violatesSpearReachDominance(slots, opponentCharacters)) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" declared Move against a Spear opponent without also declaring React — Reach Dominance requires both to close (aow_srd.html ch4-weapons)`
+    );
+  }
 
   const effectiveCount = effectiveSlotCount(character, slots);
   if (effectiveCount > ENGINE_ACTION_SLOTS.length) {
@@ -245,6 +352,7 @@ function applyDeclareAction(state, action) {
   const next = deepClone(state);
   const combatant = findCombatant(next.currentEncounter, characterId);
   combatant.declaration = schemaCreateDeclaration({ slots: [...slots], techniqueId: techniqueId || null });
+  if (castTier) combatant.declaration.castTier = castTier;
   if (engagementDenialActive) combatant.declaration.engagementDenialActive = true;
   return next;
 }
@@ -277,6 +385,13 @@ function applyResolveExchange(state) {
     const technique = declaration.techniqueId ? findTechnique(character, declaration.techniqueId) : null;
     const triggerMet = evaluateTrigger(technique ? technique.trigger : null, opponent.declaration);
 
+    if (declaration.castTier) {
+      // A spell cast: no trigger model (that's a technique-only concept
+      // here), always resolves once its slot requirements were validated
+      // at declaration time.
+      resolvedActions.push({ characterId: combatant.characterId, kind: 'spellCast', castTier: declaration.castTier, triggerMet: true });
+      continue;
+    }
     if (!technique) {
       // Basic strike: no trigger, always resolves once declared.
       resolvedActions.push({ characterId: combatant.characterId, kind: 'basicStrike', triggerMet: true });
@@ -315,11 +430,34 @@ function applyResolveExchange(state) {
 }
 
 function applyWound(state, action) {
-  const { characterId, location } = action;
-  findCharacter(state, characterId); // throws loudly if unknown
+  const { characterId, location, absorbedByStaffBarrier } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
   if (!Schema.WOUND_LOCATIONS.includes(location)) {
     throw new Error(`wonderland/engine: unknown wound location "${location}"`);
   }
+
+  if (absorbedByStaffBarrier) {
+    // Staff's Barrier Generation (aow_srd.html ch4-weapons): "Once per
+    // encounter... spend their React slot to absorb one wound state
+    // completely — the wound that would have been applied does not apply."
+    // Once-per-ENCOUNTER, not per-exchange, so it lives on the encounter-
+    // scoped combatant state (schema.js createCombatantState), not the
+    // persisted CharacterRecord.
+    if (character.weaponSpecialty !== 'staff') {
+      throw new Error(`wonderland/engine: "${characterId}" has no Staff Barrier to absorb this wound with`);
+    }
+    if (!state.currentEncounter) {
+      throw new Error('wonderland/engine: no currentEncounter — Staff Barrier is an encounter-scoped resource');
+    }
+    const combatant = findCombatant(state.currentEncounter, characterId);
+    if (combatant.staffBarrierUsed) {
+      throw new Error(`wonderland/engine: "${characterId}" has already used their Staff Barrier this encounter`);
+    }
+    const next = deepClone(state);
+    findCombatant(next.currentEncounter, characterId).staffBarrierUsed = true;
+    return next; // wound is absorbed — never pushed to character.wounds
+  }
+
   const next = deepClone(state);
   next.characters[characterId].wounds.push(location);
   // aow_srd.html: a Presence wound drops all three presence components one
@@ -329,6 +467,39 @@ function applyWound(state, action) {
   // (Earlier version of this function bumped stamina instead, as a proxy —
   // that only ever degraded Hold, silently leaving Commit undegraded.
   // Caught by the second worked case; see wonderland/README.md.)
+  return next;
+}
+
+/**
+ * Inside the barrier only (aow_srd.html ch4-location, "Inside the City
+ * Barrier" card): "Combat ends when one participant reaches Spent stamina
+ * or has accumulated three wound states — whichever comes first." Outside
+ * the barrier the SRD explicitly says combat "can continue past Spent" —
+ * no hard threshold is given there, so this function only returns true for
+ * 'insideBarrier'; other locations always return false rather than
+ * guessing at a number the SRD doesn't provide.
+ */
+function isCombatOver(character, location) {
+  if (location !== 'insideBarrier') return false;
+  return character.stamina === 'spent' || character.wounds.length >= 3;
+}
+
+function applyModifyLeverage(state, action) {
+  const { factionId, delta } = action;
+  if (typeof factionId !== 'string' || !factionId) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a factionId string');
+  }
+  if (typeof delta !== 'number' || !Number.isFinite(delta)) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a numeric delta');
+  }
+  // aow_srd.html ch3-leverage: "No score can exceed +5 or fall below -5."
+  // The delta itself is a GM call (how much a given action moves the
+  // needle) — not something this engine invents a formula for; only the
+  // ceiling/floor clamp is a hard rule.
+  const current = state.factionStanding[factionId] || 0;
+  const clamped = Math.max(-5, Math.min(5, current + delta));
+  const next = deepClone(state);
+  next.factionStanding[factionId] = clamped;
   return next;
 }
 
@@ -362,12 +533,22 @@ function resolve(currentState, action) {
       return applyWound(currentState, action);
     case 'SET_STAMINA':
       return applySetStamina(currentState, action);
+    case 'MODIFY_LEVERAGE':
+      return applyModifyLeverage(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }
 }
 
-const api = { resolve, computeInitiative, evaluateTrigger, presenceStage, effectiveSlotCount };
+const api = {
+  resolve,
+  computeInitiative,
+  evaluateTrigger,
+  presenceStage,
+  effectiveSlotCount,
+  castingSlotCost,
+  isCombatOver,
+};
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = api;

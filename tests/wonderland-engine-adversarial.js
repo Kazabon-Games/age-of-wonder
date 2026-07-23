@@ -288,6 +288,189 @@ function ok(cond, label) {
   ok(capacityResults.atCapacity === 'allowed', 'Weapon Arm + Act+React (3 effective slots) is exactly at capacity and allowed');
   ok(capacityResults.overCapacity !== 'did not throw', 'Weapon Arm + Act+Move+React (4 effective slots) exceeds the 3-slot cap and throws');
 
+  console.log('11. Checkpoint 2 — magic-in-combat casting slot economy (aow_srd.html ch2-combat table)');
+  const castResults = await page.evaluate(() => {
+    const { createCharacterRecord, createTechnique } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    const results = {};
+
+    function freshEncounter(overrides = {}) {
+      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      state.characters.char_caster = createCharacterRecord({ id: 'char_caster', ...overrides });
+      state.characters.char_dummy = createCharacterRecord({ id: 'char_dummy' });
+      return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_caster', 'char_dummy'], location: 'insideBarrier' });
+    }
+    function tryDeclare(state, slots, castTier) {
+      try {
+        resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_caster', slots, castTier });
+        return 'allowed';
+      } catch (e) {
+        return 'threw: ' + e.message;
+      }
+    }
+
+    results.t1ActOnly = tryDeclare(freshEncounter(), ['act'], 1);
+    results.t1ActPlusMove = tryDeclare(freshEncounter(), ['act', 'move'], 1); // T1 costs Act only — an extra Move is not allowed
+    results.t2ActOnly = tryDeclare(freshEncounter(), ['act'], 2); // T2 needs Move locked too
+    results.t2ActPlusMove = tryDeclare(freshEncounter(), ['act', 'move'], 2);
+    results.t3ActOnly = tryDeclare(freshEncounter(), ['act'], 3); // T3 needs exactly one extra
+    results.t3ActPlusMove = tryDeclare(freshEncounter(), ['act', 'move'], 3);
+    results.t3ActPlusReact = tryDeclare(freshEncounter(), ['act', 'react'], 3);
+    results.t3AllThree = tryDeclare(freshEncounter(), ['act', 'move', 'react'], 3); // two extras, not one — illegal
+    results.t4AllThree = tryDeclare(freshEncounter(), ['act', 'move', 'react'], 4);
+    results.t4ActPlusMove = tryDeclare(freshEncounter(), ['act', 'move'], 4); // missing React
+
+    // Wand: "all spells are treated one tier lower for slot cost only" (ch2-combat)
+    results.wandT2AsT1 = tryDeclare(freshEncounter({ weaponSpecialty: 'wand' }), ['act'], 2);
+    results.wandT3AsT2 = tryDeclare(freshEncounter({ weaponSpecialty: 'wand' }), ['act', 'move'], 3);
+
+    // Hybrid casting (technique + cast in one declaration) isn't implemented
+    // this checkpoint — must be rejected, not silently allowed.
+    const hybridState = freshEncounter({ techniques: [createTechnique({ id: 'tech_x' })] });
+    results.hybridRejected = tryDeclare(hybridState, ['act'], 1); // will also carry techniqueId below
+    try {
+      resolve(hybridState, { type: 'DECLARE_ACTION', characterId: 'char_caster', slots: ['act'], techniqueId: 'tech_x', castTier: 1 });
+      results.hybridBothRejected = 'allowed';
+    } catch (e) {
+      results.hybridBothRejected = 'threw: ' + e.message;
+    }
+
+    return results;
+  });
+  ok(castResults.t1ActOnly === 'allowed', 'T1 spell: Act slot only — allowed (line 777)');
+  ok(castResults.t1ActPlusMove !== 'allowed', 'T1 spell: Act+Move — extra Move rejected, T1 costs Act only');
+  ok(castResults.t2ActOnly !== 'allowed', 'T2 spell: Act alone rejected — "Act + cannot Move" locks Move too (line 778)');
+  ok(castResults.t2ActPlusMove === 'allowed', 'T2 spell: Act+Move — allowed (line 778)');
+  ok(castResults.t3ActOnly !== 'allowed', 'T3 spell: Act alone rejected — needs exactly one more slot (line 779)');
+  ok(castResults.t3ActPlusMove === 'allowed', 'T3 spell: Act+Move — allowed, Move as the one extra slot (line 779)');
+  ok(castResults.t3ActPlusReact === 'allowed', 'T3 spell: Act+React — allowed, React as the one extra slot (line 779)');
+  ok(castResults.t3AllThree !== 'allowed', 'T3 spell: Act+Move+React rejected — two extras, only one allowed');
+  ok(castResults.t4AllThree === 'allowed', 'T4 spell: all three slots — allowed (line 780)');
+  ok(castResults.t4ActPlusMove !== 'allowed', 'T4 spell: Act+Move rejected — missing required React (line 780)');
+  ok(castResults.wandT2AsT1 === 'allowed', 'Wand: T2 spell costs Act only, treated as T1 (line 793)');
+  ok(castResults.wandT3AsT2 === 'allowed', 'Wand: T3 spell costs Act+Move, treated as T2 (line 793)');
+  ok(castResults.hybridBothRejected !== 'allowed', 'Declaring both a technique and a cast in one action is rejected (hybrid casting not implemented this checkpoint)');
+
+  console.log('12. Checkpoint 2 — remaining weapon specialties (Sword/Spear/Staff)');
+  const specialtyResults = await page.evaluate(() => {
+    const { createCharacterRecord } = window.Wonderland.schema;
+    const { resolve, effectiveSlotCount } = window.Wonderland.engine;
+    const results = {};
+
+    // Sword: React is free when declared alongside Act (line 1562).
+    const sword = createCharacterRecord({ id: 'char_sword', weaponSpecialty: 'sword' });
+    const nonSword = createCharacterRecord({ id: 'char_plain' });
+    results.swordDiscount = effectiveSlotCount(sword, ['act', 'react']) === 1;
+    results.nonSwordNoDiscount = effectiveSlotCount(nonSword, ['act', 'react']) === 2;
+
+    // Spear: opponent must spend Move+React to close (line 1570).
+    function spearEncounter() {
+      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      state.characters.char_spear = createCharacterRecord({ id: 'char_spear', weaponSpecialty: 'spear' });
+      state.characters.char_closer = createCharacterRecord({ id: 'char_closer' });
+      return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_spear', 'char_closer'], location: 'insideBarrier' });
+    }
+    try {
+      resolve(spearEncounter(), { type: 'DECLARE_ACTION', characterId: 'char_closer', slots: ['move'] });
+      results.closeWithMoveOnly = 'allowed';
+    } catch (e) {
+      results.closeWithMoveOnly = 'threw: ' + e.message;
+    }
+    try {
+      resolve(spearEncounter(), { type: 'DECLARE_ACTION', characterId: 'char_closer', slots: ['move', 'react'] });
+      results.closeWithMoveAndReact = 'allowed';
+    } catch (e) {
+      results.closeWithMoveAndReact = 'threw: ' + e.message;
+    }
+    // Sanity: Move-only is fine against a non-Spear opponent.
+    let plainState = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+    plainState.characters.char_a = createCharacterRecord({ id: 'char_a' });
+    plainState.characters.char_b = createCharacterRecord({ id: 'char_b' });
+    plainState = resolve(plainState, { type: 'INIT_ENCOUNTER', characterIds: ['char_a', 'char_b'], location: 'insideBarrier' });
+    try {
+      resolve(plainState, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['move'] });
+      results.moveOnlyAgainstNonSpear = 'allowed';
+    } catch (e) {
+      results.moveOnlyAgainstNonSpear = 'threw: ' + e.message;
+    }
+
+    // Staff: absorb one wound, once per encounter (line 1586).
+    function staffEncounter() {
+      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      state.characters.char_staff = createCharacterRecord({ id: 'char_staff', weaponSpecialty: 'staff' });
+      state.characters.char_other = createCharacterRecord({ id: 'char_other' });
+      return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_staff', 'char_other'], location: 'insideBarrier' });
+    }
+    let s1 = staffEncounter();
+    s1 = resolve(s1, { type: 'APPLY_WOUND', characterId: 'char_staff', location: 'legs', absorbedByStaffBarrier: true });
+    results.firstAbsorbWoundNotRecorded = s1.characters.char_staff.wounds.length === 0;
+    try {
+      resolve(s1, { type: 'APPLY_WOUND', characterId: 'char_staff', location: 'legs', absorbedByStaffBarrier: true });
+      results.secondAbsorbSameEncounter = 'allowed';
+    } catch (e) {
+      results.secondAbsorbSameEncounter = 'threw: ' + e.message;
+    }
+    let s2 = staffEncounter();
+    try {
+      resolve(s2, { type: 'APPLY_WOUND', characterId: 'char_other', location: 'legs', absorbedByStaffBarrier: true });
+      results.nonStaffAbsorb = 'allowed';
+    } catch (e) {
+      results.nonStaffAbsorb = 'threw: ' + e.message;
+    }
+
+    return results;
+  });
+  ok(specialtyResults.swordDiscount, 'Sword: Act+React costs 1 effective slot, React is free (line 1562)');
+  ok(specialtyResults.nonSwordNoDiscount, 'Non-Sword: Act+React costs 2 effective slots, no discount');
+  ok(specialtyResults.closeWithMoveOnly !== 'allowed', 'Spear: opponent closing with Move only is rejected (line 1570)');
+  ok(specialtyResults.closeWithMoveAndReact === 'allowed', 'Spear: opponent closing with Move+React is allowed (line 1570)');
+  ok(specialtyResults.moveOnlyAgainstNonSpear === 'allowed', 'Move-only is fine against a non-Spear opponent (sanity check, not an SRD quote)');
+  ok(specialtyResults.firstAbsorbWoundNotRecorded, 'Staff: first absorbed wound is never recorded on the character (line 1586)');
+  ok(specialtyResults.secondAbsorbSameEncounter !== 'allowed', 'Staff: barrier already used this encounter, second absorb rejected ("once per encounter")');
+  ok(specialtyResults.nonStaffAbsorb !== 'allowed', 'Staff: a non-Staff character cannot use the barrier at all');
+
+  console.log('13. Checkpoint 2 — combat-end threshold (Location and Stakes)');
+  const thresholdResults = await page.evaluate(() => {
+    const { createCharacterRecord } = window.Wonderland.schema;
+    const { isCombatOver } = window.Wonderland.engine;
+    const results = {};
+    results.spentInsideBarrier = isCombatOver(createCharacterRecord({ stamina: 'spent' }), 'insideBarrier');
+    results.threeWoundsInsideBarrier = isCombatOver(
+      createCharacterRecord({ wounds: ['legs', 'legs', 'legs'] }),
+      'insideBarrier'
+    );
+    results.twoWoundsFreshInsideBarrier = isCombatOver(
+      createCharacterRecord({ wounds: ['legs', 'legs'] }),
+      'insideBarrier'
+    );
+    results.spentOutsideCity = isCombatOver(createCharacterRecord({ stamina: 'spent' }), 'outsideCity');
+    return results;
+  });
+  ok(thresholdResults.spentInsideBarrier === true, 'Inside the barrier: Spent stamina ends combat (line 1623)');
+  ok(thresholdResults.threeWoundsInsideBarrier === true, 'Inside the barrier: 3 accumulated wound states ends combat (line 1623)');
+  ok(thresholdResults.twoWoundsFreshInsideBarrier === false, 'Inside the barrier: 2 wounds + Fresh stamina does not end combat yet');
+  ok(
+    thresholdResults.spentOutsideCity === false,
+    'Outside the city: Spent stamina does NOT auto-end combat — SRD says combat "can continue past Spent" there, no hard threshold given (line 1631)'
+  );
+
+  console.log('14. Checkpoint 2 — Leverage clamp (Politics chapter, resolves Checkpoint 1\'s flagged gap)');
+  const leverageResults = await page.evaluate(() => {
+    const { createSaveState } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    let state = createSaveState();
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: 3 });
+    const afterFirst = state.factionStanding.faction_watch;
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: 3 });
+    const afterSecond = state.factionStanding.faction_watch; // 3+3=6, must clamp to 5
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: -20 });
+    const afterFloor = state.factionStanding.faction_watch; // must clamp to -5
+    return { afterFirst, afterSecond, afterFloor };
+  });
+  ok(leverageResults.afterFirst === 3, 'Leverage starts at 0 (unset), +3 delta lands at 3');
+  ok(leverageResults.afterSecond === 5, 'Leverage clamps at +5 — "No score can exceed +5" (line 972)');
+  ok(leverageResults.afterFloor === -5, 'Leverage clamps at -5 — "or fall below -5" (line 972)');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

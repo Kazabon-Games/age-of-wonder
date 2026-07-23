@@ -78,6 +78,27 @@ function createTechnique(overrides = {}) {
 }
 
 /**
+ * A castable spell — just enough shape for Checkpoint 2's magic-in-combat
+ * slot economy (aow_srd.html ch2-tiers, ch2-combat). Willstrain cost is
+ * deliberately NOT a number here: the SRD gives willstrain as a
+ * descriptive weight per tier (Negligible..Extreme) and tracks its actual
+ * stage narratively at the table, not through a formula — see engine.js
+ * castingSlotCost() header for what this schema does and doesn't encode.
+ * @param {Object} [overrides]
+ */
+function createSpell(overrides = {}) {
+  return Object.assign(
+    {
+      id: null, // e.g. "spell_ember_dart"
+      name: '',
+      school: null, // one of the Six Schools; free-form string, not enforced here
+      tier: 1, // 1-6, aow_srd.html ch2-tiers
+    },
+    overrides
+  );
+}
+
+/**
  * House data schema — kit description, Principle-tagged abilities,
  * Transformation forms, starting equipment, faction ID. Sized to support
  * a 7th house: nothing here assumes exactly six houses exist.
@@ -113,6 +134,10 @@ function createCombatantState(characterId) {
   return {
     characterId,
     declaration: null, // Declaration | null — see createDeclaration
+    // Staff's Barrier Generation is "once per encounter" (aow_srd.html
+    // ch4-weapons), not once per exchange — so it lives here, on the
+    // encounter-scoped combatant state, not on the persisted CharacterRecord.
+    staffBarrierUsed: false,
   };
 }
 
@@ -202,6 +227,7 @@ const api = {
   ACTION_SLOTS,
   createCharacterRecord,
   createTechnique,
+  createSpell,
   createHouseRecord,
   createCombatantState,
   createDeclaration,
