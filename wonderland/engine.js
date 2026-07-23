@@ -28,8 +28,19 @@
  * never as an invented formula.
  *
  * Verified against aow_srd.html's ch4-techniques "A Worked Exchange"
- * (Mira/Sword/Riposte vs. Davan/Dagger) — see
- * tests/wonderland-engine-adversarial.js for the actual run.
+ * (Mira/Sword/Riposte vs. Davan/Dagger) — the SRD's only narrated combat
+ * exchange — plus a second, constructed case covering every wound/stamina
+ * rule that exchange never touches (Head/Weapon Arm/Shield Arm/Legs/
+ * Presence wounds, Strained/Spent stamina), each assertion traced to its
+ * own quoted SRD line rather than inferred from this file. See
+ * tests/wonderland-engine-adversarial.js §9-10 for the actual run. That
+ * second case caught a real bug during development: presenceStage()
+ * originally had no case for a Presence wound at all, and applyWound()
+ * worked around it by bumping stamina one stage as a proxy — which only
+ * ever degraded Hold, silently leaving Commit at "full" when the SRD says
+ * a Presence wound drops all three components immediately. Fixed by
+ * checking hasWound(character, 'presence') directly, first, in
+ * presenceStage().
  */
 
 (function (root) {
@@ -84,9 +95,17 @@ function hasWound(character, location) {
  * Read/Commit/Hold degradation — aow_srd.html ch4-presence + the wound
  * table (Head degrades Read regardless of stamina; Weapon Arm degrades
  * Commit; Shield Arm/Legs degrade Hold; Strained stamina degrades Read;
- * Winded-or-worse degrades Hold; Spent degrades Commit).
+ * Winded-or-worse degrades Hold; Spent degrades Commit; a Presence wound
+ * drops ALL THREE components immediately — checked first, before any
+ * single-component condition, so it can never be short-circuited by only
+ * matching one component's own trigger).
  */
 function presenceStage(character, component) {
+  if (component !== 'read' && component !== 'commit' && component !== 'hold') {
+    throw new Error(`wonderland/engine: unknown presence component "${component}"`);
+  }
+  if (hasWound(character, 'presence')) return 'degraded';
+
   const idx = staminaIndex(character.stamina);
   if (component === 'read') {
     if (hasWound(character, 'head')) return 'degraded';
@@ -98,12 +117,10 @@ function presenceStage(character, component) {
     if (character.stamina === 'spent') return 'degraded';
     return 'full';
   }
-  if (component === 'hold') {
-    if (hasWound(character, 'shieldArm') || hasWound(character, 'legs')) return 'degraded';
-    if (idx >= staminaIndex('winded')) return 'degraded';
-    return 'full';
-  }
-  throw new Error(`wonderland/engine: unknown presence component "${component}"`);
+  // component === 'hold'
+  if (hasWound(character, 'shieldArm') || hasWound(character, 'legs')) return 'degraded';
+  if (idx >= staminaIndex('winded')) return 'degraded';
+  return 'full';
 }
 
 /**
@@ -299,19 +316,19 @@ function applyResolveExchange(state) {
 
 function applyWound(state, action) {
   const { characterId, location } = action;
-  const character = findCharacter(state, characterId);
+  findCharacter(state, characterId); // throws loudly if unknown
   if (!Schema.WOUND_LOCATIONS.includes(location)) {
     throw new Error(`wonderland/engine: unknown wound location "${location}"`);
   }
   const next = deepClone(state);
   next.characters[characterId].wounds.push(location);
-  if (location === 'presence') {
-    // aow_srd.html: a Presence wound drops all three presence components
-    // one stage immediately. Modeled as an immediate stamina step-down,
-    // since stamina stage is what presenceStage() reads for read/hold.
-    const idx = Math.min(staminaIndex(character.stamina) + 1, ENGINE_STAMINA_STAGES.length - 1);
-    next.characters[characterId].stamina = ENGINE_STAMINA_STAGES[idx];
-  }
+  // aow_srd.html: a Presence wound drops all three presence components one
+  // stage immediately. Recording the wound is sufficient — presenceStage()
+  // checks hasWound(character, 'presence') first, before any single-
+  // component condition, so all three read as degraded from this point on.
+  // (Earlier version of this function bumped stamina instead, as a proxy —
+  // that only ever degraded Hold, silently leaving Commit undegraded.
+  // Caught by the second worked case; see wonderland/README.md.)
   return next;
 }
 

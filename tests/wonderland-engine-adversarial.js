@@ -171,6 +171,123 @@ function ok(cond, label) {
   ok(persistenceResults.wrongSchemaVersion !== 'did not throw', 'getSaveState() throws on a schemaVersion mismatch instead of half-loading it');
   ok(persistenceResults.saveMissingVersion !== 'did not throw', 'putSaveState() throws when asked to save state with no schemaVersion');
 
+  console.log('9. Second worked case — wound/stamina interactions');
+  // Unlike section 3-6 above, this is NOT a second narrative passage quoted
+  // from aow_srd.html — ch4-techniques only narrates the one Mira/Davan
+  // exchange. Each assertion below is instead hand-derived from a specific,
+  // separately quoted rule in the SRD's wound table and Presence section
+  // (aow_srd.html lines ~1460-1495, ~786-788), computed independently
+  // before running the engine, then checked for a match — same discipline
+  // as sections 3-6, applied where the SRD gives a rule but not a story.
+  // Each character below carries exactly one wound, isolating that wound's
+  // effect from every other rule that could independently degrade the same
+  // component, so a failure here points at one specific rule.
+  const woundResults = await page.evaluate(() => {
+    const { createCharacterRecord } = window.Wonderland.schema;
+    const { presenceStage, effectiveSlotCount } = window.Wonderland.engine;
+    const results = {};
+
+    const fresh = createCharacterRecord({ id: 'char_fresh' });
+    results.freshAllFull =
+      presenceStage(fresh, 'read') === 'full' &&
+      presenceStage(fresh, 'commit') === 'full' &&
+      presenceStage(fresh, 'hold') === 'full';
+
+    // "A Head wound degrades the Read component... regardless of stamina
+    // state" (line 786) — isolated: Commit/Hold must stay full.
+    const headWounded = createCharacterRecord({ id: 'char_head', wounds: ['head'] });
+    results.headDegradesReadOnly =
+      presenceStage(headWounded, 'read') === 'degraded' &&
+      presenceStage(headWounded, 'commit') === 'full' &&
+      presenceStage(headWounded, 'hold') === 'full';
+
+    // Weapon Arm wound table row: "basic weapon actions cost one additional
+    // slot" + presence table "Degrades from: Weapon Arm wounds" under Commit
+    // (line 1466, 1418) — isolated: Read/Hold stay full.
+    const armWounded = createCharacterRecord({ id: 'char_arm', wounds: ['weaponArm'] });
+    results.weaponArmDegradesCommitOnly =
+      presenceStage(armWounded, 'commit') === 'degraded' &&
+      presenceStage(armWounded, 'read') === 'full' &&
+      presenceStage(armWounded, 'hold') === 'full';
+    results.weaponArmActSurcharge = effectiveSlotCount(armWounded, ['act']) === 2; // Act alone now costs 2
+
+    // Shield Arm / Legs both listed as Hold-degrade sources (line 1424);
+    // Legs additionally costs Move one extra slot (line 1476).
+    const shieldArmWounded = createCharacterRecord({ id: 'char_shield', wounds: ['shieldArm'] });
+    results.shieldArmDegradesHoldOnly =
+      presenceStage(shieldArmWounded, 'hold') === 'degraded' &&
+      presenceStage(shieldArmWounded, 'read') === 'full' &&
+      presenceStage(shieldArmWounded, 'commit') === 'full';
+
+    const legsWounded = createCharacterRecord({ id: 'char_legs', wounds: ['legs'] });
+    results.legsDegradesHoldOnly =
+      presenceStage(legsWounded, 'hold') === 'degraded' &&
+      presenceStage(legsWounded, 'read') === 'full' &&
+      presenceStage(legsWounded, 'commit') === 'full';
+    results.legsMoveSurcharge = effectiveSlotCount(legsWounded, ['move']) === 2; // Move alone now costs 2
+
+    // "A Presence wound drops all three presence components one stage
+    // immediately" (line 787/1491) — the one rule most likely to be
+    // implemented as a partial proxy instead of directly; isolated with no
+    // other wound present, all three MUST read degraded.
+    const presenceWounded = createCharacterRecord({ id: 'char_presence', wounds: ['presence'] });
+    results.presenceDegradesAllThree =
+      presenceStage(presenceWounded, 'read') === 'degraded' &&
+      presenceStage(presenceWounded, 'commit') === 'degraded' &&
+      presenceStage(presenceWounded, 'hold') === 'degraded';
+
+    // Strained/Spent stamina thresholds, independent of any wound (line
+    // 1445-1446): Strained degrades Read, Spent additionally degrades Commit.
+    const strained = createCharacterRecord({ id: 'char_strained', stamina: 'strained' });
+    results.strainedDegradesReadOnly =
+      presenceStage(strained, 'read') === 'degraded' && presenceStage(strained, 'commit') === 'full';
+    const spent = createCharacterRecord({ id: 'char_spent', stamina: 'spent' });
+    results.spentDegradesCommitToo =
+      presenceStage(spent, 'commit') === 'degraded' && presenceStage(spent, 'read') === 'degraded';
+
+    return results;
+  });
+  ok(woundResults.freshAllFull, 'Fresh, unwounded character: Read/Commit/Hold all full');
+  ok(woundResults.headDegradesReadOnly, 'Head wound degrades Read only, not Commit or Hold (line 786)');
+  ok(woundResults.weaponArmDegradesCommitOnly, 'Weapon Arm wound degrades Commit only (line 1418)');
+  ok(woundResults.weaponArmActSurcharge, 'Weapon Arm wound: a lone Act slot now costs 2 effective slots (line 1466)');
+  ok(woundResults.shieldArmDegradesHoldOnly, 'Shield Arm wound degrades Hold only (line 1424)');
+  ok(woundResults.legsDegradesHoldOnly, 'Legs wound degrades Hold (line 1424)');
+  ok(woundResults.legsMoveSurcharge, 'Legs wound: a lone Move slot now costs 2 effective slots (line 1476)');
+  ok(
+    woundResults.presenceDegradesAllThree,
+    'Presence wound degrades Read AND Commit AND Hold immediately (line 787/1491) — catches the bug where an earlier version only bumped stamina and silently left Commit full'
+  );
+  ok(woundResults.strainedDegradesReadOnly, 'Strained stamina alone degrades Read but not yet Commit (line 1445)');
+  ok(woundResults.spentDegradesCommitToo, 'Spent stamina degrades Commit too, on top of Read (line 1446)');
+
+  console.log('10. Wound-driven slot capacity: surcharges can push a legal-looking declaration over the 3-slot cap');
+  const capacityResults = await page.evaluate(() => {
+    const { createCharacterRecord } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    const results = {};
+    let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+    state.characters.char_arm = createCharacterRecord({ id: 'char_arm', wounds: ['weaponArm'] });
+    state.characters.char_other = createCharacterRecord({ id: 'char_other' });
+    state = resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_arm', 'char_other'], location: 'insideBarrier' });
+
+    try {
+      resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_arm', slots: ['act', 'react'] });
+      results.atCapacity = 'allowed';
+    } catch (e) {
+      results.atCapacity = 'threw: ' + e.message;
+    }
+    try {
+      resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_arm', slots: ['act', 'move', 'react'] });
+      results.overCapacity = 'did not throw';
+    } catch (e) {
+      results.overCapacity = 'threw: ' + e.message;
+    }
+    return results;
+  });
+  ok(capacityResults.atCapacity === 'allowed', 'Weapon Arm + Act+React (3 effective slots) is exactly at capacity and allowed');
+  ok(capacityResults.overCapacity !== 'did not throw', 'Weapon Arm + Act+Move+React (4 effective slots) exceeds the 3-slot cap and throws');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

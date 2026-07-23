@@ -43,24 +43,40 @@ Run for real, not read and judged plausible — see
   that passage's actual described outcomes — Dagger's unconditional
   initiative, Riposte's trigger not firing in exchange 1 and firing in
   exchange 2, both actions landing in the same exchange.
+- A second, constructed case (§9-10 of the test file) covers every
+  wound/stamina rule the first exchange never exercises: Head, Weapon Arm,
+  Shield Arm, Legs, and Presence wounds, Strained/Spent stamina, and the
+  slot-cost surcharges. This isn't a second SRD narrative passage — the SRD
+  only narrates the one exchange — it's hand-derived from the wound table's
+  individual stated rules, each assertion citing the specific line it
+  enforces, computed independently before the engine ran rather than read
+  back out of this file's own code.
+- That second case caught a real bug: `presenceStage()` had no check for a
+  Presence wound at all; `applyWound()` was bumping stamina one stage as a
+  workaround, which only ever degraded Hold and silently left Commit at
+  "full" — contradicting the SRD's "drops all three components
+  immediately." Fixed in `engine.js`; see its file header.
 - The persistence layer is tested against a missing record and a
   wrong-schema-version save in a real IndexedDB (via Playwright), and
   confirmed to throw rather than silently default.
-- 22/22 checks pass as of this commit. Re-run: serve the repo
+- 34/34 checks pass as of this commit. Re-run: serve the repo
   (`npx http-server -p 8935`), then
   `node ../tests/wonderland-engine-adversarial.js`.
 
 ## Confidence labeling
 
-- **Verified**: the weight/trigger model above, against the one worked
-  example the SRD provides. One example is not full coverage — it's the
-  only real worked case ch4-techniques gives.
-- **Not yet verified**: wound/stamina interactions beyond what the worked
-  exchange exercises (Head/Shield Arm/Legs wound effects on Read/Hold,
-  Torso's faster stamina degradation, the Presence-wound stage-drop) are
-  implemented per the SRD's wound table but have no worked example to
-  check them against yet — treat as intent, not a completed claim, until
-  a second worked case or a real playtest exercises them.
+- **Verified**: the weight/trigger model, against the SRD's one narrated
+  worked exchange; and the full wound/stamina rule set (Head, Weapon Arm,
+  Shield Arm, Legs, Presence, Strained, Spent), against a constructed case
+  hand-derived from the SRD's wound table rather than a second narrated
+  passage — the SRD doesn't provide one.
+- **Not yet verified**: Torso's "stamina degrades faster" is implemented as
+  a documented fact only — this engine does not auto-accelerate stamina
+  stage transitions from a Torso wound (that timing is explicitly
+  GM-adjudicated per the SRD, not a fixed formula), so there's nothing here
+  for a worked case to check numerically. Multi-exchange sequences beyond
+  two exchanges, and any interaction between the Presence-wound fix and the
+  Riposte/initiative logic in the same encounter, remain unexercised.
 - **Explicitly out of scope here**: house content, narrative branches, the
   Essence-ledger-style World State *behavior* (the schema exists;
   faction-standing effects don't), per the checkpoint doc §2.
