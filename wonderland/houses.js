@@ -29,13 +29,13 @@
  *
  * What's NEW here, authored for Wonderland specifically (none of this
  * exists in any AOW suite file — Checkpoint 4's research confirmed
- * Kit/Principle/Transformation content doesn't exist anywhere real):
- * each house's Principle (a one-phrase philosophy every one of its
- * abilities is tagged with), its Kit description, 1 Principle-tagged
- * ability, and 1 Transformation form with a real unlock condition. Every
- * one of these is grounded in that house's own established identity
- * (its orientation, ideals, founding, shadow, wound) rather than
- * generic reskins of each other — see each house's inline reasoning.
+ * Kit/Theme/Transformation content doesn't exist anywhere real): each
+ * house's theme (a one-phrase philosophy every one of its abilities'
+ * `houseTheme` field carries), its Kit description, 1 themed ability, and
+ * 1 Transformation form with a real unlock condition. Every one of these
+ * is grounded in that house's own established identity (its orientation,
+ * ideals, founding, shadow, wound) rather than generic reskins of each
+ * other — see each house's inline reasoning.
  *
  * Mechanically real, not descriptive-only: every ability and granted
  * Transformation technique is a full Technique object (schema.js
@@ -45,6 +45,19 @@
  * (staminaAtLeast, woundCountAtLeast, leverageAtLeast) across different
  * houses — see tests/wonderland-engine-adversarial.js for the real,
  * hand-verified proof.
+ *
+ * `firstPrinciple` reconciliation (added once WONDERLAND_RPG_FLAGSHIP_
+ * DESIGN.md was supplied, after this content already existed): every
+ * ability/granted technique below is also tagged with one of the design
+ * doc's four canonical First Principles (distinction/relation/
+ * transformation/persistence, schema.js's FIRST_PRINCIPLES), classified
+ * by what each ability actually mechanically does — NOT by its
+ * `houseTheme` motto, which is a separate, purely narrative axis.
+ * Deliberately none of the 12 are tagged "transformation": that Principle
+ * (a stance/form shift that changes what a character's existing kit
+ * does) is already what the engine's own ACTIVATE_TRANSFORMATION action
+ * structurally embodies — the individual abilities a Transformation form
+ * grants are classified by their own payload effect instead.
  */
 
 (function (root) {
@@ -54,7 +67,7 @@ const Schema =
     ? require('./schema.js')
     : root.WonderlandSchema;
 
-// ─── House Aethra — Military — Principle: "The Undercurrent" ───
+// ─── House Aethra — Military — Theme: "The Undercurrent" ───
 // Real data: orientation Mobility/Loyalty/Transform; founding won in
 // battle via a Transposition "Spellweave" against a blood-ritual regent;
 // shadow is Miran's own resistance-network smuggling; house identity is
@@ -86,7 +99,11 @@ const houseAethra = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_aethra_spy_opening',
       name: "Spy's Opening",
-      principle: 'The Undercurrent',
+      houseTheme: 'The Undercurrent',
+      // Reconnaissance is perceiving a hidden connection to the battlefield
+      // itself — matches Relation ("bind, summon, link") more than it
+      // isolates/removes anything or grants a lasting resource.
+      firstPrinciple: 'relation',
       trigger: null,
       slotCost: ['move'],
       effect: "Reposition and read the field at once — the ancestral artifact's gift, mobility that doubles as reconnaissance.",
@@ -101,7 +118,10 @@ const houseAethra = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_aethra_spellweave',
         name: 'Ancestral Spellweave',
-        principle: 'The Undercurrent',
+        houseTheme: 'The Undercurrent',
+        // Transposition is literally a positional exchange between two
+        // combatants — a bind between self and opponent for the swap.
+        firstPrinciple: 'relation',
         trigger: { type: 'opponentCommitsSlots', slots: ['act', 'move'] },
         slotCost: ['act', 'react'],
         resolvesRegardlessOfInitiative: true,
@@ -112,7 +132,7 @@ const houseAethra = Schema.createHouseRecord({
   startingEquipment: [],
 });
 
-// ─── House Ye — Magical — Principle: "The Measured Scale" ───
+// ─── House Ye — Magical — Theme: "The Measured Scale" ───
 // Real data: orientation Influence/Knowledge/Suppress; sigil is literally
 // Scales; ideals Legacy/Service to the Crown; Ye K'ali is specifically
 // the Third Heir, favored despite that, and her revealed school is
@@ -142,7 +162,11 @@ const houseYe = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_ye_weighed_words',
       name: 'Weighed Words',
-      principle: 'The Measured Scale',
+      houseTheme: 'The Measured Scale',
+      // Deploying read information as leverage against a target is a bond
+      // between the character and that target (matches politicalNodes'
+      // own per-actor leverage model) — Relation, not a removal or ward.
+      firstPrinciple: 'relation',
       trigger: null,
       slotCost: ['act'],
       effect: 'A Divination-born read of the room, spoken as diplomacy — information deployed as leverage rather than magic.',
@@ -164,7 +188,11 @@ const houseYe = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_ye_sovereign_read',
         name: 'Sovereign Read',
-        principle: 'The Measured Scale',
+        houseTheme: 'The Measured Scale',
+        // A decisive counter that negates the opponent's advantage the
+        // instant they fully commit — removing their overcommitment's
+        // value, not binding to them or granting a lasting effect.
+        firstPrinciple: 'distinction',
         trigger: { type: 'opponentCommitsSlots', slots: ['act', 'react'] },
         slotCost: ['act'],
         resolvesRegardlessOfInitiative: true,
@@ -175,7 +203,7 @@ const houseYe = Schema.createHouseRecord({
   startingEquipment: [],
 });
 
-// ─── House Lightwell — Religious — Principle: "Veiled Radiance" ───
+// ─── House Lightwell — Religious — Theme: "Veiled Radiance" ───
 // Real data: orientation Law/Secrecy/Reveal; sigil a pillar of light
 // between cupped hands (radiance deliberately held, not displayed);
 // Griffith's own philosophical orientation is "Purist — every cast is an
@@ -205,7 +233,10 @@ const houseLightwell = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_lightwell_cupped_flame',
       name: 'Cupped Flame',
-      principle: 'Veiled Radiance',
+      houseTheme: 'Veiled Radiance',
+      // Explicitly a ward in its own effect text — the design doc names
+      // wards directly under Persistence.
+      firstPrinciple: 'persistence',
       trigger: null,
       slotCost: ['react'],
       effect: "A Negation-born ward, faith turned into refusal — unconform the world's permission for the incoming harm to continue.",
@@ -220,7 +251,10 @@ const houseLightwell = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_lightwell_unhidden_pillar',
         name: 'The Unhidden Pillar',
-        principle: 'Veiled Radiance',
+        houseTheme: 'Veiled Radiance',
+        // The same Negation ward taken to full strength — still a warding
+        // effect, so still Persistence, not a different Principle.
+        firstPrinciple: 'persistence',
         trigger: null,
         slotCost: ['act', 'move', 'react'],
         resolvesRegardlessOfInitiative: true,
@@ -231,7 +265,7 @@ const houseLightwell = Schema.createHouseRecord({
   startingEquipment: [],
 });
 
-// ─── House Lionheart — Trade (reassigned; see file header) — Principle:
+// ─── House Lionheart — Trade (reassigned; see file header) — Theme:
 // "The Conqueror's Ledger" ───
 // Real data: orientation Force/Wealth/Expand; founding claimed through
 // conquest; wound is the Aurelia Bastion, a magic-fueled dreadnought that
@@ -262,7 +296,11 @@ const houseLionheart = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_lionheart_spoils_counted',
       name: 'Spoils Counted',
-      principle: "The Conqueror's Ledger",
+      houseTheme: "The Conqueror's Ledger",
+      // A held gain from seizing ground, matching the house's "hold:
+      // Wealth" orientation and Persistence's resource-management framing
+      // — not a removal, and no other entity is being bound to.
+      firstPrinciple: 'persistence',
       trigger: null,
       slotCost: ['act'],
       effect: "A Transposition-quick seizure — take the ground, take what's on it.",
@@ -277,7 +315,11 @@ const houseLionheart = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_lionheart_aurelias_last_volley',
         name: "Aurelia's Last Volley",
-        principle: "The Conqueror's Ledger",
+        houseTheme: "The Conqueror's Ledger",
+        // A decisive punishing counter-burst that ends the opponent's
+        // overextension outright — removal of their advantage, matching
+        // the other overcommitment-punishing counters below.
+        firstPrinciple: 'distinction',
         trigger: { type: 'opponentCommitsSlots', slots: ['act', 'move'] },
         slotCost: ['act', 'react'],
         resolvesRegardlessOfInitiative: true,
@@ -288,7 +330,7 @@ const houseLionheart = Schema.createHouseRecord({
   startingEquipment: [],
 });
 
-// ─── House Badgerhold — Agricultural — Principle: "Earned Ground" ───
+// ─── House Badgerhold — Agricultural — Theme: "Earned Ground" ───
 // Real data: orientation Commerce/Loyalty/Transform; sigil a honey badger
 // taking out a snake; shadow is the house's own commoner bloodline,
 // looked down on by older houses; founding is literally "worked hard
@@ -317,7 +359,10 @@ const houseBadgerhold = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_badgerhold_bottom_up',
       name: 'Bottom-Up',
-      principle: 'Earned Ground',
+      houseTheme: 'Earned Ground',
+      // Conjuration is literally summoning — the design doc names
+      // "summoned allies" directly under Relation.
+      firstPrinciple: 'relation',
       trigger: null,
       slotCost: ['react'],
       effect: "Conjuration-quick — call up what's needed from the ground itself, the way the family always has.",
@@ -332,7 +377,12 @@ const houseBadgerhold = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_badgerhold_snake_in_grain',
         name: 'Snake in the Grain',
-        principle: 'Earned Ground',
+        houseTheme: 'Earned Ground',
+        // Despite the Conjuration flavor, mechanically this is the same
+        // decisive punish-the-overcommitment counter shape as the other
+        // Transformation-granted counters — classified by that shape, not
+        // by its spell-school label.
+        firstPrinciple: 'distinction',
         trigger: { type: 'opponentCommitsSlots', slots: ['act', 'react'] },
         slotCost: ['act'],
         resolvesRegardlessOfInitiative: true,
@@ -344,7 +394,7 @@ const houseBadgerhold = Schema.createHouseRecord({
 });
 
 // ─── House Corvane — Scholarly (fabricated to complete the roster; see
-// file header) — Principle: "The Long Memory" ───
+// file header) — Theme: "The Long Memory" ───
 // Authored fresh, matching the other five houses' depth and the SRD's
 // real Scholarly-district description (ch1-districts: "Archive, academy,
 // scriptorium... any document the Guild has decided belongs in the long
@@ -373,7 +423,11 @@ const houseCorvane = Schema.createHouseRecord({
     Schema.createTechnique({
       id: 'tech_corvane_marginal_note',
       name: 'Marginal Note',
-      principle: 'The Long Memory',
+      houseTheme: 'The Long Memory',
+      // Information that persists across time and resurfaces when needed
+      // — matches Persistence's "lingers into later chapters" framing,
+      // not a removal or a bind to another entity.
+      firstPrinciple: 'persistence',
       trigger: null,
       slotCost: ['react'],
       effect: "A Divination-quick recollection — the record remembers what the moment doesn't.",
@@ -388,7 +442,10 @@ const houseCorvane = Schema.createHouseRecord({
       grantedTechnique: Schema.createTechnique({
         id: 'tech_corvane_what_vault_remembers',
         name: 'What the Vault Remembers',
-        principle: 'The Long Memory',
+        houseTheme: 'The Long Memory',
+        // Same decisive punish-the-overcommitment counter shape as the
+        // other Transformation-granted techniques above.
+        firstPrinciple: 'distinction',
         trigger: { type: 'opponentCommitsSlots', slots: ['act', 'react'] },
         slotCost: ['act'],
         resolvesRegardlessOfInitiative: true,

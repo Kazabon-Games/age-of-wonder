@@ -646,8 +646,61 @@ fix in the caller, never something to swallow.
 root, then in a second terminal
 `NODE_PATH=/opt/node22/lib/node_modules node tests/wonderland-engine-adversarial.js`
 (the `NODE_PATH` points at wherever Playwright is actually installed in
-your environment — adjust if it differs). Expect `160 passed, 0 failed`.
+your environment — adjust if it differs). Expect `166 passed, 0 failed`.
 The suite drives a real Chromium instance against `harness.html` and real
 IndexedDB — nothing in it is mocked.
 
-160/160 checks pass.
+## Post-Checkpoint-7: First Principles reconciliation
+
+`WONDERLAND_RPG_FLAGSHIP_DESIGN.md` — one of the two companion docs
+Checkpoint 6/7 both noted as "referenced but never supplied" — was
+finally provided after Checkpoint 7 shipped. It names four canonical
+**First Principles** (§5): *Distinction, Relation, Transformation,
+Persistence* — the game's actual ability taxonomy, with a hard rule:
+"every ability must be classifiable under exactly one Principle. If it
+can't be argued as one of the four, it doesn't belong in this game."
+
+Checking it against what already existed found a real divergence, not a
+naming coincidence: Checkpoint 4/5's six-house registry tagged every
+ability with a `principle` field holding a free-form, house-specific
+*motto* instead (`"The Undercurrent"`, `"Veiled Radiance"`, etc.) —
+`schema.js`'s own comment even called it "free-form." None of the twelve
+abilities/granted-techniques across the six houses were classified under
+the design doc's actual four values, because that doc didn't exist yet
+when this content was built.
+
+**Reconciled, not silently overwritten** — the house mottos are real,
+authored content, not a mistake to discard:
+- `Technique.principle` → renamed **`houseTheme`** (unchanged values,
+  purely narrative, engine.js never reads it).
+- New **`firstPrinciple`** field added alongside it, validated against
+  `schema.js`'s new `FIRST_PRINCIPLES` constant
+  (`['distinction', 'relation', 'transformation', 'persistence']`).
+  `engine.js`'s `GRANT_TECHNIQUE`/`ACTIVATE_TRANSFORMATION` reject an
+  invalid value outright (`assertValidFirstPrinciple`) — but don't
+  *require* the field, since plenty of earlier scaffolding/test
+  techniques predate this rule and were never meant to be "real content"
+  in the design doc's sense.
+- All twelve real abilities/granted-techniques across the six houses were
+  reclassified by what each one actually mechanically does (its
+  slotCost/trigger/effect shape), not by its houseTheme motto — see the
+  inline reasoning next to each in `houses.js`. Distribution: 4
+  Distinction, 4 Relation, 4 Persistence, **0 Transformation** —
+  deliberately: the design doc frames Transformation as "a stance/form
+  shift that changes what a character's existing kit does," which is
+  already exactly what `ACTIVATE_TRANSFORMATION`/`TransformationForm`
+  structurally embodies. The mechanic itself carries that Principle; the
+  individual abilities it grants are classified by their own payload
+  effect instead of automatically inheriting the label.
+- Also confirmed, while reading the doc against what's built: its Section
+  4 assumption ("house names/identities... already exist [in the SRD],
+  locking it against the source document is a Phase 1 task") turned out
+  to be wrong — the SRD never actually names the six houses, which is
+  exactly the wall Checkpoint 4 hit before Kazabon authorized using real
+  player heir records instead. Not a new problem, just confirmation the
+  design doc's own assumption didn't hold and the pivot that already
+  happened was the right one. Section 8's Essence-ledger cross-game
+  integration is unaffected — still explicitly Phase 4 in the doc's own
+  sequencing, still correctly unbuilt.
+
+6 new checks added (160 → 166 passing).

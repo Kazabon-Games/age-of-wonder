@@ -202,6 +202,27 @@ function assertPlainSerializable(value, context, seen) {
   Object.keys(value).forEach((key) => assertPlainSerializable(value[key], `${context}.${key}`, seen));
 }
 
+/*
+ * WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5: the four First Principles
+ * (distinction/relation/transformation/persistence) are the game's actual
+ * ability taxonomy — "every ability must be classifiable under exactly
+ * one Principle." Enforced narrowly, not broadly: a technique's
+ * `firstPrinciple` is optional (a scaffolding/test technique with no
+ * narrative content isn't a "real ability" this rule is about), but if a
+ * value IS supplied, it must be one of the four exactly — a typo'd or
+ * invented Principle name is exactly the "plausible instead of specified"
+ * mistake the design doc's own guardrails (§10) warn about, so it's
+ * rejected here rather than silently accepted.
+ */
+function assertValidFirstPrinciple(firstPrinciple, context) {
+  if (firstPrinciple === null || typeof firstPrinciple === 'undefined') return;
+  if (!Schema.FIRST_PRINCIPLES.includes(firstPrinciple)) {
+    throw new Error(
+      `wonderland/engine: ${context}.firstPrinciple must be one of ${JSON.stringify(Schema.FIRST_PRINCIPLES)}, got "${firstPrinciple}"`
+    );
+  }
+}
+
 function findCombatant(encounter, characterId) {
   const combatant = encounter.combatants.find((c) => c.characterId === characterId);
   if (!combatant) {
@@ -932,6 +953,7 @@ function applyGrantTechnique(state, action) {
     throw new Error('wonderland/engine: GRANT_TECHNIQUE requires a technique object with at least id and name');
   }
   assertPlainSerializable(technique, 'GRANT_TECHNIQUE technique payload');
+  assertValidFirstPrinciple(technique.firstPrinciple, 'GRANT_TECHNIQUE technique payload');
   if (character.techniques.some((t) => t.id === technique.id)) {
     throw new Error(`wonderland/engine: "${characterId}" already has technique "${technique.id}"`);
   }
@@ -954,6 +976,9 @@ function applyActivateTransformation(state, action) {
     throw new Error('wonderland/engine: ACTIVATE_TRANSFORMATION requires a transformationForm object with at least an id');
   }
   assertPlainSerializable(transformationForm, 'ACTIVATE_TRANSFORMATION transformationForm payload');
+  if (transformationForm.grantedTechnique) {
+    assertValidFirstPrinciple(transformationForm.grantedTechnique.firstPrinciple, 'ACTIVATE_TRANSFORMATION transformationForm.grantedTechnique');
+  }
   if (character.activeTransformationId === transformationForm.id) {
     throw new Error(`wonderland/engine: "${characterId}" has already activated transformation "${transformationForm.id}"`);
   }

@@ -686,7 +686,16 @@ function approxEqual(a, b) {
     results.sixDistinctDistricts = new Set(districts).size === 6;
     results.allSixTypesRepresented = ['military', 'mercantile', 'religious', 'scholarly', 'agricultural', 'magical'].every((d) => districts.includes(d));
     results.everyHouseHasAbilityAndForm = SIX_HOUSES.every((h) => h.abilities.length >= 1 && h.transformationForms.length >= 1);
-    results.everyAbilityPrincipleTagged = SIX_HOUSES.every((h) => h.abilities.every((a) => !!a.principle) && !!h.transformationForms[0].grantedTechnique.principle);
+    results.everyAbilityHouseThemeTagged = SIX_HOUSES.every((h) => h.abilities.every((a) => !!a.houseTheme) && !!h.transformationForms[0].grantedTechnique.houseTheme);
+    // WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5's actual ability taxonomy,
+    // reconciled in after this content already existed: every ability and
+    // every Transformation-granted technique must carry a firstPrinciple
+    // that's one of the four canonical values exactly, not just non-empty.
+    const FIRST_PRINCIPLES = window.Wonderland.schema.FIRST_PRINCIPLES;
+    results.everyAbilityFirstPrincipleValid = SIX_HOUSES.every((h) =>
+      h.abilities.every((a) => FIRST_PRINCIPLES.includes(a.firstPrinciple)) &&
+      FIRST_PRINCIPLES.includes(h.transformationForms[0].grantedTechnique.firstPrinciple)
+    );
 
     function freshEncounterState() {
       let s = createSaveState();
@@ -764,8 +773,9 @@ function approxEqual(a, b) {
   ok(houseResults.exactlySixHouses, 'The registry has exactly six houses');
   ok(houseResults.sixDistinctDistricts, 'All six houses have distinct district types — no duplicates (the Lionheart reassignment resolved the real overlap)');
   ok(houseResults.allSixTypesRepresented, 'All six SRD district-types are represented: military, mercantile, religious, scholarly, agricultural, magical');
-  ok(houseResults.everyHouseHasAbilityAndForm, 'Every house has at least one Principle-tagged ability and one Transformation form');
-  ok(houseResults.everyAbilityPrincipleTagged, 'Every ability and every Transformation-granted technique carries a non-empty principle tag');
+  ok(houseResults.everyHouseHasAbilityAndForm, 'Every house has at least one themed ability and one Transformation form');
+  ok(houseResults.everyAbilityHouseThemeTagged, 'Every ability and every Transformation-granted technique carries a non-empty houseTheme tag');
+  ok(houseResults.everyAbilityFirstPrincipleValid, 'Every ability and every Transformation-granted technique carries a firstPrinciple that is one of the four design-doc-canonical values');
   ok(houseResults.aethraAbilityGranted, "House Aethra: GRANT_TECHNIQUE attaches Miran's real house ability as a real Technique");
   ok(houseResults.aethraAbilityResolvedInCombat, "House Aethra: the granted ability actually resolves through a real exchange, not just sitting inert in the array");
   ok(houseResults.aethraTransformationBlockedBeforeWounds, "House Aethra: Transformation blocked before 2 wounds are accumulated (grounded in the founding battle's real cost)");
@@ -1214,6 +1224,73 @@ function approxEqual(a, b) {
   ok(hostileInputResults.stringStartingSpellsRejected, 'importHeirRecord rejects awakening.startingSpells being a string instead of an array, with a clear message (previously crashed on .forEach)');
   ok(hostileInputResults.nonStringSpellElementRejected, 'importHeirRecord rejects a non-string element inside startingSpells, with a clear message (previously crashed on .includes)');
   ok(hostileInputResults.legitimateStartingSpellsStillWork, 'A legitimate startingSpells array still imports correctly after the type-validation fix');
+
+  console.log('24. First Principles reconciliation (WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5)');
+  // The design doc, supplied after the six-house content already existed,
+  // names four canonical First Principles (distinction/relation/
+  // transformation/persistence) as the game's actual ability taxonomy —
+  // "every ability must be classifiable under exactly one Principle."
+  // What had been built used a differently-scoped `principle` field for
+  // each house's own free-form motto instead (e.g. "The Undercurrent"),
+  // which schema.js's own comment even called "free-form" — a real
+  // divergence from spec, not a naming coincidence. Reconciled by keeping
+  // the motto (renamed to houseTheme, still purely narrative) and adding
+  // a new, validated firstPrinciple field alongside it.
+  const firstPrincipleResults = await page.evaluate(() => {
+    const { resolve } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord } = window.Wonderland.schema;
+    const FIRST_PRINCIPLES = window.Wonderland.schema.FIRST_PRINCIPLES;
+    const results = {};
+
+    function makeSave() {
+      const s = createSaveState();
+      s.characters.char_x = createCharacterRecord({ id: 'char_x' });
+      return s;
+    }
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+
+    results.exactlyFourPrinciples = FIRST_PRINCIPLES.length === 4 &&
+      ['distinction', 'relation', 'transformation', 'persistence'].every((p) => FIRST_PRINCIPLES.includes(p));
+
+    results.invalidFirstPrincipleRejected = !!threw(() => resolve(makeSave(), {
+      type: 'GRANT_TECHNIQUE',
+      characterId: 'char_x',
+      technique: { id: 't_bad', name: 'Bad Move', firstPrinciple: 'nonsense' },
+    }));
+    results.missingFirstPrincipleStillAllowed = !threw(() => resolve(makeSave(), {
+      type: 'GRANT_TECHNIQUE',
+      characterId: 'char_x',
+      technique: { id: 't_scaffold', name: 'Scaffold Move' },
+    }));
+    results.validFirstPrincipleAccepted = (() => {
+      const next = resolve(makeSave(), {
+        type: 'GRANT_TECHNIQUE',
+        characterId: 'char_x',
+        technique: { id: 't_good', name: 'Good Move', firstPrinciple: 'persistence' },
+      });
+      return next.characters.char_x.techniques.some((t) => t.id === 't_good' && t.firstPrinciple === 'persistence');
+    })();
+    results.invalidNestedFirstPrincipleInTransformationRejected = !!threw(() => resolve(makeSave(), {
+      type: 'ACTIVATE_TRANSFORMATION',
+      characterId: 'char_x',
+      transformationForm: {
+        id: 'form_bad',
+        name: 'Bad Form',
+        unlockCondition: null,
+        grantedTechnique: { id: 't_bad2', name: 'Bad Move 2', firstPrinciple: 'made_up' },
+      },
+    }));
+
+    return results;
+  });
+  ok(firstPrincipleResults.exactlyFourPrinciples, 'schema.js exposes exactly the four canonical First Principles: distinction, relation, transformation, persistence');
+  ok(firstPrincipleResults.invalidFirstPrincipleRejected, 'GRANT_TECHNIQUE rejects a technique with an invalid firstPrinciple value ("nonsense" is not one of the four)');
+  ok(firstPrincipleResults.missingFirstPrincipleStillAllowed, 'GRANT_TECHNIQUE still allows a scaffolding/test technique with no firstPrinciple at all — the rule targets real content, not every technique ever');
+  ok(firstPrincipleResults.validFirstPrincipleAccepted, 'GRANT_TECHNIQUE accepts and preserves a technique with a valid firstPrinciple');
+  ok(firstPrincipleResults.invalidNestedFirstPrincipleInTransformationRejected, 'ACTIVATE_TRANSFORMATION rejects a transformationForm whose nested grantedTechnique has an invalid firstPrinciple');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();

@@ -36,6 +36,15 @@ const SCHEMA_VERSION = 2;
 const STAMINA_STAGES = Object.freeze(['fresh', 'winded', 'strained', 'spent']);
 const WOUND_LOCATIONS = Object.freeze(['weaponArm', 'shieldArm', 'legs', 'torso', 'head', 'presence']);
 const WEAPON_SPECIALTIES = Object.freeze(['sword', 'spear', 'wand', 'staff', 'dagger', 'projectile']);
+
+// WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5, supplied after Checkpoint 4/5's
+// house content was already built: the game's actual ability taxonomy is
+// exactly these four "First Principles" — "every ability must be
+// classifiable under exactly one Principle. If it can't be argued as one
+// of the four, it doesn't belong in this game." This is a hard rule, not
+// flavor, so it's a real enum like WEAPON_SPECIALTIES above, not a
+// free-form string — see createTechnique's `firstPrinciple` field.
+const FIRST_PRINCIPLES = Object.freeze(['distinction', 'relation', 'transformation', 'persistence']);
 const ACTION_SLOTS = Object.freeze(['move', 'act', 'react']);
 
 /**
@@ -117,12 +126,22 @@ function createTechnique(overrides = {}) {
       rawTriggerText: '',
       dependency: 'none', // free-text stamina/presence dependency note from the real tool; not enforced here
       // Set only on techniques that originate from a house ability
-      // (Checkpoint 4) — the checkpoint doc's "Principle-tagged
-      // abilities." A house ability is otherwise a plain Technique: same
-      // trigger/slotCost/effect shape, usable through the same
-      // DECLARE_ACTION/RESOLVE_EXCHANGE flow as any combat-trained
-      // technique, once granted onto a character via GRANT_TECHNIQUE.
-      principle: null,
+      // (Checkpoint 4) — each house's own one-phrase philosophy (e.g.
+      // "The Undercurrent"). Purely descriptive/narrative; engine.js
+      // never reads or validates this. Renamed from `principle` once
+      // WONDERLAND_RPG_FLAGSHIP_DESIGN.md revealed that name collided
+      // with a real, differently-scoped concept — see `firstPrinciple`
+      // just below.
+      houseTheme: null,
+      // The design doc's actual ability taxonomy (§5): must be one of
+      // FIRST_PRINCIPLES exactly — "distinction", "relation",
+      // "transformation", or "persistence". Distinct from `houseTheme`
+      // above on purpose: a house's motto and this classification are two
+      // different axes (a "Persistence"-classified ability can belong to
+      // any house's own theme). engine.js's GRANT_TECHNIQUE/
+      // ACTIVATE_TRANSFORMATION validate this against FIRST_PRINCIPLES
+      // before accepting a technique — see engine.js's own comment.
+      firstPrinciple: null,
     },
     overrides
   );
@@ -171,15 +190,13 @@ function createHouseRecord(overrides = {}) {
       name: '',
       kitDescription: '',
       factionId: null, // links to World State faction entity, e.g. "faction:house_axiom"
-      // Abilities tagged with which in-world Principle they express — the
-      // checkpoint doc calls these "Principle-tagged abilities." As of
-      // Checkpoint 4 these are full Technique objects (see
-      // createTechnique's `principle` field) rather than the lighter
-      // {id,name,principle,description} shape Checkpoint 1 sketched —
-      // needed to actually make an ability usable through
-      // DECLARE_ACTION/RESOLVE_EXCHANGE, not just descriptive. The
-      // Principle vocabulary itself is design content this schema doesn't
-      // define — each ability's `principle` string is free-form.
+      // Abilities tagged with the house's own theme (`houseTheme`) and, per
+      // WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5, the game's actual four-Principle
+      // taxonomy (`firstPrinciple`) — see createTechnique's own comments on
+      // both fields. As of Checkpoint 4 these are full Technique objects
+      // rather than the lighter {id,name,principle,description} shape
+      // Checkpoint 1 sketched — needed to actually make an ability usable
+      // through DECLARE_ACTION/RESOLVE_EXCHANGE, not just descriptive.
       abilities: [], // array of Technique (see createTechnique)
       transformationForms: [], // array of TransformationForm, see createTransformationForm
       startingEquipment: [], // array of equipment id strings
@@ -381,6 +398,7 @@ const api = {
   STAMINA_STAGES,
   WOUND_LOCATIONS,
   WEAPON_SPECIALTIES,
+  FIRST_PRINCIPLES,
   ACTION_SLOTS,
   createCharacterRecord,
   createTechnique,
