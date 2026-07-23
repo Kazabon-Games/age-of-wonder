@@ -1,12 +1,16 @@
-# Wonderland: First Principles — Checkpoints 1-2
+# Wonderland: First Principles — Checkpoints 1-3
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
-deterministic combat/politics rules (Checkpoint 2 — "diceless engine passes
-SRD-derived test cases" per `WONDERLAND_RPG_HANDOVER_CHECKPOINT1.md`'s
-roadmap, `Studio-Internal-` repo). Not a game yet — no house content, no
-narrative, no UI. This is the pure resolution engine and the data shapes it
-operates on, verified against real rules from `aow_srd.html`, not read and
-judged plausible.
+deterministic combat/politics rules (Checkpoint 2), then extended again by
+digging through the *rest* of the AOW suite — not just the SRD — for real,
+already-shipped mechanics and a real heir-import boundary (Checkpoint 3,
+mapped loosely onto "one house vertical-sliced" from
+`WONDERLAND_RPG_HANDOVER_CHECKPOINT1.md`'s roadmap, `Studio-Internal-`
+repo — see the Checkpoint 3 section below for what that mapping actually
+means here). Not a game yet — no UI, no narrative prose. This is the pure
+resolution engine, the data shapes it operates on, and the adapter that
+imports real player-created content, verified against real rules and real
+shipped tools, not read and judged plausible.
 
 ## Files
 
@@ -23,7 +27,12 @@ judged plausible.
   doesn't fabricate precision for the latter.
 - **`persistence.js`** — the one module allowed to touch IndexedDB.
   Browser-only. `entity:`/`choice:`/`save:` keys in a single object store.
-- **`harness.html`** — not a game screen; loads the three modules above via
+- **`importHeirRecord.js`** — Checkpoint 3: adapts a real
+  `aow_heir_record.html` JSON export into `schema.js` shapes. See its own
+  header for why its required-vs-default field discipline deliberately
+  mirrors `aow_play_sheet.html`'s proven `importFromS0()` rather than
+  reinventing that split.
+- **`harness.html`** — not a game screen; loads all four modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
 
@@ -70,7 +79,13 @@ Run for real, not read and judged plausible — see
   it enforces — hand-derived from individual stated rules the same way
   Checkpoint 1's second wound/stamina case was, since none of this has a
   second narrated worked exchange either.
-- 62/62 checks pass as of this commit. Re-run: serve the repo
+- **Checkpoint 3** (§15-17 of the test file) adds: the real Weight Engine
+  ported from `aow_gm_screen.html` (tier-based leverage deltas with
+  fractional carry, escalating trigger thresholds), Capstone application
+  from `aow_heir_record.html`'s real content, and the heir-import adapter
+  run against a fixture built from that tool's actual export shape (not an
+  invented one).
+- 93/93 checks pass as of this commit. Re-run: serve the repo
   (`npx http-server -p 8935`), then
   `node ../tests/wonderland-engine-adversarial.js`.
 
@@ -98,13 +113,66 @@ explicitly-flagged Politics gap, on purpose:
   encounter types from Combat, not an oversight, and deserve their own
   checkpoint-style pass rather than a bolt-on here.
 
+## Checkpoint 3: what "one house vertical-sliced" actually became
+
+The checkpoint doc's roadmap line 3 says "one house fully vertical-sliced
+and playtested" — real house identity, narrative, content. That's
+explicitly Kazabon's own creative material (the checkpoint doc's own §1
+non-negotiables + this repo's studio conventions), not something for this
+engine to invent. So instead of fabricating a placeholder house, this
+checkpoint dug through the rest of the already-shipped AOW suite —
+`aow_heir_record.html`, `aow_play_sheet.html`, `aow_gm_screen.html`,
+`aow_spell_creator.html` — the way Checkpoint 2 dug through the SRD, and
+found that a *real* vertical slice already exists as a proven, shipped
+pipeline: session-zero heir creation → JSON export → import into a
+world-state/play tool. Checkpoint 3 built Wonderland's own version of the
+import side of that pipeline, against real formulas and a real export
+shape, rather than inventing house content or waiting on it idle.
+
+**Built**:
+- `importHeirRecord.js` — maps a real heir export into `CharacterRecord`
+  + `HouseRecord`, mirroring `aow_play_sheet.html`'s exact
+  required-vs-default discipline (name + revealed school required,
+  everything else defaulted) and its exact bug fixes (the retired
+  "(adjacent)"-tagged spell skip, signature techniques importing with no
+  fabricated structured trigger).
+- The real Weight Engine (`computePoliticalActionEffect`,
+  `effectiveThreshold`, `LOG_POLITICAL_ACTION`) — ported from
+  `aow_gm_screen.html`'s `applyWeightAndGenerateHooks()`, the actual
+  ancestor of the "weight/trigger model" language in the Checkpoint 1
+  handover doc. A *different* weight/trigger system from this file's
+  combat-initiative one — political leverage, not combat slots.
+- `APPLY_CAPSTONE` / `RESET_CAPSTONE_USAGE` — real Capstone content from
+  `aow_heir_record.html`'s `CAPSTONES` table (8 aspects, each a leverage
+  bonus/penalty, once per session).
+- **A correction, not just an addition**: Checkpoint 2's
+  `factionStanding`/`MODIFY_LEVERAGE` modeled leverage as one number per
+  faction, party-wide. That's wrong — `aow_srd.html` ch3-leverage says
+  "one score per significant NPC and faction... for the heir," and
+  `aow_play_sheet.html`'s real `state.leverage` is scoped to one heir.
+  Fixed by replacing `factionStanding` with `politicalNodes` (one shared
+  node per NPC/faction, holding a per-actor score map) and bumping
+  `SCHEMA_VERSION` 1 → 2, so `persistence.js`'s version check catches an
+  old save rather than silently misreading it.
+
+**Surveyed, deliberately not ported**: ripple propagation to "conductor"
+NPCs (needs the `WORLD_NPCS` relationship graph, a real but separate
+content-import task) and all narrative hook-text generation (GM-facing
+prose, not pure engine logic — `resolve()` stays data in, data out).
+`aow_spell_creator.html`'s full spell-syntax grammar and `SPELL_LIBRARY`
+content exist and are real, but weren't imported wholesale this round —
+`createSpell` carries `brief`/`syntax`/`flags` so a future pass can.
+
 ## Confidence labeling
 
 - **Verified**: the Checkpoint 1 weight/trigger model and wound/stamina
-  rules (see prior notes below); the Checkpoint 2 additions above, each
-  against a hand-derived case tracing a specific quoted SRD line — no
-  second narrated worked exchange exists for any of this, same honest gap
-  as Checkpoint 1's wound/stamina case.
+  rules; the Checkpoint 2 additions, each against a hand-derived case
+  tracing a specific quoted SRD line; the Checkpoint 3 Weight Engine port,
+  hand-verified against the real formula's own arithmetic (tier*1.5,
+  fractional carry at exactly 1.0, threshold escalation floored at 2); the
+  heir-import adapter, run against a fixture built from the real export
+  shape read directly out of `aow_heir_record.html`'s own code, not
+  invented.
 - **Not yet verified**: Torso's "stamina degrades faster" is implemented as
   a documented fact only — this engine does not auto-accelerate stamina
   stage transitions from a Torso wound (that timing is explicitly
@@ -112,10 +180,14 @@ explicitly-flagged Politics gap, on purpose:
   for a worked case to check numerically. Multi-exchange sequences beyond
   two exchanges, sustained T5/T6 casting across exchanges (marked
   `sustained: true` but not driven through a real multi-exchange sequence
-  yet), and any interaction between Checkpoint 2's new mechanics and
-  Checkpoint 1's initiative/technique logic in the same encounter, remain
-  unexercised.
+  yet), ripple propagation, and ANY interaction between the Weight
+  Engine's political-node state and combat's initiative/technique logic in
+  the same encounter, remain unexercised. The import adapter has been run
+  against one hand-built fixture, not a real file the user actually
+  exports from `aow_heir_record.html` — that's the next real test, not
+  this one.
 - **Explicitly out of scope here**: house content, narrative branches, the
   Essence-ledger-style World State *behavior* beyond Leverage (the schema
   exists for entities/choices; no behavior drives them yet), Caravan and
-  Exploration encounter types entirely, per the scope decision above.
+  Exploration encounter types entirely, ripple propagation, and narrative
+  hook-text generation.

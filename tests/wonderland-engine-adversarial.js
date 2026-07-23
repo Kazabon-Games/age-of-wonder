@@ -266,7 +266,7 @@ function ok(cond, label) {
     const { createCharacterRecord } = window.Wonderland.schema;
     const { resolve } = window.Wonderland.engine;
     const results = {};
-    let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+    let state = { schemaVersion: 2, party: [], characters: {}, worldFlags: {}, politicalNodes: {}, currentEncounter: null };
     state.characters.char_arm = createCharacterRecord({ id: 'char_arm', wounds: ['weaponArm'] });
     state.characters.char_other = createCharacterRecord({ id: 'char_other' });
     state = resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_arm', 'char_other'], location: 'insideBarrier' });
@@ -295,7 +295,7 @@ function ok(cond, label) {
     const results = {};
 
     function freshEncounter(overrides = {}) {
-      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      let state = { schemaVersion: 2, party: [], characters: {}, worldFlags: {}, politicalNodes: {}, currentEncounter: null };
       state.characters.char_caster = createCharacterRecord({ id: 'char_caster', ...overrides });
       state.characters.char_dummy = createCharacterRecord({ id: 'char_dummy' });
       return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_caster', 'char_dummy'], location: 'insideBarrier' });
@@ -365,7 +365,7 @@ function ok(cond, label) {
 
     // Spear: opponent must spend Move+React to close (line 1570).
     function spearEncounter() {
-      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      let state = { schemaVersion: 2, party: [], characters: {}, worldFlags: {}, politicalNodes: {}, currentEncounter: null };
       state.characters.char_spear = createCharacterRecord({ id: 'char_spear', weaponSpecialty: 'spear' });
       state.characters.char_closer = createCharacterRecord({ id: 'char_closer' });
       return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_spear', 'char_closer'], location: 'insideBarrier' });
@@ -383,7 +383,7 @@ function ok(cond, label) {
       results.closeWithMoveAndReact = 'threw: ' + e.message;
     }
     // Sanity: Move-only is fine against a non-Spear opponent.
-    let plainState = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+    let plainState = { schemaVersion: 2, party: [], characters: {}, worldFlags: {}, politicalNodes: {}, currentEncounter: null };
     plainState.characters.char_a = createCharacterRecord({ id: 'char_a' });
     plainState.characters.char_b = createCharacterRecord({ id: 'char_b' });
     plainState = resolve(plainState, { type: 'INIT_ENCOUNTER', characterIds: ['char_a', 'char_b'], location: 'insideBarrier' });
@@ -396,7 +396,7 @@ function ok(cond, label) {
 
     // Staff: absorb one wound, once per encounter (line 1586).
     function staffEncounter() {
-      let state = { schemaVersion: 1, party: [], characters: {}, worldFlags: {}, factionStanding: {}, currentEncounter: null };
+      let state = { schemaVersion: 2, party: [], characters: {}, worldFlags: {}, politicalNodes: {}, currentEncounter: null };
       state.characters.char_staff = createCharacterRecord({ id: 'char_staff', weaponSpecialty: 'staff' });
       state.characters.char_other = createCharacterRecord({ id: 'char_other' });
       return resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_staff', 'char_other'], location: 'insideBarrier' });
@@ -454,22 +454,215 @@ function ok(cond, label) {
     'Outside the city: Spent stamina does NOT auto-end combat — SRD says combat "can continue past Spent" there, no hard threshold given (line 1631)'
   );
 
-  console.log('14. Checkpoint 2 — Leverage clamp (Politics chapter, resolves Checkpoint 1\'s flagged gap)');
+  console.log('14. Checkpoint 2 — Leverage clamp, now per-actor on a political node (corrected in Checkpoint 3 — see below)');
   const leverageResults = await page.evaluate(() => {
-    const { createSaveState } = window.Wonderland.schema;
+    const { createSaveState, createPoliticalNode } = window.Wonderland.schema;
     const { resolve } = window.Wonderland.engine;
     let state = createSaveState();
-    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: 3 });
-    const afterFirst = state.factionStanding.faction_watch;
-    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: 3 });
-    const afterSecond = state.factionStanding.faction_watch; // 3+3=6, must clamp to 5
-    state = resolve(state, { type: 'MODIFY_LEVERAGE', factionId: 'faction_watch', delta: -20 });
-    const afterFloor = state.factionStanding.faction_watch; // must clamp to -5
-    return { afterFirst, afterSecond, afterFloor };
+    state.politicalNodes.cityWatch = createPoliticalNode({ id: 'cityWatch', name: 'City Watch' });
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', targetId: 'cityWatch', actorId: 'char_mira', delta: 3 });
+    const afterFirst = state.politicalNodes.cityWatch.scores.char_mira;
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', targetId: 'cityWatch', actorId: 'char_mira', delta: 3 });
+    const afterSecond = state.politicalNodes.cityWatch.scores.char_mira; // 3+3=6, must clamp to 5
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', targetId: 'cityWatch', actorId: 'char_mira', delta: -20 });
+    const afterFloor = state.politicalNodes.cityWatch.scores.char_mira; // must clamp to -5
+    // A second actor's score with the SAME node must be completely
+    // independent — this is the actual bug in Checkpoint 2's original
+    // design: leverage is per-heir, not party-wide (ch3-leverage: "one
+    // score per significant NPC and faction... for the heir").
+    state = resolve(state, { type: 'MODIFY_LEVERAGE', targetId: 'cityWatch', actorId: 'char_davan', delta: 2 });
+    const secondActorIndependent = state.politicalNodes.cityWatch.scores.char_davan === 2 && state.politicalNodes.cityWatch.scores.char_mira === -5;
+    let missingNodeThrew = 'did not throw';
+    try { resolve(state, { type: 'MODIFY_LEVERAGE', targetId: 'no_such_node', actorId: 'char_mira', delta: 1 }); }
+    catch (e) { missingNodeThrew = 'threw: ' + e.message; }
+    return { afterFirst, afterSecond, afterFloor, secondActorIndependent, missingNodeThrew };
   });
   ok(leverageResults.afterFirst === 3, 'Leverage starts at 0 (unset), +3 delta lands at 3');
   ok(leverageResults.afterSecond === 5, 'Leverage clamps at +5 — "No score can exceed +5" (line 972)');
   ok(leverageResults.afterFloor === -5, 'Leverage clamps at -5 — "or fall below -5" (line 972)');
+  ok(leverageResults.secondActorIndependent, 'Two different heirs\' leverage with the same node are tracked completely independently (ch3-leverage: leverage is per-heir)');
+  ok(leverageResults.missingNodeThrew !== 'did not throw', 'MODIFY_LEVERAGE throws on an unknown political node rather than silently creating one');
+
+  console.log('15. Checkpoint 3 — the real Weight Engine, ported from aow_gm_screen.html');
+  const weightEngineResults = await page.evaluate(() => {
+    const { createSaveState, createPoliticalNode } = window.Wonderland.schema;
+    const { resolve, effectiveThreshold } = window.Wonderland.engine;
+    const results = {};
+
+    function freshState() {
+      let s = createSaveState();
+      s.politicalNodes.cityWatch = createPoliticalNode({ id: 'cityWatch', name: 'City Watch', baseThreshold: 5 });
+      return s;
+    }
+
+    // T3 favorable: baseWeight=4.5, deltaMag=1 (tier>=3), no fractional carry.
+    let s = freshState();
+    s = resolve(s, { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_mira', tier: 3, direction: 'favorable' });
+    results.t3AccumWeight = s.politicalNodes.cityWatch.accumWeight; // 4.5, below threshold 5
+    results.t3Score = s.politicalNodes.cityWatch.scores.char_mira; // +1
+    results.t3NotTriggeredYet = s.politicalNodes.cityWatch.fireCount === 0;
+
+    // A second T3 favorable action: accumWeight 4.5+4.5=9 >= threshold 5 -> fires, resets to 0.
+    s = resolve(s, { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_mira', tier: 3, direction: 'favorable' });
+    results.t3TriggeredSecondTime = s.politicalNodes.cityWatch.fireCount === 1 && s.politicalNodes.cityWatch.accumWeight === 0;
+    results.t3ScoreAfterSecond = s.politicalNodes.cityWatch.scores.char_mira; // +2
+
+    // T1 favorable: fracDelta=0.25, no whole-point movement until it accumulates past 1 (4 actions).
+    let f = freshState();
+    for (let i = 0; i < 3; i++) f = resolve(f, { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_davan', tier: 1, direction: 'favorable' });
+    results.t1ThreeActionsNoScoreYet = (f.politicalNodes.cityWatch.scores.char_davan || 0) === 0;
+    f = resolve(f, { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_davan', tier: 1, direction: 'favorable' });
+    results.t1FourthActionCarries = f.politicalNodes.cityWatch.scores.char_davan === 1; // 0.25*4=1.0 -> carries
+
+    // Hostile direction flips the sign.
+    let h = freshState();
+    h = resolve(h, { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_mira', tier: 4, direction: 'hostile' });
+    results.hostileIsNegative = h.politicalNodes.cityWatch.scores.char_mira === -1;
+
+    // Escalation: effectiveThreshold = max(2, baseThreshold - fireCount) — a node that keeps firing gets twitchier.
+    const escalatedNode = { baseThreshold: 5, fireCount: 4 };
+    results.escalatedThreshold = effectiveThreshold(escalatedNode) === 2; // floored at 2, not 5-4=1
+    const freshNode = { baseThreshold: 5, fireCount: 0 };
+    results.freshThreshold = effectiveThreshold(freshNode) === 5;
+
+    // Bad tier/direction fail loudly rather than silently doing nothing.
+    let badResults = {};
+    try { resolve(freshState(), { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_mira', tier: 7, direction: 'favorable' }); badResults.badTier = 'did not throw'; }
+    catch (e) { badResults.badTier = 'threw'; }
+    try { resolve(freshState(), { type: 'LOG_POLITICAL_ACTION', targetId: 'cityWatch', actorId: 'char_mira', tier: 3, direction: 'neutral' }); badResults.badDirection = 'did not throw'; }
+    catch (e) { badResults.badDirection = 'threw'; }
+    results.badTierThrew = badResults.badTier === 'threw';
+    results.badDirectionThrew = badResults.badDirection === 'threw';
+
+    return results;
+  });
+  ok(weightEngineResults.t3AccumWeight === 4.5, 'T3 political action: baseWeight = tier*1.5 = 4.5, accumulated on the node');
+  ok(weightEngineResults.t3Score === 1, 'T3 favorable: score moves a full +1 (tier>=3 uses deltaMag, not fractional)');
+  ok(weightEngineResults.t3NotTriggeredYet, 'One T3 action (4.5 weight) does not yet cross a threshold-5 node');
+  ok(weightEngineResults.t3TriggeredSecondTime, 'A second T3 action crosses threshold (9 >= 5): fires once, accumWeight resets to 0');
+  ok(weightEngineResults.t3ScoreAfterSecond === 2, 'Score keeps accumulating across exchanges independent of the trigger firing (+1 then +1 = 2)');
+  ok(weightEngineResults.t1ThreeActionsNoScoreYet, 'T1 actions move score by a 0.25 fraction each — three of them (0.75 total) haven\'t carried into a whole point yet');
+  ok(weightEngineResults.t1FourthActionCarries, 'The fourth T1 action (0.25*4=1.0) carries into a whole +1 point, exactly as the real tool\'s fractional-carry logic does');
+  ok(weightEngineResults.hostileIsNegative, 'Hostile direction flips the sign — a T4 hostile action moves score by -1');
+  ok(weightEngineResults.escalatedThreshold, 'effectiveThreshold: a node that has fired 4 times off a base-5 threshold is floored at 2, not (5-4)=1 or less');
+  ok(weightEngineResults.freshThreshold, 'effectiveThreshold: an unfired node uses its base threshold unchanged');
+  ok(weightEngineResults.badTierThrew, 'LOG_POLITICAL_ACTION throws on a tier outside 1-5 rather than silently no-op-ing');
+  ok(weightEngineResults.badDirectionThrew, 'LOG_POLITICAL_ACTION throws on an unknown direction rather than silently no-op-ing');
+
+  console.log('16. Checkpoint 3 — Capstone application (aow_heir_record.html CAPSTONES)');
+  const capstoneResults = await page.evaluate(() => {
+    const { createSaveState, createCharacterRecord, createPoliticalNode } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    const results = {};
+
+    function freshState() {
+      let s = createSaveState();
+      s.characters.char_mira = createCharacterRecord({
+        id: 'char_mira',
+        capstone: {
+          aspect: 'combat',
+          leverageBonus: { key: 'cityWatch', amount: 2 },
+          leveragePenalty: [{ key: 'scholarsGuild', amount: 1 }, { key: 'churchOfAxiom', amount: 1 }],
+          usedThisSession: false,
+        },
+      });
+      s.politicalNodes.cityWatch = createPoliticalNode({ id: 'cityWatch' });
+      s.politicalNodes.scholarsGuild = createPoliticalNode({ id: 'scholarsGuild' });
+      s.politicalNodes.churchOfAxiom = createPoliticalNode({ id: 'churchOfAxiom' });
+      return s;
+    }
+
+    let s = freshState();
+    s = resolve(s, { type: 'APPLY_CAPSTONE', characterId: 'char_mira' });
+    results.bonusApplied = s.politicalNodes.cityWatch.scores.char_mira === 2;
+    results.penaltiesApplied = s.politicalNodes.scholarsGuild.scores.char_mira === -1 && s.politicalNodes.churchOfAxiom.scores.char_mira === -1;
+    results.markedUsed = s.characters.char_mira.capstone.usedThisSession === true;
+
+    let secondUse = 'allowed';
+    try { resolve(s, { type: 'APPLY_CAPSTONE', characterId: 'char_mira' }); }
+    catch (e) { secondUse = 'threw: ' + e.message; }
+    results.secondUseRejected = secondUse !== 'allowed';
+
+    s = resolve(s, { type: 'RESET_CAPSTONE_USAGE', characterId: 'char_mira' });
+    let afterReset = 'threw';
+    try {
+      s = resolve(s, { type: 'APPLY_CAPSTONE', characterId: 'char_mira' });
+      afterReset = 'allowed';
+    } catch (e) { /* leave as 'threw' */ }
+    results.usableAgainAfterReset = afterReset === 'allowed';
+
+    let noCapstoneState = createSaveState();
+    noCapstoneState.characters.char_davan = createCharacterRecord({ id: 'char_davan' }); // capstone: null by default
+    let noCapstoneResult = 'allowed';
+    try { resolve(noCapstoneState, { type: 'APPLY_CAPSTONE', characterId: 'char_davan' }); }
+    catch (e) { noCapstoneResult = 'threw: ' + e.message; }
+    results.noCapstoneRejected = noCapstoneResult !== 'allowed';
+
+    return results;
+  });
+  ok(capstoneResults.bonusApplied, 'Capstone leverageBonus applies to the named node (line 960: cityWatch +2)');
+  ok(capstoneResults.penaltiesApplied, 'Capstone leveragePenalty applies to every named node (line 961: scholarsGuild -1, churchOfAxiom -1)');
+  ok(capstoneResults.markedUsed, 'Capstone marks usedThisSession true after use');
+  ok(capstoneResults.secondUseRejected, 'A second APPLY_CAPSTONE in the same session is rejected ("once per session")');
+  ok(capstoneResults.usableAgainAfterReset, 'RESET_CAPSTONE_USAGE clears the flag, making the capstone usable again next session');
+  ok(capstoneResults.noCapstoneRejected, 'A character with no capstone (the common case — only five-year single-aspect commitment grants one) is rejected, not silently no-op\'d');
+
+  console.log('17. Checkpoint 3 — real heir-record import adapter (aow_heir_record.html export shape)');
+  const importResults = await page.evaluate(() => {
+    const { importHeirRecord } = window.Wonderland.importHeirRecord;
+    const results = {};
+
+    // Fixture built from the REAL export shape read directly out of
+    // aow_heir_record.html's own `const record={...}` construction
+    // (identity/house/awakening/combatProfile/capstone/startingLeverage/
+    // npcs) — not an invented shape.
+    const fixture = {
+      version: '1.1',
+      identity: { givenName: 'Mira', name: 'Mira of House Ashvane', houseName: 'Ashvane', councillorTitle: 'Warden of the Docks' },
+      house: { name: 'Ashvane', ideal1: 'Duty', ideal2: 'Precision', heirStanding: 'firstborn' },
+      awakening: { revealedSchool: 'DOM', magicStudyYears: 2, startingSpells: ['Kindle', 'Old Grant (adjacent)'] },
+      combatProfile: { weaponSpecialty: 'Sword', fightingStyle: 'Duelist-Mage', signatureTechnique: 'Riposte', presenceLevel: 'Trained' },
+      capstone: { aspect: 'combat', leverageBonus: { key: 'cityWatch', amount: 2 }, leveragePenalty: [{ key: 'scholarsGuild', amount: 1 }] },
+      startingLeverage: { cityWatch: 1, kingHector: 0 },
+      npcs: {
+        councillor: { name: 'Lord Denic', reputation: 'stern', goal: 'stability', fear: 'scandal', expects: 'discretion' },
+        rival: { name: 'Ser Calen', faction: 'House Voss', want: 'the docks contract', leverage: 'knows about the smuggling' },
+      },
+    };
+    const result = importHeirRecord(fixture);
+    results.characterId = result.character.id;
+    results.weaponSpecialtyLowercased = result.character.weaponSpecialty === 'sword';
+    results.signatureTechniqueHasNullTrigger = result.character.techniques[0].trigger === null;
+    results.signatureTechniqueKeepsRawText = result.character.techniques[0].rawTriggerText === 'Defined by fighting style — confirm with GM';
+    results.adjacentSpellSkipped = result.character.spells.length === 1 && result.character.spells[0].name === 'Kindle';
+    results.warnedAboutSkippedSpell = result.warnings.some((w) => w.includes('Old Grant'));
+    results.houseIdDerived = result.house.id === 'ashvane';
+    results.contactsImported = result.character.contacts.length === 2 && result.character.contacts.some((c) => c.type === 'rival');
+    results.startingLeveragePassedThrough = result.startingLeverage.cityWatch === 1;
+
+    // Round-trip the imported character through schema.js's own JSON
+    // check — the imported record must be exactly as plain/serializable
+    // as anything created directly through createCharacterRecord.
+    results.jsonRoundTripsCleanly = JSON.stringify(JSON.parse(JSON.stringify(result.character))) === JSON.stringify(result.character);
+
+    let missingFieldsResult = 'allowed';
+    try { importHeirRecord({ identity: {}, awakening: {} }); }
+    catch (e) { missingFieldsResult = 'threw: ' + e.message; }
+    results.missingRequiredFieldsRejected = missingFieldsResult !== 'allowed';
+
+    return results;
+  });
+  ok(importResults.characterId === 'mira', 'Imported character gets a slugified id from the heir\'s given name');
+  ok(importResults.weaponSpecialtyLowercased, 'weaponSpecialty normalizes "Sword" -> "sword" to match WEAPON_SPECIALTIES');
+  ok(importResults.signatureTechniqueHasNullTrigger, 'Imported signature technique has trigger: null — never a guessed structured predicate');
+  ok(importResults.signatureTechniqueKeepsRawText, 'Imported signature technique keeps the real placeholder text verbatim (matches aow_play_sheet.html exactly)');
+  ok(importResults.adjacentSpellSkipped, 'A spell tagged "(adjacent)" by the retired auto-grant rule is skipped on import, matching aow_play_sheet.html\'s own fix');
+  ok(importResults.warnedAboutSkippedSpell, 'The skip is surfaced as a warning, not silent');
+  ok(importResults.houseIdDerived, 'House id is slugified from the real house name');
+  ok(importResults.contactsImported, 'Councillor and rival both import as contacts, with the rival correctly typed');
+  ok(importResults.startingLeveragePassedThrough, 'startingLeverage passes through for the caller to apply via MODIFY_LEVERAGE once nodes exist');
+  ok(importResults.jsonRoundTripsCleanly, 'The imported character is exactly as plain/JSON-serializable as one built directly through createCharacterRecord');
+  ok(importResults.missingRequiredFieldsRejected, 'importHeirRecord throws on a record missing name/revealed school, matching the real tool\'s own validation');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();

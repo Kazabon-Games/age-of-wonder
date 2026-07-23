@@ -61,6 +61,41 @@
  * numbers exist there too — starting Momentum is
  * round((Route+Cohesion+Cover)/1.2) — but they're separate encounter
  * types, not combat, and deserve their own dedicated pass).
+ *
+ * Checkpoint 3 additions (2026-07-23): dug through the rest of the AOW
+ * suite (aow_heir_record.html, aow_play_sheet.html, aow_gm_screen.html,
+ * aow_spell_creator.html), not just the SRD — those are real, shipped,
+ * battle-tested tools with their own proven data models and formulas,
+ * not just prose to extract rules from. Two significant findings changed
+ * this file:
+ *   - aow_gm_screen.html's "Weight Engine" (applyWeightAndGenerateHooks)
+ *     is the actual, working ancestor of the "weight/trigger model"
+ *     language in the original Checkpoint 1 handover doc — a DIFFERENT
+ *     system from this file's combat initiative weight model, operating
+ *     on political leverage instead. Ported the mechanical core
+ *     (computePoliticalActionEffect/effectiveThreshold, LOG_POLITICAL_ACTION)
+ *     faithfully: tier*1.5 base weight, whole-point score deltas at tier
+ *     3+ vs. fractional-carry deltas at tier 1-2, and an escalating
+ *     trigger threshold (max(2, base - fireCount)). NOT ported: ripple
+ *     propagation to "conductor" NPCs and all narrative hook-text
+ *     generation — the former needs the WORLD_NPCS relationship graph
+ *     this repo hasn't imported, the latter is GM-facing prose, not pure
+ *     engine logic.
+ *   - Checkpoint 2's MODIFY_LEVERAGE/factionStanding was WRONG: it
+ *     modeled leverage as one party-wide number per faction. The real
+ *     system (aow_play_sheet.html's per-heir state.leverage, and
+ *     aow_srd.html ch3-leverage's own text: "one score per significant
+ *     NPC and faction... for the heir") tracks it per actor against a
+ *     shared node. Corrected: SaveState.factionStanding -> politicalNodes
+ *     (schemaVersion 1 -> 2), MODIFY_LEVERAGE now takes an actorId.
+ * Also added: APPLY_CAPSTONE/RESET_CAPSTONE_USAGE (real Capstone content
+ * from aow_heir_record.html — a flat leverage bonus/penalty for a
+ * five-year single-aspect commitment, once per session).
+ *
+ * importHeirRecord.js (new file, not this one) adapts a real
+ * aow_heir_record.html JSON export into this schema — see its own header
+ * for the import discipline, mirrored from aow_play_sheet.html's proven
+ * importFromS0().
  */
 
 (function (root) {
@@ -484,22 +519,164 @@ function isCombatOver(character, location) {
   return character.stamina === 'spent' || character.wounds.length >= 3;
 }
 
+function findPoliticalNode(state, nodeId) {
+  const node = state.politicalNodes[nodeId];
+  if (!node) {
+    throw new Error(`wonderland/engine: unknown political node "${nodeId}" — add it to state.politicalNodes before referencing it (see schema.js createPoliticalNode)`);
+  }
+  return node;
+}
+
+// aow_srd.html ch3-leverage: "No score can exceed +5 or fall below -5."
+function clampLeverageScore(value) {
+  return Math.max(-5, Math.min(5, value));
+}
+
 function applyModifyLeverage(state, action) {
-  const { factionId, delta } = action;
-  if (typeof factionId !== 'string' || !factionId) {
-    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a factionId string');
+  const { targetId, actorId, delta } = action;
+  if (typeof targetId !== 'string' || !targetId) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a targetId string');
+  }
+  if (typeof actorId !== 'string' || !actorId) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires an actorId string — leverage is per-heir, not party-wide (aow_srd.html ch3-leverage)');
   }
   if (typeof delta !== 'number' || !Number.isFinite(delta)) {
     throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a numeric delta');
   }
-  // aow_srd.html ch3-leverage: "No score can exceed +5 or fall below -5."
-  // The delta itself is a GM call (how much a given action moves the
-  // needle) — not something this engine invents a formula for; only the
-  // ceiling/floor clamp is a hard rule.
-  const current = state.factionStanding[factionId] || 0;
-  const clamped = Math.max(-5, Math.min(5, current + delta));
+  findPoliticalNode(state, targetId); // throws loudly if unknown
+  // The delta itself is a GM call (how much a given flat adjustment moves
+  // the needle, e.g. a Capstone bonus/penalty) — not something this engine
+  // invents a formula for; only the ceiling/floor clamp is a hard rule.
+  // For a tier-based political action with the real accumulating-weight
+  // math instead of a flat delta, use LOG_POLITICAL_ACTION below.
   const next = deepClone(state);
-  next.factionStanding[factionId] = clamped;
+  const node = next.politicalNodes[targetId];
+  const current = node.scores[actorId] || 0;
+  node.scores[actorId] = clampLeverageScore(current + delta);
+  return next;
+}
+
+/**
+ * The real Weight Engine, ported from aow_gm_screen.html's
+ * applyWeightAndGenerateHooks() (action-event branch). That tool also
+ * generates GM-facing narrative hook text and ripples the weight out to
+ * "conductor" NPCs via a relationship graph (WORLD_NPCS) this repo hasn't
+ * imported — both deliberately left out here. What's ported is the
+ * mechanical core: a political action of a given tier and direction adds
+ * weight to a node, moves the acting character's score with that node
+ * (by a whole point at tier 3-4, two points at tier 5, or a fractional
+ * amount at tier 1-2 that carries into a whole point once it accumulates
+ * past 1), and can "fire" — a trigger the content layer can react to —
+ * once accumulated weight crosses the node's threshold. A node that
+ * keeps firing gets a lower effective threshold each time (floored at 2),
+ * modeling escalation rather than requiring identical pressure every time.
+ */
+function effectiveThreshold(node) {
+  return Math.max(2, node.baseThreshold - (node.fireCount || 0));
+}
+
+function computePoliticalActionEffect(node, actorId, tier, direction) {
+  if (!Number.isInteger(tier) || tier < 1 || tier > 5) {
+    throw new Error(`wonderland/engine: political action tier must be an integer 1-5, got "${tier}"`);
+  }
+  if (direction !== 'favorable' && direction !== 'hostile') {
+    throw new Error(`wonderland/engine: political action direction must be "favorable" or "hostile", got "${direction}"`);
+  }
+  const baseWeight = tier * 1.5;
+  const sign = direction === 'hostile' ? -1 : 1;
+  const deltaMag = tier === 5 ? 2 : tier >= 3 ? 1 : 0;
+  const fracDelta = tier === 2 ? 0.5 : tier === 1 ? 0.25 : 0;
+
+  const accumWeight = (node.accumWeight || 0) + baseWeight;
+  let score = node.scores[actorId] || 0;
+  let fractional = node.fractional[actorId] || 0;
+  if (deltaMag > 0) {
+    score = clampLeverageScore(score + sign * deltaMag);
+  } else if (fracDelta > 0) {
+    fractional += sign * fracDelta;
+    if (Math.abs(fractional) >= 1) {
+      score = clampLeverageScore(score + Math.sign(fractional));
+      fractional = 0;
+    }
+  }
+
+  const threshold = effectiveThreshold(node);
+  const triggered = accumWeight >= threshold;
+  return {
+    accumWeight: triggered ? 0 : accumWeight,
+    score,
+    fractional,
+    triggered,
+    fireCount: (node.fireCount || 0) + (triggered ? 1 : 0),
+  };
+}
+
+function applyLogPoliticalAction(state, action) {
+  const { targetId, actorId, tier, direction } = action;
+  if (typeof targetId !== 'string' || !targetId) {
+    throw new Error('wonderland/engine: LOG_POLITICAL_ACTION requires a targetId string');
+  }
+  if (typeof actorId !== 'string' || !actorId) {
+    throw new Error('wonderland/engine: LOG_POLITICAL_ACTION requires an actorId string');
+  }
+  const node = findPoliticalNode(state, targetId); // throws loudly if unknown
+  const effect = computePoliticalActionEffect(node, actorId, tier, direction); // throws loudly on a bad tier/direction
+
+  const next = deepClone(state);
+  const nextNode = next.politicalNodes[targetId];
+  nextNode.accumWeight = effect.accumWeight;
+  nextNode.scores[actorId] = effect.score;
+  nextNode.fractional[actorId] = effect.fractional;
+  nextNode.fireCount = effect.fireCount;
+  // No side-channel "did it trigger" flag on the returned state — data in,
+  // data out stays the only contract (§0). A caller that needs to know
+  // compares fireCount between the state it passed in and the state
+  // resolve() returned: an increase means this action crossed threshold.
+  return next;
+}
+
+/**
+ * A Capstone (aow_heir_record.html CAPSTONES): a flat leverage
+ * bonus/penalty a character earns for committing five session-zero years
+ * to one aspect, usable once per session. Unlike LOG_POLITICAL_ACTION,
+ * this is a direct, immediate score adjustment — no accumulating weight,
+ * no threshold, no trigger — so it goes through the same clamp as
+ * MODIFY_LEVERAGE rather than the weight-engine math above.
+ */
+function applyCapstone(state, action) {
+  const { characterId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!character.capstone) {
+    throw new Error(`wonderland/engine: "${characterId}" has no capstone to apply`);
+  }
+  if (character.capstone.usedThisSession) {
+    throw new Error(`wonderland/engine: "${characterId}" has already used their capstone this session`);
+  }
+  const { leverageBonus, leveragePenalty } = character.capstone;
+  if (leverageBonus) findPoliticalNode(state, leverageBonus.key); // throws loudly if unknown
+  (leveragePenalty || []).forEach((p) => findPoliticalNode(state, p.key)); // throws loudly if unknown
+
+  const next = deepClone(state);
+  if (leverageBonus) {
+    const node = next.politicalNodes[leverageBonus.key];
+    node.scores[characterId] = clampLeverageScore((node.scores[characterId] || 0) + leverageBonus.amount);
+  }
+  (leveragePenalty || []).forEach((p) => {
+    const node = next.politicalNodes[p.key];
+    node.scores[characterId] = clampLeverageScore((node.scores[characterId] || 0) - p.amount);
+  });
+  next.characters[characterId].capstone.usedThisSession = true;
+  return next;
+}
+
+function applyResetCapstoneUsage(state, action) {
+  const { characterId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!character.capstone) {
+    throw new Error(`wonderland/engine: "${characterId}" has no capstone to reset`);
+  }
+  const next = deepClone(state);
+  next.characters[characterId].capstone.usedThisSession = false;
   return next;
 }
 
@@ -535,6 +712,12 @@ function resolve(currentState, action) {
       return applySetStamina(currentState, action);
     case 'MODIFY_LEVERAGE':
       return applyModifyLeverage(currentState, action);
+    case 'LOG_POLITICAL_ACTION':
+      return applyLogPoliticalAction(currentState, action);
+    case 'APPLY_CAPSTONE':
+      return applyCapstone(currentState, action);
+    case 'RESET_CAPSTONE_USAGE':
+      return applyResetCapstoneUsage(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }
@@ -548,6 +731,8 @@ const api = {
   effectiveSlotCount,
   castingSlotCost,
   isCombatOver,
+  effectiveThreshold,
+  computePoliticalActionEffect,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

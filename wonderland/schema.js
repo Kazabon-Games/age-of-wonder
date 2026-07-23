@@ -24,7 +24,14 @@
 
 (function (root) {
 
-const SCHEMA_VERSION = 1;
+// Bumped 1 -> 2 in Checkpoint 3: SaveState's factionStanding (one
+// party-wide number per house) was replaced by politicalNodes (one
+// shared node per NPC/faction, holding a per-actor score map) — see
+// createPoliticalNode's own comment for why. persistence.js's
+// getSaveState() schemaVersion check means an old v1 save fails loudly
+// on load rather than silently misreading factionStanding as something
+// it no longer is.
+const SCHEMA_VERSION = 2;
 
 const STAMINA_STAGES = Object.freeze(['fresh', 'winded', 'strained', 'spent']);
 const WOUND_LOCATIONS = Object.freeze(['weaponArm', 'shieldArm', 'legs', 'torso', 'head', 'presence']);
@@ -44,11 +51,31 @@ function createCharacterRecord(overrides = {}) {
       combatYears: 0, // session-zero Combat aspect years; 0 = untrained Presence per SRD ch4-presence
       weaponSpecialty: null, // one of WEAPON_SPECIALTIES or null
       techniques: [], // array of Technique (see createTechnique)
+      spells: [], // array of Spell (see createSpell)
       startingEquipment: [], // array of equipment id strings
       // Combat-state fields below are transient per-encounter in spirit, but
       // stored on the character record so a save mid-encounter is possible.
       stamina: 'fresh', // one of STAMINA_STAGES
       wounds: [], // array of WOUND_LOCATIONS, may contain duplicates (SRD: wounds accumulate)
+      // Willstrain has no numeric formula in aow_srd.html (ch2-willstrain
+      // tracks it narratively, via GM-read signals) — but aow_play_sheet.html
+      // shows the real, shipped tool DOES reduce it to an explicit 0-4
+      // number in practice (strain:0, "0-4"), set by the player/GM at the
+      // table exactly like stamina/wounds are here, not auto-computed by
+      // any formula. Matches this schema's existing pattern for stamina.
+      willstrainStage: 0, // 0=none, 1=Thinning, 2=Fraying, 3=Slippage, 4=Severance (aow_srd.html ch2-willstrain)
+      // Only present if the heir committed five session-zero years to one
+      // aspect (aow_heir_record.html CAPSTONES) — null otherwise.
+      // { aspect, aspectName, title, description, usage, leverageBonus:
+      // {key,amount}, leveragePenalty: [{key,amount}], usedThisSession }
+      capstone: null,
+      // Player-tracked resources — real fields from aow_play_sheet.html's
+      // state, generalized from that tool's single-heir assumption to
+      // per-character here since a Wonderland SaveState holds a full party.
+      contacts: [], // array of { name, faction, want, know, available, type, activated }
+      loot: [],
+      documents: [],
+      debts: [],
     },
     overrides
   );
@@ -72,6 +99,16 @@ function createTechnique(overrides = {}) {
       slotCost: ['act'], // subset of ACTION_SLOTS
       effect: '', // human-readable effect text; engine.js does not parse this
       resolvesRegardlessOfInitiative: false, // Riposte-style reactive techniques
+      // aow_play_sheet.html's real signature-technique default is
+      // 'Defined by fighting style — confirm with GM' — i.e. a freshly
+      // imported technique from a real heir record has NO machine-readable
+      // trigger yet, only free text a GM still has to formalize at the
+      // table. rawTriggerText carries that prose without engine.js ever
+      // trying to parse it into a structured `trigger` above — see
+      // importHeirRecord.js, which deliberately leaves `trigger: null`
+      // on import rather than guessing a predicate from this string.
+      rawTriggerText: '',
+      dependency: 'none', // free-text stamina/presence dependency note from the real tool; not enforced here
     },
     overrides
   );
@@ -89,10 +126,19 @@ function createTechnique(overrides = {}) {
 function createSpell(overrides = {}) {
   return Object.assign(
     {
-      id: null, // e.g. "spell_ember_dart"
+      id: null, // e.g. "spell_kindle"
       name: '',
       school: null, // one of the Six Schools; free-form string, not enforced here
       tier: 1, // 1-6, aow_srd.html ch2-tiers
+      // aow_spell_creator.html / aow_play_sheet.html's real SPELL_LIBRARY
+      // carries these three too — brief is player-facing prose, syntax is
+      // the formal spell-syntax string (ch2-flags "Spell Syntax"), flags
+      // is the moral-flag count. None of these are parsed or enforced by
+      // engine.js — they're carried through so an imported spell keeps its
+      // real content instead of being flattened to just school+tier.
+      brief: '',
+      syntax: '',
+      flags: 0,
     },
     overrides
   );
@@ -175,9 +221,40 @@ function createEncounterState({ characterIds, location }) {
 }
 
 /**
- * Save-state schema: party composition, world flags, faction standing.
- * This is the top-level object persistence.js reads/writes as a whole
- * under a "save:<slot>" key — see persistence.js.
+ * A political "node" — one NPC or faction, tracked once (shared across
+ * the whole party), holding a separate leverage score PER ACTOR inside
+ * it. Ported from aow_gm_screen.html's real, shipped `state.nodes[key]`
+ * shape. This replaced SaveState's Checkpoint-2 `factionStanding` field
+ * (schemaVersion 1), which modeled leverage as one party-wide number per
+ * faction — wrong per aow_srd.html ch3-leverage's own text ("one score
+ * per significant NPC and faction... for the heir") and per
+ * aow_play_sheet.html's real per-heir `state.leverage`. Corrected here
+ * rather than compounded, since nothing outside this repo depended on
+ * the old shape yet.
+ * @param {Object} [overrides]
+ */
+function createPoliticalNode(overrides = {}) {
+  return Object.assign(
+    {
+      id: null, // e.g. "cityWatch" or "kingHector" — matches aow_play_sheet.html's real leverage keys
+      name: '',
+      // aow_gm_screen.html: baseThreshold defaults 5, or 8/3 for
+      // "high"/"special" weight NPCs — that high/special classification
+      // is content this schema doesn't carry, so callers set it directly.
+      baseThreshold: 5,
+      accumWeight: 0,
+      fireCount: 0,
+      scores: {}, // characterId -> integer -5..5, this actor's leverage with this node
+      fractional: {}, // characterId -> internal fractional carry, engine.js-only concern
+    },
+    overrides
+  );
+}
+
+/**
+ * Save-state schema: party composition, world flags, the political weight
+ * web. This is the top-level object persistence.js reads/writes as a
+ * whole under a "save:<slot>" key — see persistence.js.
  * @param {Object} [overrides]
  */
 function createSaveState(overrides = {}) {
@@ -188,7 +265,7 @@ function createSaveState(overrides = {}) {
       party: [], // array of character IDs (characters themselves live in `characters`)
       characters: {}, // characterId -> CharacterRecord
       worldFlags: {}, // flagId -> boolean | string | number
-      factionStanding: {}, // houseId -> integer standing score, one entry per house
+      politicalNodes: {}, // nodeId -> PoliticalNode, see createPoliticalNode above
       currentEncounter: null, // EncounterState | null, see createEncounterState above
     },
     overrides
@@ -232,6 +309,7 @@ const api = {
   createCombatantState,
   createDeclaration,
   createEncounterState,
+  createPoliticalNode,
   createSaveState,
   createWorldStateRecord,
 };

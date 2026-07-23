@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Wonderland Checkpoint 1 — Engine Test Harness</title>
+<title>Wonderland Checkpoints 1-3 — Engine Test Harness</title>
 </head>
 <body>
 <!--
@@ -13,15 +13,17 @@
   tests/wonderland-engine-adversarial.js to drive — same shape as the
   Game._test hooks the arcade games already use.
 -->
-<p>Wonderland Checkpoint 1 engine test harness. See tests/wonderland-engine-adversarial.js.</p>
+<p>Wonderland engine test harness. See tests/wonderland-engine-adversarial.js.</p>
 <script src="schema.js"></script>
 <script src="engine.js"></script>
 <script src="persistence.js"></script>
+<script src="importHeirRecord.js"></script>
 <script>
   window.Wonderland = {
     schema: window.WonderlandSchema,
     engine: window.WonderlandEngine,
     persistence: window.WonderlandPersistence,
+    importHeirRecord: window.WonderlandImportHeirRecord,
   };
   window.Wonderland._test = {
     resolve: window.WonderlandEngine.resolve,
