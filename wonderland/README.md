@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-4
+# Wonderland: First Principles — Checkpoints 1-5
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -6,15 +6,18 @@ digging through the *rest* of the AOW suite — not just the SRD — for real,
 already-shipped mechanics and a real heir-import boundary (Checkpoint 3,
 mapped loosely onto "one house vertical-sliced" from
 `WONDERLAND_RPG_HANDOVER_CHECKPOINT1.md`'s roadmap, `Studio-Internal-`
-repo). Checkpoint 4 ("remaining five houses") hit a hard wall — no house
-Kit/Principle/Transformation content exists anywhere yet, real or
+repo). Checkpoint 4 ("remaining five houses") first hit a hard wall — no
+house Kit/Principle/Transformation content existed anywhere yet, real or
 otherwise — so it proved the pipeline with one explicitly-labeled
-placeholder house instead of fabricating six houses' worth of invented
-lore (see its own section below). Not a game yet — no UI, no narrative
+placeholder house rather than fabricate six houses' worth of invented lore.
+That placeholder has since been **retired**: Kazabon supplied five real
+player-created heir records, each with its own real house, and authorized
+completing the roster with one more — see "The six-house registry" below
+for the real thing that replaced it. Not a game yet — no UI, no narrative
 prose. This is the pure resolution engine, the data shapes it operates on,
 and the adapters that import real player-created content, verified against
-real rules, real shipped tools, and real (if placeholder) mechanical
-proof — not read and judged plausible.
+real rules, real shipped tools, and now real house content — not read and
+judged plausible.
 
 ## Files
 
@@ -36,16 +39,16 @@ proof — not read and judged plausible.
   header for why its required-vs-default field discipline deliberately
   mirrors `aow_play_sheet.html`'s proven `importFromS0()` rather than
   reinventing that split.
-- **`placeholderHouse.js`** — Checkpoint 4: ONE explicitly-labeled
-  placeholder house (every name flagged `[PLACEHOLDER]`) proving
-  `HouseRecord`/`TransformationForm` and the `GRANT_TECHNIQUE`/
-  `ACTIVATE_TRANSFORMATION` actions work end-to-end. Not real content —
-  see its own header. Delete this file, don't extend it, once real house
-  content exists.
 - **`worldNpcs.js`** — REAL content (not placeholder), the mechanical
   fields of `aow_gm_screen.html`'s own `WORLD_NPCS` array: nine named,
   already-authored individuals and their relationship-graph edges to each
   other. Used to seed `politicalNodes` for ripple propagation — see below.
+- **`houses.js`** — REAL content: the canonical six-house registry. Five
+  houses transcribed from real player-created `aow_heir_record.html`
+  exports, one authored to complete the roster — see "The six-house
+  registry" below. `placeholderHouse.js` (Checkpoint 4's proof-of-pipeline
+  file) has been deleted now that this replaced it, per its own stated
+  "delete, don't extend" instruction.
 - **`harness.html`** — not a game screen; loads all six modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
@@ -183,7 +186,73 @@ content. **Partially overtaken by events**: ripple propagation itself
 already-authored `WORLD_NPCS` content (nine named individuals, not the
 six houses) that tests it against real data instead. The suggestion still
 stands for anything that specifically needs the *six houses* to exist as
-political nodes, which `worldNpcs.js` does not provide.
+political nodes, which `worldNpcs.js` does not provide until the section
+below.
+
+## The six-house registry (Checkpoint 5): real content, not placeholder
+
+Kazabon supplied five real player-created `aow_heir_record.html` exports —
+Miran of House Aethra, Ye K'ali of House Ye, Griffith Lightwell of House
+Lightwell, Alaric Aurelius Lionheart II of House Lionheart, Emily der Dachs
+of House Badgerhold — and authorized fabricating a sixth to complete the
+roster. `placeholderHouse.js` is deleted; `houses.js` is what replaced it.
+
+**A real structural finding surfaced immediately**: `aow_srd.html`
+ch1-districts is explicit that there are exactly six noble houses, one per
+district-type (military, mercantile, religious, scholarly, agricultural,
+magical) — not an open-ended or player-invented count. The five real
+houses didn't map cleanly onto that: Aethra and Lionheart both picked the
+Military district (independent choices, made before this six-house
+structure existed), and Trade and Scholarly were both completely
+unrepresented. Kazabon authorized adjusting one house rather than forcing
+a redundant roster: **House Lionheart is classified here as the Trade
+house**, not Military — its own real data already leans that way
+(`orientation.hold: "Wealth"`, resource `"Hidden wealth"`, conquest that
+functions as profitable expansion) even though its player picked Military
+on their own character sheet. That player's original file is untouched;
+this only changes how Wonderland's world-building classifies the house's
+political type. **House Corvane** (fabricated, Scholarly) fills the one
+remaining gap.
+
+**What got authored, for all six houses** (none of this existed anywhere —
+Checkpoint 4's research confirmed Kit/Principle/Transformation content is
+genuinely new, not extractable from any AOW suite file): one Principle
+(a one-phrase philosophy) per house, a Kit description, one
+Principle-tagged ability, and one Transformation form with a real unlock
+condition — every one of them grounded in that specific house's own
+established identity (its real orientation, ideals, founding, shadow,
+wound), not a generic reskin repeated six times. See `houses.js`'s own
+extensive header and inline comments for the reasoning behind each
+house's specific design choices.
+
+**A second real finding, from actually running the content**: `aow_gm_screen.html`'s
+`WORLD_NPCS` (keyed by person-role: `archivistGeneral`, `watchCommander`)
+and `aow_heir_record.html`'s `startingLeverage` (keyed by institution:
+`scholarsGuild`, `cityWatch`) are two different naming conventions for
+what's conceptually the same six factions — a real inconsistency in the
+AOW suite itself, not something introduced here. House Ye's and House
+Corvane's Transformation forms both originally referenced `scholarsGuild`
+(matching the real heir data) before this was caught by simply running the
+code against real `politicalNodes` content and hitting an "unknown
+political node" error — fixed by pointing both at `archivistGeneral`, the
+node that actually exists in the ripple graph.
+
+**A third real finding**: running the five real heir files through
+`importHeirRecord.js` for the first time (previously only tested against a
+hand-built fixture) surfaced a real integration gap — Emily's own file
+names her house `"Badgerhold"` (no "House" prefix), which
+`importHeirRecord.js`'s naive slugification turns into `badgerhold`, not
+matching this registry's `house_badgerhold`. The other four heirs all used
+"House X" naming, which happens to slug-match. This is a real,
+undocumented-until-now mismatch between free-text import and the
+canonical registry — not fixed here (matching by id isn't something either
+file currently attempts), flagged as a known gap for whoever wires the two
+together.
+
+Every one of the five real heir files was actually run through
+`importHeirRecord.js` for this checkpoint — all five import cleanly,
+including three real "(adjacent)"-tagged spell skips (the same retired
+auto-grant-rule bug `aow_play_sheet.html` fixed once already).
 
 ## Ripple propagation (post-Checkpoint-4): real relationship-graph content, ported faithfully
 
@@ -232,7 +301,9 @@ exactly representable in IEEE-754 (`6*0.6 === 3.5999999999999996`, not
 `3.6`). Fixed with an `approxEqual` epsilon helper, used consistently
 across the ripple math's float comparisons from then on.
 
-122/122 checks pass as of this commit.
+122/122 checks pass as of this commit (129/129 including the six-house
+registry work that follows chronologically after it in the test file,
+even though it's documented earlier in this README).
 
 ## Checkpoint 2 scope decision
 
@@ -317,14 +388,17 @@ content exist and are real, but weren't imported wholesale this round —
   fractional carry at exactly 1.0, threshold escalation floored at 2); the
   heir-import adapter, run against a fixture built from the real export
   shape read directly out of `aow_heir_record.html`'s own code, not
-  invented; the Checkpoint 4 house-content pipeline (`GRANT_TECHNIQUE`,
-  `ACTIVATE_TRANSFORMATION`, unlock-condition gating), driven end-to-end
-  including both a granted house ability AND a Transformation-granted
-  technique resolving through real combat exchanges — not just checked
-  for presence in an array; ripple propagation, hand-traced against the
-  real algorithm using the real `WORLD_NPCS` relationship graph, including
-  a genuine double-trigger cascade the hand-trace predicted before the
-  code confirmed it.
+  invented; the house-content pipeline (`GRANT_TECHNIQUE`,
+  `ACTIVATE_TRANSFORMATION`, all three unlock-condition types —
+  `staminaAtLeast`, `woundCountAtLeast`, `leverageAtLeast`), driven
+  end-to-end against the real six-house registry, including both a
+  granted house ability AND a Transformation-granted technique resolving
+  through real combat exchanges — not just checked for presence in an
+  array; ripple propagation, hand-traced against the real algorithm using
+  the real `WORLD_NPCS` relationship graph, including a genuine
+  double-trigger cascade the hand-trace predicted before the code
+  confirmed it; all five real heir files actually run through
+  `importHeirRecord.js` for the first time, not just a hand-built fixture.
 - **Not yet verified**: Torso's "stamina degrades faster" is implemented as
   a documented fact only — this engine does not auto-accelerate stamina
   stage transitions from a Torso wound (that timing is explicitly
@@ -337,16 +411,15 @@ content exist and are real, but weren't imported wholesale this round —
   logic in the same encounter, remain unexercised. The narrative
   ripple-hook text generation is deliberately not ported (presentation
   layer, see above) — nothing here produces GM-facing prose from a ripple,
-  only the underlying numbers. The import adapter has been run
-  against one hand-built fixture, not a real file the user actually
-  exports from `aow_heir_record.html` — that's the next real test, not
-  this one. The Checkpoint 4 house content is placeholder by design —
-  `evaluateUnlockCondition`'s two condition types (`staminaAtLeast`,
-  `woundCountAtLeast`) are the only ones any content exercises; real house
-  design may need more, which means more engine work, not just more data.
-- **Explicitly out of scope here**: real house content (six houses' worth
-  of Kit/Principle-tagged-ability/Transformation-form design — Kazabon's
-  own creative material, not fabricated here), narrative branches, the
+  only the underlying numbers. The `importHeirRecord.js` ↔ `houses.js`
+  house-id mismatch (real finding, see the six-house registry section) is
+  flagged, not fixed. Only 4 of the 6 houses' Transformation forms were
+  driven through a full end-to-end combat-resolution test
+  (Aethra fully, Ye and Lightwell through activation only); Lionheart,
+  Badgerhold, and Corvane's content is verified structurally (registry
+  shape, principle tags) but not individually combat-tested the same way
+  Aethra was.
+- **Explicitly out of scope here**: narrative branches, the
   Essence-ledger-style World State *behavior* beyond Leverage/ripple (the
   schema exists for entities/choices; no behavior drives them yet), Caravan
   and Exploration encounter types entirely, `aow_gm_screen.html`'s larger

@@ -672,81 +672,111 @@ function approxEqual(a, b) {
   ok(importResults.jsonRoundTripsCleanly, 'The imported character is exactly as plain/JSON-serializable as one built directly through createCharacterRecord');
   ok(importResults.missingRequiredFieldsRejected, 'importHeirRecord throws on a record missing name/revealed school, matching the real tool\'s own validation');
 
-  console.log('18. Checkpoint 4 — house content vertical slice (PLACEHOLDER content, real mechanics)');
+  console.log('18. Checkpoint 4/5 — the real six-house registry (5 real player houses + 1 authored to complete the roster)');
   const houseResults = await page.evaluate(() => {
-    const { createSaveState, createCharacterRecord } = window.Wonderland.schema;
+    const { createSaveState, createCharacterRecord, createPoliticalNode } = window.Wonderland.schema;
     const { resolve } = window.Wonderland.engine;
-    const { placeholderHouse } = window.Wonderland.placeholderHouse;
+    const { SIX_HOUSES, houseAethra, houseYe, houseLightwell } = window.Wonderland.houses;
     const results = {};
 
-    results.everyNameFlaggedPlaceholder =
-      placeholderHouse.name.includes('[PLACEHOLDER]') &&
-      placeholderHouse.abilities[0].name.includes('[PLACEHOLDER]') &&
-      placeholderHouse.transformationForms[0].name.includes('[PLACEHOLDER]') &&
-      placeholderHouse.transformationForms[0].grantedTechnique.name.includes('[PLACEHOLDER]');
+    // Structural: exactly six houses, one per SRD district-type, no
+    // duplicates — the whole point of the Lionheart reassignment.
+    results.exactlySixHouses = SIX_HOUSES.length === 6;
+    const districts = SIX_HOUSES.map((h) => h.district);
+    results.sixDistinctDistricts = new Set(districts).size === 6;
+    results.allSixTypesRepresented = ['military', 'mercantile', 'religious', 'scholarly', 'agricultural', 'magical'].every((d) => districts.includes(d));
+    results.everyHouseHasAbilityAndForm = SIX_HOUSES.every((h) => h.abilities.length >= 1 && h.transformationForms.length >= 1);
+    results.everyAbilityPrincipleTagged = SIX_HOUSES.every((h) => h.abilities.every((a) => !!a.principle) && !!h.transformationForms[0].grantedTechnique.principle);
 
-    let state = createSaveState();
-    state.characters.char_mira = createCharacterRecord({ id: 'char_mira', houseId: placeholderHouse.id });
-    state.characters.char_davan = createCharacterRecord({ id: 'char_davan' });
+    function freshEncounterState() {
+      let s = createSaveState();
+      s.politicalNodes.archivistGeneral = createPoliticalNode({ id: 'archivistGeneral' });
+      s.politicalNodes.merchantConsortium = createPoliticalNode({ id: 'merchantConsortium' });
+      return s;
+    }
 
-    // Step 1: grant the house ability (content-agnostic engine action).
-    state = resolve(state, { type: 'GRANT_TECHNIQUE', characterId: 'char_mira', technique: placeholderHouse.abilities[0] });
-    results.abilityGranted = state.characters.char_mira.techniques.some((t) => t.id === 'tech_placeholder_warding_stance');
+    // Full vertical slice on House Aethra (Miran's real house):
+    // woundCountAtLeast-gated Transformation, both the base ability and
+    // the granted technique actually resolving through real exchanges.
+    let s = freshEncounterState();
+    s.characters.char_miran = createCharacterRecord({ id: 'char_miran', houseId: houseAethra.id, weaponSpecialty: 'sword' });
+    s.characters.char_davan = createCharacterRecord({ id: 'char_davan' });
+    s = resolve(s, { type: 'GRANT_TECHNIQUE', characterId: 'char_miran', technique: houseAethra.abilities[0] });
+    results.aethraAbilityGranted = s.characters.char_miran.techniques.some((t) => t.id === 'tech_aethra_spy_opening');
 
-    let dupeGrant = 'allowed';
-    try { resolve(state, { type: 'GRANT_TECHNIQUE', characterId: 'char_mira', technique: placeholderHouse.abilities[0] }); }
-    catch (e) { dupeGrant = 'threw'; }
-    results.duplicateGrantRejected = dupeGrant === 'threw';
+    s = resolve(s, { type: 'INIT_ENCOUNTER', characterIds: ['char_miran', 'char_davan'], location: 'insideBarrier' });
+    s = resolve(s, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act'] });
+    s = resolve(s, { type: 'DECLARE_ACTION', characterId: 'char_miran', slots: ['move'], techniqueId: 'tech_aethra_spy_opening' });
+    s = resolve(s, { type: 'RESOLVE_EXCHANGE' });
+    const miranAction1 = s.currentEncounter.log[0].resolvedActions.find((a) => a.characterId === 'char_miran');
+    results.aethraAbilityResolvedInCombat = miranAction1.techniqueId === 'tech_aethra_spy_opening' && miranAction1.triggerMet === true;
 
-    // Step 2: the granted ability actually resolves through a real exchange —
-    // not just sitting inert in the array. Davan basic-strikes; Mira uses
-    // the granted Warding Stance (trigger: null, so always available).
-    state = resolve(state, { type: 'INIT_ENCOUNTER', characterIds: ['char_mira', 'char_davan'], location: 'insideBarrier' });
-    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act'] });
-    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_mira', slots: ['react'], techniqueId: 'tech_placeholder_warding_stance' });
-    state = resolve(state, { type: 'RESOLVE_EXCHANGE' });
-    const miraAction = state.currentEncounter.log[0].resolvedActions.find((a) => a.characterId === 'char_mira');
-    results.grantedAbilityResolvedInCombat = miraAction.techniqueId === 'tech_placeholder_warding_stance' && miraAction.triggerMet === true;
-
-    // Step 3: Transformation form is gated by a real unlock condition —
-    // blocked before, allowed after.
     let blockedBeforeWounds = 'allowed';
-    try { resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] }); }
+    try { resolve(s, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_miran', transformationForm: houseAethra.transformationForms[0] }); }
     catch (e) { blockedBeforeWounds = 'threw'; }
-    results.transformationBlockedBeforeCondition = blockedBeforeWounds === 'threw';
+    results.aethraTransformationBlockedBeforeWounds = blockedBeforeWounds === 'threw';
 
-    state = resolve(state, { type: 'APPLY_WOUND', characterId: 'char_mira', location: 'legs' });
-    state = resolve(state, { type: 'APPLY_WOUND', characterId: 'char_mira', location: 'torso' });
-    state = resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] });
-    results.transformationActivated = state.characters.char_mira.activeTransformationId === 'form_placeholder_awakened_testbed';
-    results.bonusTechniqueGranted = state.characters.char_mira.techniques.some((t) => t.id === 'tech_placeholder_testbed_surge');
+    s = resolve(s, { type: 'APPLY_WOUND', characterId: 'char_miran', location: 'legs' });
+    s = resolve(s, { type: 'APPLY_WOUND', characterId: 'char_miran', location: 'torso' });
+    s = resolve(s, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_miran', transformationForm: houseAethra.transformationForms[0] });
+    results.aethraTransformationActivated = s.characters.char_miran.activeTransformationId === 'form_aethra_regents_reckoning';
+    results.aethraBonusTechniqueGranted = s.characters.char_miran.techniques.some((t) => t.id === 'tech_aethra_spellweave');
 
     let reActivate = 'allowed';
-    try { resolve(state, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_mira', transformationForm: placeholderHouse.transformationForms[0] }); }
+    try { resolve(s, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_miran', transformationForm: houseAethra.transformationForms[0] }); }
     catch (e) { reActivate = 'threw'; }
-    results.reActivationRejected = reActivate === 'threw';
+    results.aethraReActivationRejected = reActivate === 'threw';
 
-    // Step 4: the Transformation-granted technique ALSO resolves through a
-    // real exchange, including its real structured trigger (not a
-    // trivial always-available one this time) — the full vertical slice,
-    // house ability through to combat resolution.
-    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act', 'react'] });
-    state = resolve(state, { type: 'DECLARE_ACTION', characterId: 'char_mira', slots: ['act'], techniqueId: 'tech_placeholder_testbed_surge' });
-    state = resolve(state, { type: 'RESOLVE_EXCHANGE' });
-    const surgeAction = state.currentEncounter.log[1].resolvedActions.find((a) => a.characterId === 'char_mira');
-    results.grantedTransformationTechniqueResolvedInCombat = surgeAction.techniqueId === 'tech_placeholder_testbed_surge' && surgeAction.triggerMet === true;
+    // The granted technique's real structured trigger (opponent commits
+    // Act+Move) actually gets evaluated in a real exchange.
+    s = resolve(s, { type: 'DECLARE_ACTION', characterId: 'char_davan', slots: ['act', 'move'] });
+    s = resolve(s, { type: 'DECLARE_ACTION', characterId: 'char_miran', slots: ['act', 'react'], techniqueId: 'tech_aethra_spellweave' });
+    s = resolve(s, { type: 'RESOLVE_EXCHANGE' });
+    const miranAction2 = s.currentEncounter.log[1].resolvedActions.find((a) => a.characterId === 'char_miran');
+    results.aethraGrantedTechniqueResolvedInCombat = miranAction2.techniqueId === 'tech_aethra_spellweave' && miranAction2.triggerMet === true;
+
+    // House Ye: leverageAtLeast-gated Transformation (a second unlock
+    // condition type, exercised against a real political node).
+    let sYe = freshEncounterState();
+    sYe.characters.char_ye = createCharacterRecord({ id: 'char_ye', houseId: houseYe.id });
+    let yeBlocked = 'allowed';
+    try { resolve(sYe, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_ye', transformationForm: houseYe.transformationForms[0] }); }
+    catch (e) { yeBlocked = 'threw'; }
+    results.yeBlockedBeforeLeverage = yeBlocked === 'threw';
+    sYe = resolve(sYe, { type: 'MODIFY_LEVERAGE', targetId: 'archivistGeneral', actorId: 'char_ye', delta: 2 });
+    sYe = resolve(sYe, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_ye', transformationForm: houseYe.transformationForms[0] });
+    results.yeTransformationAfterLeverage = sYe.characters.char_ye.activeTransformationId === 'form_ye_third_heirs_gambit';
+
+    // House Lightwell: staminaAtLeast-gated Transformation (the third
+    // unlock condition type).
+    let sLw = freshEncounterState();
+    sLw.characters.char_griffith = createCharacterRecord({ id: 'char_griffith', houseId: houseLightwell.id, stamina: 'winded' });
+    let lwBlocked = 'allowed';
+    try { resolve(sLw, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_griffith', transformationForm: houseLightwell.transformationForms[0] }); }
+    catch (e) { lwBlocked = 'threw'; }
+    results.lightwellBlockedBeforeStrained = lwBlocked === 'threw';
+    sLw = resolve(sLw, { type: 'SET_STAMINA', characterId: 'char_griffith', stamina: 'strained' });
+    sLw = resolve(sLw, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_griffith', transformationForm: houseLightwell.transformationForms[0] });
+    results.lightwellTransformationAfterStrained = sLw.characters.char_griffith.activeTransformationId === 'form_lightwell_reverence_undimmed';
 
     return results;
   });
-  ok(houseResults.everyNameFlaggedPlaceholder, 'Every placeholder house/ability/transformation name is explicitly flagged [PLACEHOLDER] — cannot be mistaken for real content');
-  ok(houseResults.abilityGranted, 'GRANT_TECHNIQUE attaches the house ability onto the character as a real Technique');
-  ok(houseResults.duplicateGrantRejected, 'GRANT_TECHNIQUE rejects granting the same technique id twice');
-  ok(houseResults.grantedAbilityResolvedInCombat, 'The granted house ability actually resolves through a real DECLARE_ACTION/RESOLVE_EXCHANGE, not just sitting inert in the techniques array');
-  ok(houseResults.transformationBlockedBeforeCondition, 'ACTIVATE_TRANSFORMATION is blocked before the unlock condition (2 wounds) is met');
-  ok(houseResults.transformationActivated, 'ACTIVATE_TRANSFORMATION succeeds once the condition is met, setting activeTransformationId');
-  ok(houseResults.bonusTechniqueGranted, 'Activating the transformation grants its bonus technique onto the character');
-  ok(houseResults.reActivationRejected, 'The same transformation cannot be activated twice');
-  ok(houseResults.grantedTransformationTechniqueResolvedInCombat, 'The Transformation-granted technique resolves through a real exchange too, including evaluating its real structured trigger — the full vertical slice, house content through to combat resolution');
+  ok(houseResults.exactlySixHouses, 'The registry has exactly six houses');
+  ok(houseResults.sixDistinctDistricts, 'All six houses have distinct district types — no duplicates (the Lionheart reassignment resolved the real overlap)');
+  ok(houseResults.allSixTypesRepresented, 'All six SRD district-types are represented: military, mercantile, religious, scholarly, agricultural, magical');
+  ok(houseResults.everyHouseHasAbilityAndForm, 'Every house has at least one Principle-tagged ability and one Transformation form');
+  ok(houseResults.everyAbilityPrincipleTagged, 'Every ability and every Transformation-granted technique carries a non-empty principle tag');
+  ok(houseResults.aethraAbilityGranted, "House Aethra: GRANT_TECHNIQUE attaches Miran's real house ability as a real Technique");
+  ok(houseResults.aethraAbilityResolvedInCombat, "House Aethra: the granted ability actually resolves through a real exchange, not just sitting inert in the array");
+  ok(houseResults.aethraTransformationBlockedBeforeWounds, "House Aethra: Transformation blocked before 2 wounds are accumulated (grounded in the founding battle's real cost)");
+  ok(houseResults.aethraTransformationActivated, 'House Aethra: Transformation activates once the condition is met');
+  ok(houseResults.aethraBonusTechniqueGranted, 'House Aethra: activating the Transformation grants its bonus technique');
+  ok(houseResults.aethraReActivationRejected, 'House Aethra: the same Transformation cannot be activated twice');
+  ok(houseResults.aethraGrantedTechniqueResolvedInCombat, "House Aethra: the granted technique's real structured trigger (opponent commits Act+Move) resolves through a real exchange — the full vertical slice");
+  ok(houseResults.yeBlockedBeforeLeverage, 'House Ye: Transformation blocked before leverage with the Archivist General is earned');
+  ok(houseResults.yeTransformationAfterLeverage, 'House Ye: Transformation activates once real political leverage (leverageAtLeast) is met — a second unlock-condition type, proven against a real political node');
+  ok(houseResults.lightwellBlockedBeforeStrained, 'House Lightwell: Transformation blocked before Strained stamina is reached');
+  ok(houseResults.lightwellTransformationAfterStrained, 'House Lightwell: Transformation activates once Strained (staminaAtLeast) is met — the third unlock-condition type');
 
   console.log('19. Ripple propagation, ported from aow_gm_screen.html\'s real propagateWeight() — real WORLD_NPCS content, not placeholder');
   const rippleResults = await page.evaluate(() => {

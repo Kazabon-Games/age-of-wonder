@@ -789,13 +789,26 @@ function applyResetCapstoneUsage(state, action) {
  * schema+engine addition, not something callers can invent inline. `null`
  * means always met, same semantic as a Technique's `trigger: null`.
  */
-function evaluateUnlockCondition(condition, character) {
+function evaluateUnlockCondition(condition, character, state) {
   if (!condition) return true;
   switch (condition.type) {
     case 'staminaAtLeast':
       return staminaIndex(character.stamina) >= staminaIndex(condition.stage);
     case 'woundCountAtLeast':
       return character.wounds.length >= condition.count;
+    case 'leverageAtLeast': {
+      // Ties a Transformation form's unlock to political standing — a
+      // natural fit for houses that are political entities first (see
+      // wonderland/houses.js). Requires `state` since leverage lives on
+      // politicalNodes, not the character record; a form using this
+      // condition type outside a real encounter/save context (state
+      // omitted) fails loudly rather than silently treating it as unmet.
+      if (!state) {
+        throw new Error('wonderland/engine: "leverageAtLeast" unlock condition requires state (political standing isn\'t on the character record)');
+      }
+      const node = findPoliticalNode(state, condition.nodeId); // throws loudly if unknown
+      return (node.scores[character.id] || 0) >= condition.score;
+    }
     default:
       throw new Error(`wonderland/engine: unknown unlock condition type "${condition.type}"`);
   }
@@ -840,7 +853,7 @@ function applyActivateTransformation(state, action) {
   if (character.activeTransformationId === transformationForm.id) {
     throw new Error(`wonderland/engine: "${characterId}" has already activated transformation "${transformationForm.id}"`);
   }
-  if (!evaluateUnlockCondition(transformationForm.unlockCondition, character)) {
+  if (!evaluateUnlockCondition(transformationForm.unlockCondition, character, state)) {
     throw new Error(
       `wonderland/engine: "${characterId}" does not meet the unlock condition for transformation "${transformationForm.id}"`
     );

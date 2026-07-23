@@ -183,6 +183,31 @@ function createHouseRecord(overrides = {}) {
       abilities: [], // array of Technique (see createTechnique)
       transformationForms: [], // array of TransformationForm, see createTransformationForm
       startingEquipment: [], // array of equipment id strings
+      // Narrative/political identity fields — real shape, matching
+      // aow_heir_record.html's own `house` export object field-for-field
+      // (seat/colorPrimary/colorSecondary/sigilDesc/district/orientation/
+      // ideal1/ideal2/shadow/shadowDetail/founding/foundingDetail/wound/
+      // woundDetail/resources/heirStanding). Added once real house content
+      // (wonderland/houses.js) needed somewhere to actually live — a
+      // player-built heir's own house identity lives in their own JSON
+      // export and doesn't need to be duplicated here; this is for the
+      // canonical six-house registry, one HouseRecord per real house.
+      seat: '', // home city
+      colorPrimary: '',
+      colorSecondary: '',
+      sigilDesc: '',
+      district: null, // one of the SRD's six house-types: military, mercantile, religious, scholarly, agricultural, magical
+      orientation: { acquire: '', hold: '', use: '' },
+      ideal1: '',
+      ideal2: '',
+      shadow: '',
+      shadowDetail: '',
+      founding: '',
+      foundingDetail: '',
+      wound: '',
+      woundDetail: '',
+      resources: [], // array of resource-name strings
+      heirStanding: '',
     },
     overrides
   );
