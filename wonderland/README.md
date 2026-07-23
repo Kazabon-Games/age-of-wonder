@@ -132,6 +132,51 @@ combat exchanges — without claiming to be real design. When real house
 content exists, `placeholderHouse.js` gets deleted, not extended; the
 schema/engine additions it exercises stay.
 
+### Resolution (2026-07-23): genre confirmed, heir vs. house are two different layers
+
+Kazabon resolved the open question from the Checkpoint 4 handover doc
+(`WONDERLAND_RPG_CHECKPOINT4_HANDOVER.md` §4, `Studio-Internal-` repo),
+via `WONDERLAND_RPG_CHECKPOINT4_RESOLUTION.md`:
+
+- **Genre confirmed**: Final Fantasy Tactics lineage, not a visual novel.
+  Retroactive confirmation, not a new decision — the action-slot economy,
+  Presence/Read/Commit/Hold, weapon specialties, and technique triggers
+  already built in Checkpoints 1-2 are exactly the right emphasis for
+  that genre. Nothing built needs reconsidering because of this.
+- **Option A vs. Option B (the prior handover's framing) weren't actually
+  competing** — they're two different schema objects FFT's own structure
+  makes obvious in hindsight:
+  - The player's own **heir** (`aow_heir_record.html` →
+    `importHeirRecord.js`) is the protagonist layer — personal identity,
+    the character the player plays. Ramza, not a house.
+  - The **six royal houses** are the political/faction layer —
+    pre-authored, enumerable, with their own history and agenda. Nobody
+    plays *as* a house; a heir has standing with or against them — which
+    is exactly what `politicalNodes` (a per-actor score against a shared
+    faction node) already models correctly, built back in Checkpoint 3.
+- **What this means for the code**: Checkpoint 3's heir-import work is
+  correct and complete as-is. Checkpoint 4's placeholder house,
+  `GRANT_TECHNIQUE`, and `ACTIVATE_TRANSFORMATION` all still stand as the
+  right mechanism — they were never wrong, just waiting on this
+  clarification to know what content they'd eventually hold. What was
+  genuinely blocked — real authored content for the six houses — is
+  **still genuinely blocked**, now for a clear, narrow reason: that's
+  Kazabon's own faction design work, still to be written, not an
+  engineering task and not something to fabricate as a substitute.
+- **Checkpoint 4 closes as**: mechanism proven, real content pending
+  author input. A legitimate, documented stopping point, not an
+  incomplete checkpoint. `placeholderHouse.js` stays exactly as labeled.
+
+**Suggestion, not a build** (per the resolution doc's own §4 — surfaced
+here, not acted on unprompted): if authoring six houses' worth of
+political content takes a while, it may be worth building a minimal,
+clearly-temporary faction *stub* — mirroring `placeholderHouse.js`'s own
+pattern — so combat/reputation systems downstream of `politicalNodes`
+(ripple propagation, the narrative hook layer, anything in a future
+checkpoint that assumes real factions exist) can keep being tested
+without waiting on final content. Nobody has asked for this yet; flagging
+it here so it doesn't get lost.
+
 ## Checkpoint 2 scope decision
 
 Researched the full SRD (all six chapters) before writing code. Split found:
