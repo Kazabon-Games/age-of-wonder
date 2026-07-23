@@ -916,6 +916,79 @@ function approxEqual(a, b) {
   ok(rippleResults.top3Ranked, 'Fan-out of 5 conductors: only the top 3 by rank (accumWeight+|score|) receive this call\'s ripple weight');
   ok(rippleResults.bottom2NotRippled, 'Fan-out of 5 conductors: the bottom 2 by rank are untouched by this call');
 
+  console.log('20. Checkpoint 6 — worldFlags get real behavior, and the World State bridge proves real cross-session continuity');
+  const worldStateResults = await page.evaluate(async () => {
+    const { createSaveState, createCharacterRecord, createPoliticalNode } = window.Wonderland.schema;
+    const { resolve } = window.Wonderland.engine;
+    const { exportWorldState, importWorldState } = window.Wonderland.worldStateBridge;
+    const p = window.Wonderland.persistence;
+    const results = {};
+
+    // worldFlagEquals as a Transformation unlock condition — the flag
+    // itself is grounded in House Aethra's real, established shadow
+    // content (Miran's resistance-network smuggling), not invented fresh.
+    const resistanceForm = {
+      id: 'form_test_resistance_favor',
+      unlockCondition: { type: 'worldFlagEquals', flagId: 'aided_resistance_network', value: true },
+      grantedTechnique: { id: 'tech_test_network_favor', name: 'Network Favor' },
+    };
+
+    // ═══ "Session A" — set real state, export it, write it to real IndexedDB ═══
+    let sessionA = createSaveState();
+    sessionA = resolve(sessionA, { type: 'SET_WORLD_FLAG', flagId: 'aided_resistance_network', value: true });
+    sessionA.politicalNodes.archivistGeneral = createPoliticalNode({ id: 'archivistGeneral' });
+    sessionA.characters.char_a = createCharacterRecord({ id: 'char_a' });
+    sessionA = resolve(sessionA, { type: 'MODIFY_LEVERAGE', targetId: 'archivistGeneral', actorId: 'char_a', delta: 3 });
+
+    const exported = exportWorldState(sessionA);
+    results.exportedExpectedKeys = exported.length === 2 && exported.some((r) => r.key === 'choice:aided_resistance_network') && exported.some((r) => r.key === 'entity:archivistGeneral');
+    for (const { key, record } of exported) {
+      await p.putEntity(key, record);
+    }
+
+    // ═══ "Session B" — a completely fresh SaveState, hydrated from what
+    // was actually written to real IndexedDB, not passed in memory ═══
+    const fetchedRecords = await Promise.all(exported.map(async ({ key }) => ({ record: await p.getEntity(key) })));
+    const hydrated = importWorldState(fetchedRecords);
+    results.hydratedFlagCarriedOver = hydrated.worldFlags.aided_resistance_network === true;
+    results.hydratedLeverageCarriedOver = hydrated.politicalNodes.archivistGeneral.scores.char_a === 3;
+
+    let sessionB = createSaveState();
+    sessionB = Object.assign(sessionB, { worldFlags: hydrated.worldFlags, politicalNodes: hydrated.politicalNodes });
+    sessionB.characters.char_b = createCharacterRecord({ id: 'char_b' }); // a DIFFERENT character in the new session
+
+    // The flag-gated Transformation activates for a brand-new character
+    // in a brand-new session, purely because the world remembers.
+    sessionB = resolve(sessionB, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_b', transformationForm: resistanceForm });
+    results.transformationActivatesInNewSession = sessionB.characters.char_b.activeTransformationId === 'form_test_resistance_favor';
+
+    // Sanity: without the flag (a third, totally fresh save with nothing
+    // hydrated), the same Transformation is correctly blocked — proves
+    // session B's activation came from the carried-over world state, not
+    // from the condition being trivially always true.
+    let freshSave = createSaveState();
+    freshSave.characters.char_c = createCharacterRecord({ id: 'char_c' });
+    let blockedWithoutHydration = 'allowed';
+    try { resolve(freshSave, { type: 'ACTIVATE_TRANSFORMATION', characterId: 'char_c', transformationForm: resistanceForm }); }
+    catch (e) { blockedWithoutHydration = 'threw'; }
+    results.blockedWithoutHydration = blockedWithoutHydration === 'threw';
+
+    // importWorldState fails loudly on an unrecognized record kind rather
+    // than silently dropping it.
+    let badKindThrew = 'did not throw';
+    try { importWorldState([{ record: { kind: 'mystery', id: 'x', data: {} } }]); }
+    catch (e) { badKindThrew = 'threw: ' + e.message; }
+    results.badKindRejected = badKindThrew !== 'did not throw';
+
+    return results;
+  });
+  ok(worldStateResults.exportedExpectedKeys, 'exportWorldState produces exactly the expected choice:/entity: keys for worldFlags and politicalNodes');
+  ok(worldStateResults.hydratedFlagCarriedOver, 'A world flag written to real IndexedDB in one session is read back correctly via persistence.js and importWorldState');
+  ok(worldStateResults.hydratedLeverageCarriedOver, 'Political leverage written to real IndexedDB carries over identically');
+  ok(worldStateResults.transformationActivatesInNewSession, 'A brand-new character in a brand-new SaveState can activate a Transformation gated on state from a PRIOR session — real cross-session continuity, not just in-memory passing');
+  ok(worldStateResults.blockedWithoutHydration, 'Sanity check: the same Transformation is blocked in a session that never hydrated the flag — proves the prior result came from real carried-over state, not a trivially-true condition');
+  ok(worldStateResults.badKindRejected, 'importWorldState throws on an unrecognized WorldStateRecord kind rather than silently dropping it');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

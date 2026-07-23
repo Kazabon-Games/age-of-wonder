@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Wonderland Checkpoints 1-5 — Engine Test Harness</title>
+<title>Wonderland Checkpoints 1-6 — Engine Test Harness</title>
 </head>
 <body>
 <!--
@@ -20,6 +20,7 @@
 <script src="importHeirRecord.js"></script>
 <script src="worldNpcs.js"></script>
 <script src="houses.js"></script>
+<script src="worldStateBridge.js"></script>
 <script>
   window.Wonderland = {
     schema: window.WonderlandSchema,
@@ -28,6 +29,7 @@
     importHeirRecord: window.WonderlandImportHeirRecord,
     worldNpcs: window.WonderlandWorldNpcs,
     houses: window.WonderlandHouses,
+    worldStateBridge: window.WonderlandWorldStateBridge,
   };
   window.Wonderland._test = {
     resolve: window.WonderlandEngine.resolve,

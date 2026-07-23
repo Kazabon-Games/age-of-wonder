@@ -809,6 +809,15 @@ function evaluateUnlockCondition(condition, character, state) {
       const node = findPoliticalNode(state, condition.nodeId); // throws loudly if unknown
       return (node.scores[character.id] || 0) >= condition.score;
     }
+    case 'worldFlagEquals': {
+      // Gates on SaveState.worldFlags — defined since Checkpoint 1
+      // (party-wide narrative/world state) but never read by anything
+      // until now. Same state-required discipline as leverageAtLeast.
+      if (!state) {
+        throw new Error('wonderland/engine: "worldFlagEquals" unlock condition requires state (world flags aren\'t on the character record)');
+      }
+      return state.worldFlags[condition.flagId] === condition.value;
+    }
     default:
       throw new Error(`wonderland/engine: unknown unlock condition type "${condition.type}"`);
   }
@@ -877,6 +886,29 @@ function applySetStamina(state, action) {
 }
 
 /**
+ * Sets a party-wide world flag — SaveState.worldFlags has existed since
+ * Checkpoint 1 (party composition, world flags, faction standing) but
+ * nothing ever wrote or read one until this action and
+ * evaluateUnlockCondition's "worldFlagEquals" case. Content-agnostic:
+ * this function doesn't know what any given flagId means narratively,
+ * only how to set it. Value must be a plain boolean/string/number per
+ * schema.js's own comment on the field — anything else risks breaking
+ * the "all state is plain, serializable data" non-negotiable (§0).
+ */
+function applySetWorldFlag(state, action) {
+  const { flagId, value } = action;
+  if (typeof flagId !== 'string' || !flagId) {
+    throw new Error('wonderland/engine: SET_WORLD_FLAG requires a flagId string');
+  }
+  if (typeof value !== 'boolean' && typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`wonderland/engine: SET_WORLD_FLAG value must be a boolean, string, or number, got ${typeof value}`);
+  }
+  const next = deepClone(state);
+  next.worldFlags[flagId] = value;
+  return next;
+}
+
+/**
  * The one entry point. Data in, data out — see module header.
  */
 function resolve(currentState, action) {
@@ -909,6 +941,8 @@ function resolve(currentState, action) {
       return applyGrantTechnique(currentState, action);
     case 'ACTIVATE_TRANSFORMATION':
       return applyActivateTransformation(currentState, action);
+    case 'SET_WORLD_FLAG':
+      return applySetWorldFlag(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }
@@ -928,6 +962,7 @@ const api = {
   getNodeConductors,
   rankConductors,
   propagateWeight,
+  applySetWorldFlag,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

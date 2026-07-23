@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-5
+# Wonderland: First Principles — Checkpoints 1-6
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -49,7 +49,12 @@ judged plausible.
   registry" below. `placeholderHouse.js` (Checkpoint 4's proof-of-pipeline
   file) has been deleted now that this replaced it, per its own stated
   "delete, don't extend" instruction.
-- **`harness.html`** — not a game screen; loads all six modules above via
+- **`worldStateBridge.js`** — Checkpoint 6: pure functions converting a
+  live `SaveState`'s `worldFlags`/`politicalNodes` into `entity:`/`choice:`
+  `WorldStateRecord`s (and back) — the actual cross-session/cross-game
+  continuity mechanism Checkpoint 1 defined a schema for but never built.
+  See "World State bridge" below.
+- **`harness.html`** — not a game screen; loads all seven modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
 
@@ -301,9 +306,10 @@ exactly representable in IEEE-754 (`6*0.6 === 3.5999999999999996`, not
 `3.6`). Fixed with an `approxEqual` epsilon helper, used consistently
 across the ripple math's float comparisons from then on.
 
-122/122 checks pass as of this commit (129/129 including the six-house
-registry work that follows chronologically after it in the test file,
-even though it's documented earlier in this README).
+122/122 checks pass as of this commit (135/135 as of the latest commit,
+including the six-house registry and World State bridge work that follow
+chronologically after it in the test file, even though they're documented
+earlier in this README).
 
 ## Checkpoint 2 scope decision
 
@@ -398,7 +404,12 @@ content exist and are real, but weren't imported wholesale this round —
   the real `WORLD_NPCS` relationship graph, including a genuine
   double-trigger cascade the hand-trace predicted before the code
   confirmed it; all five real heir files actually run through
-  `importHeirRecord.js` for the first time, not just a hand-built fixture.
+  `importHeirRecord.js` for the first time, not just a hand-built fixture;
+  the World State bridge, verified as genuine cross-session continuity
+  through real IndexedDB (a second, independent `SaveState` with a
+  different character activates a flag-gated Transformation purely from
+  hydrated prior-session state), with a sanity check proving a
+  non-hydrated session stays correctly blocked.
 - **Not yet verified**: Torso's "stamina degrades faster" is implemented as
   a documented fact only — this engine does not auto-accelerate stamina
   stage transitions from a Torso wound (that timing is explicitly
@@ -419,9 +430,54 @@ content exist and are real, but weren't imported wholesale this round —
   Badgerhold, and Corvane's content is verified structurally (registry
   shape, principle tags) but not individually combat-tested the same way
   Aethra was.
-- **Explicitly out of scope here**: narrative branches, the
-  Essence-ledger-style World State *behavior* beyond Leverage/ripple (the
-  schema exists for entities/choices; no behavior drives them yet), Caravan
-  and Exploration encounter types entirely, `aow_gm_screen.html`'s larger
+- **Explicitly out of scope here**: narrative branches, Caravan and
+  Exploration encounter types entirely, `aow_gm_screen.html`'s larger
   `NPC_DOSSIER` content (real, but presentation/GM-table layer, not pure
   engine data), and all narrative hook-text generation.
+
+## Checkpoint 6: the World State bridge, and why "Essence ledger" was a dead end
+
+The roadmap's line 6 is "World State / cross-game layer wired in." Before
+writing code, went looking for what Checkpoint 1's non-negotiables meant
+by "the Essence ledger" (§0: "every read/write to save state, World State,
+or the Essence ledger goes through a single module"). It isn't a Wonderland
+concept at all — it's Iridescent Cosmology's own lifetime-currency system,
+in a completely different repo (`Shin-Maho-Arcade/iridescentcosmology.html`,
+`Persist.data.lifetimeEssence`). The phrase was only ever an analogy for
+persistence *discipline* (single access layer, defensive defaults across
+schema versions), which `persistence.js` already satisfies — not something
+to integrate with literally.
+
+Unlike Checkpoints 2-5, there was also no real World State content to dig
+up anywhere in the AOW suite — `SaveState.worldFlags` and
+`WorldStateRecord` have existed since Checkpoint 1, completely unused.
+This checkpoint is genuine engineering, not research-and-port:
+
+- **`SET_WORLD_FLAG`** and a fourth unlock-condition type,
+  **`worldFlagEquals`** — gives `worldFlags` its first real behavior,
+  content-agnostic like every other action in this file.
+- **`worldStateBridge.js`**: `exportWorldState`/`importWorldState`, pure
+  functions converting a live `SaveState`'s `worldFlags`/`politicalNodes`
+  into `entity:`/`choice:` keyed `WorldStateRecord`s and back. The key
+  mapping isn't arbitrary — it matches Checkpoint 1's own two example
+  keys directly: a world flag IS a recorded choice
+  (`choice:<flagId>`), a political node IS an entity in the world
+  (`entity:<nodeId>`).
+- **Verified as actual cross-session continuity, not just data
+  reshaping**: the test writes real records through `persistence.js`
+  into real IndexedDB in one "session," then reads them back in a
+  second, completely fresh `SaveState` with a different character in
+  it, and shows a `worldFlagEquals`-gated Transformation activating
+  purely because the world remembered — with a sanity check proving a
+  session that never hydrated stays correctly blocked, so the pass
+  isn't just a trivially-true condition.
+
+**What this still doesn't do**: decide what any real flagId or
+entity/choice content should actually contain narratively — same
+discipline as everywhere else, that's downstream content-authoring work,
+not engine work. `worldStateBridge.js` also doesn't decide *when*
+export/import should run in a real game loop (session start/end,
+autosave, etc.) — that's game-loop policy for whenever a presentation
+layer exists.
+
+135/135 checks pass.
