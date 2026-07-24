@@ -31,7 +31,12 @@
 // getSaveState() schemaVersion check means an old v1 save fails loudly
 // on load rather than silently misreading factionStanding as something
 // it no longer is.
-const SCHEMA_VERSION = 2;
+// Bumped 2 -> 3 in Checkpoint 8: CharacterRecord gained position/
+// distance/rallyUsed/removedFromEncounter fields and SaveState gained
+// currency — an old v2 save is missing all of these, so it must fail
+// loudly on load rather than silently treating a defeated/removed
+// character as freshly active.
+const SCHEMA_VERSION = 3;
 
 const STAMINA_STAGES = Object.freeze(['fresh', 'winded', 'strained', 'spent']);
 const WOUND_LOCATIONS = Object.freeze(['weaponArm', 'shieldArm', 'legs', 'torso', 'head', 'presence']);
@@ -46,6 +51,70 @@ const WEAPON_SPECIALTIES = Object.freeze(['sword', 'spear', 'wand', 'staff', 'da
 // free-form string — see createTechnique's `firstPrinciple` field.
 const FIRST_PRINCIPLES = Object.freeze(['distinction', 'relation', 'transformation', 'persistence']);
 const ACTION_SLOTS = Object.freeze(['move', 'act', 'react']);
+
+/*
+ * Checkpoint 8: range/special data ported from Monolith_Universe.pdf's
+ * weapon table (verified against the source PDF directly, not a
+ * secondhand paraphrase), keyed by the exact same WEAPON_SPECIALTIES
+ * enum above — Monolith's six weapons are literally the same six.
+ *
+ * Only `range`/`rangeMin`/`rangeMax`/`lineOnly`/critical-condition fields
+ * and Sword's `distanceBonusAsMain` are wired into real engine logic
+ * (see engine.js's cellDistance/isInWeaponRange and the Sword distance
+ * bonus in DECLARE_MOVEMENT). `strikeBonusAsMain` (Dagger) and
+ * `abilityRangeBonusAsMain` (Wand) are recorded here as real ported data
+ * but deliberately NOT wired into any numeric calculation — Wonderland
+ * has no numeric "strike count" or per-technique "ability range" field
+ * to attach them to (combat resolves via wound/stamina application, not
+ * a hit-count stat; techniques have no range field). Inventing one just
+ * to make these two bonuses "do something" would be exactly the kind of
+ * plausible-looking fabrication this project's own guardrails reject —
+ * they're kept as authored content, ready to wire in if either concept
+ * ever gets added for its own real reason.
+ */
+const WEAPON_STATS = Object.freeze({
+  sword: Object.freeze({ range: 1, distanceBonusAsMain: 1 }),
+  // "range 2 cells in a line" — lineOnly gates the RANGE itself here,
+  // not just a crit bonus (contrast with projectile below).
+  spear: Object.freeze({ range: 2, lineOnly: true, critOnSecondCellIfFirstHit: true }),
+  dagger: Object.freeze({ range: 1, strikeBonusAsMain: 1 }),
+  staff: Object.freeze({ rangeMin: 1, rangeMax: 2 }),
+  wand: Object.freeze({ range: 2, abilityRangeBonusAsMain: 1 }),
+  // "range 3 to 4, critically strikes on 4th cell IF in a straight
+  // line" — the source qualifies only the crit bonus with a line
+  // requirement, not the basic range (unlike Spear above), so no
+  // top-level lineOnly here; critOnFourthCellIfStraightLine alone
+  // carries that condition.
+  projectile: Object.freeze({ rangeMin: 3, rangeMax: 4, critOnFourthCellIfStraightLine: true }),
+});
+
+/*
+ * Checkpoint 8: the four equipment slot pairs, ported from
+ * Monolith_Universe.pdf's Equipment section (verified against the source
+ * PDF directly). Each slot grants exactly one of two bonuses (the
+ * caller/content picks which at equip time — this table just documents
+ * what's available, engine.js doesn't enforce "only one").
+ *
+ * Helmet/Necklace's real resolution: the PDF's own options ("+1 hand
+ * size" / "+1 basic ability count") have no Wonderland equivalent —
+ * confirmed, not assumed: there's no hand/deck (explicitly excluded per
+ * WONDERLAND_RPG_CHECKPOINT8_HANDOVER.md §0/§6) and no cap on how many
+ * techniques a character can know (`CharacterRecord.techniques` is
+ * already unbounded, so "+1" to an uncapped number is meaningless).
+ * Rather than invent a new capacity-limiter system just to give this one
+ * slot numeric teeth — a bigger, unrequested redesign of the
+ * declaration/loadout model — both bonuses are kept as real, ported,
+ * descriptive data, the same treatment as Dagger's strikeBonusAsMain and
+ * Wand's abilityRangeBonusAsMain above: authored content, not wired into
+ * engine arithmetic, ready to attach real behavior to if Wonderland ever
+ * grows a loadout-capacity concept of its own.
+ */
+const EQUIPMENT_SLOTS = Object.freeze({
+  helmetNecklace: Object.freeze({ bonusA: 'handSize', bonusB: 'basicAbilityCount' }),
+  ringGlove: Object.freeze({ bonusA: 'basicAbilityRange', bonusB: 'strike' }),
+  bootsSandals: Object.freeze({ bonusA: 'specialMovement', bonusB: 'distance' }),
+  cloakPouch: Object.freeze({ bonusA: 'talismanAreaOfEffect', bonusB: 'pack' }),
+});
 
 /**
  * A single playable character or NPC's combat-relevant + narrative record.
@@ -73,6 +142,27 @@ function createCharacterRecord(overrides = {}) {
       // table exactly like stamina/wounds are here, not auto-computed by
       // any formula. Matches this schema's existing pattern for stamina.
       willstrainStage: 0, // 0=none, 1=Thinning, 2=Fraying, 3=Slippage, 4=Severance (aow_srd.html ch2-willstrain)
+      // Checkpoint 8 grid fields, ported from Monolith_Universe.pdf.
+      // position is null outside a grid-enabled encounter (nothing to be
+      // positioned relative to) — same null-until-relevant pattern as
+      // activeTransformationId below, not a real {0,0} placement.
+      position: null, // { x, y } | null
+      // Monolith's own starting value (Character creation stat #9,
+      // "Distance 4") — no prior Wonderland field for this existed to
+      // collide with (checked: neither "distance" nor "movement" appear
+      // anywhere in this file before Checkpoint 8).
+      distance: 4,
+      // Checkpoint 8 rally/defeat state — see engine.js's combatStatus().
+      // Deliberately NOT a numeric Life pool (Wonderland has never
+      // modeled damage as arithmetic; stamina/wounds above are the real
+      // "how hurt is this character" state). "Defeated"/"rallied" are
+      // derived from the *existing* isCombatOver threshold (stamina
+      // spent or 3+ wounds) instead — these two fields only capture what
+      // genuinely can't be derived: whether a one-time rally already
+      // happened, and whether a hit while critically injured has already
+      // removed this character from the encounter for good.
+      rallyUsed: false,
+      removedFromEncounter: false,
       // Only present if the heir committed five session-zero years to one
       // aspect (aow_heir_record.html CAPSTONES) — null otherwise.
       // { aspect, aspectName, title, description, usage, leverageBonus:
@@ -274,6 +364,13 @@ function createCombatantState(characterId) {
     // ch4-weapons), not once per exchange — so it lives here, on the
     // encounter-scoped combatant state, not on the persisted CharacterRecord.
     staffBarrierUsed: false,
+    // Checkpoint 8: how much of CharacterRecord.distance this combatant
+    // has already spent via DECLARE_MOVEMENT this exchange. Resets to 0
+    // in RESOLVE_EXCHANGE alongside declaration clearing — same per-
+    // exchange lifecycle, since Monolith's "declared unlimited times
+    // while distance remains" is scoped to a turn, and an exchange is
+    // this engine's turn-equivalent unit.
+    distanceSpentThisExchange: 0,
   };
 }
 
@@ -297,8 +394,9 @@ function createDeclaration(overrides = {}) {
  * @param {Object} params
  * @param {string[]} params.characterIds
  * @param {'insideBarrier'|'outskirts'|'outsideCity'} params.location
+ * @param {Object|null} [params.board] - BoardState, see createBoardState; null for a non-grid encounter
  */
-function createEncounterState({ characterIds, location }) {
+function createEncounterState({ characterIds, location, board = null }) {
   if (!Array.isArray(characterIds) || characterIds.length < 2) {
     throw new Error('createEncounterState: characterIds must list at least two combatants');
   }
@@ -307,7 +405,29 @@ function createEncounterState({ characterIds, location }) {
     exchangeNumber: 0,
     combatants: characterIds.map(createCombatantState),
     log: [], // array of ExchangeLogEntry, appended by engine.js RESOLVE_EXCHANGE
+    board, // BoardState | null — Checkpoint 8, see createBoardState
   };
+}
+
+/**
+ * Checkpoint 8 grid: a 9x9-by-default board (Monolith_Universe.pdf's own
+ * "All combat takes place on a 9 x 9 cell board"), cells either
+ * traversable or blocked. blockedCells is a sparse list of {x,y} pairs
+ * rather than a dense width*height grid — matches this codebase's
+ * existing preference for sparse/id-keyed data (politicalNodes,
+ * worldFlags) over dense arrays, and a 9x9 board is rarely more than a
+ * handful of obstacle cells in practice.
+ * @param {Object} [overrides]
+ */
+function createBoardState(overrides = {}) {
+  return Object.assign(
+    {
+      width: 9,
+      height: 9,
+      blockedCells: [], // array of { x, y }, 0-indexed
+    },
+    overrides
+  );
 }
 
 /**
@@ -364,6 +484,21 @@ function createSaveState(overrides = {}) {
       worldFlags: {}, // flagId -> boolean | string | number
       politicalNodes: {}, // nodeId -> PoliticalNode, see createPoliticalNode above
       currentEncounter: null, // EncounterState | null, see createEncounterState above
+      // Checkpoint 8: Stars/Fragments/Favor, ported from
+      // Monolith_Universe.pdf's Currency section. Party-wide progression
+      // counters, same reasoning as this project's existing "one
+      // persistent state object covering party, world flags, and faction
+      // standing together" — deliberately NOT merged into or renamed as
+      // Essence: Essence isn't part of this codebase at all (Checkpoint
+      // 6 found it lives in a different repo, Iridescent Cosmology's own
+      // lifetime-currency system), so conflating a real ledger this
+      // project doesn't have with three new counters it does would be
+      // inventing a relationship nobody's confirmed. Stones (Monolith's
+      // fourth currency) is deliberately absent — its own source text
+      // ties it to real-money purchase ("obtained through various means
+      // and by using real currency"), which is a monetization decision
+      // out of scope here, not something to port silently.
+      currency: { stars: 0, fragments: 0, favor: 0 },
     },
     overrides
   );
@@ -400,6 +535,8 @@ const api = {
   WEAPON_SPECIALTIES,
   FIRST_PRINCIPLES,
   ACTION_SLOTS,
+  WEAPON_STATS,
+  EQUIPMENT_SLOTS,
   createCharacterRecord,
   createTechnique,
   createSpell,
@@ -408,6 +545,7 @@ const api = {
   createCombatantState,
   createDeclaration,
   createEncounterState,
+  createBoardState,
   createPoliticalNode,
   createSaveState,
   createWorldStateRecord,

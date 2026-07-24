@@ -1292,6 +1292,172 @@ function approxEqual(a, b) {
   ok(firstPrincipleResults.validFirstPrincipleAccepted, 'GRANT_TECHNIQUE accepts and preserves a technique with a valid firstPrinciple');
   ok(firstPrincipleResults.invalidNestedFirstPrincipleInTransformationRejected, 'ACTIVATE_TRANSFORMATION rejects a transformationForm whose nested grantedTechnique has an invalid firstPrinciple');
 
+  console.log('25. Checkpoint 8 — grid, weapons, rally/defeat, currency (Monolith_Universe.pdf, verified against the source PDF directly)');
+  // Scope, per WONDERLAND_RPG_CHECKPOINT8_HANDOVER.md: five systems
+  // ported (grid, weapons, rally/defeat, currency, equipment), three
+  // explicitly rejected (card-deck/hand-draw, initiative-as-currency,
+  // Classes/Positions). Three real design resolutions made during this
+  // build, all recorded in wonderland/README.md:
+  //   - Rally/defeat has NO numeric Life pool — Wonderland has never
+  //     modeled damage as arithmetic. "Critically injured" reuses
+  //     isCombatOver's exact existing threshold (stamina spent or 3+
+  //     wounds) instead of a new HP stat.
+  //   - Equipment's Helmet/Necklace bonuses ("hand size"/"basic ability
+  //     count") have no Wonderland target (no hand/deck, no cap on
+  //     known techniques) — kept as descriptive data, same treatment as
+  //     Dagger/Wand's weapon bonuses.
+  //   - Currency ports Stars/Fragments/Favor only — Stones is excluded
+  //     outright (its own source text ties it to real-money purchase).
+  const checkpoint8Results = await page.evaluate(() => {
+    const { resolve, combatStatus, isInWeaponRange, isWeaponCritCondition, isCellOnBoard, isCellBlocked } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord, createBoardState, WEAPON_STATS, EQUIPMENT_SLOTS, FIRST_PRINCIPLES } = window.Wonderland.schema;
+    const results = {};
+
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+    function freshDuel(overridesA, overridesB, board) {
+      let s = createSaveState();
+      s.characters.char_a = createCharacterRecord({ id: 'char_a', ...overridesA });
+      s.characters.char_b = createCharacterRecord({ id: 'char_b', ...overridesB });
+      s = resolve(s, { type: 'INIT_ENCOUNTER', characterIds: ['char_a', 'char_b'], location: 'outskirts', board: board || createBoardState() });
+      return s;
+    }
+
+    // --- Grid / DECLARE_MOVEMENT ---
+    let s = freshDuel({}, {}, createBoardState({ blockedCells: [{ x: 3, y: 3 }] }));
+    s = resolve(s, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 0, y: 0 } });
+    results.initialPlacementFree = s.currentEncounter.combatants[0].distanceSpentThisExchange === 0;
+    s = resolve(s, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 4, y: 0 } }); // 4 cells, base distance 4
+    results.validMovementWithinDistance = s.characters.char_a.position.x === 4;
+    results.exceedingRemainingDistanceBlocked = !!threw(() => resolve(s, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 5, y: 0 } }));
+    results.movementToBlockedCellRejected = !!threw(() => resolve(s, { type: 'DECLARE_MOVEMENT', characterId: 'char_b', to: { x: 3, y: 3 } }));
+    results.movementOutOfBoundsRejected = !!threw(() => resolve(s, { type: 'DECLARE_MOVEMENT', characterId: 'char_b', to: { x: 9, y: 9 } }));
+    // Distance budget resets on RESOLVE_EXCHANGE
+    let s2 = resolve(s, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['react'] });
+    s2 = resolve(s2, { type: 'DECLARE_ACTION', characterId: 'char_b', slots: ['react'] });
+    s2 = resolve(s2, { type: 'RESOLVE_EXCHANGE' });
+    results.distanceBudgetResetsPerExchange = s2.currentEncounter.combatants[0].distanceSpentThisExchange === 0;
+    s2 = resolve(s2, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 8, y: 0 } }); // another 4 cells, only possible if reset worked
+    results.movementWorksAgainAfterReset = s2.characters.char_a.position.x === 8;
+
+    // Sword's +1 distance bonus (real, wired) vs. Dagger/Wand's
+    // secondary bonuses (real ported data, deliberately NOT wired)
+    let sSword = freshDuel({ weaponSpecialty: 'sword' }, {});
+    sSword = resolve(sSword, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 0, y: 0 } });
+    results.swordDistanceBonusWired = !threw(() => resolve(sSword, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 5, y: 0 } })); // 5 > base 4, needs +1
+    results.daggerStrikeBonusIsDataOnly = WEAPON_STATS.dagger.strikeBonusAsMain === 1;
+    results.wandAbilityRangeBonusIsDataOnly = WEAPON_STATS.wand.abilityRangeBonusAsMain === 1;
+
+    // --- Weapon range gate (real, wired into DECLARE_ACTION) ---
+    let sRange = freshDuel({ weaponSpecialty: 'dagger' }, {});
+    sRange = resolve(sRange, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 0, y: 0 } });
+    sRange = resolve(sRange, { type: 'DECLARE_MOVEMENT', characterId: 'char_b', to: { x: 3, y: 0 } });
+    results.daggerOutOfRangeBlocked = !!threw(() => resolve(sRange, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['act'] }));
+    sRange = resolve(sRange, { type: 'DECLARE_MOVEMENT', characterId: 'char_b', to: { x: 1, y: 0 } });
+    results.daggerInRangeAllowed = !threw(() => resolve(sRange, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['act'] }));
+    // Spear's line-only range (verified against the PDF's own "range 2
+    // cells in a line" wording)
+    results.spearLineRangeAccepted = isInWeaponRange('spear', { x: 0, y: 0 }, { x: 2, y: 0 }) === true;
+    results.spearDiagonalRejected = isInWeaponRange('spear', { x: 0, y: 0 }, { x: 2, y: 2 }) === false;
+    // Projectile's range has no line requirement (only its crit does)
+    results.projectileDiagonalRangeStillValid = isInWeaponRange('projectile', { x: 0, y: 0 }, { x: 4, y: 3 }) === true;
+    results.projectileCritRequiresLine = isWeaponCritCondition('projectile', { x: 0, y: 0 }, { x: 4, y: 0 }) === true &&
+      isWeaponCritCondition('projectile', { x: 0, y: 0 }, { x: 4, y: 3 }) === false;
+    results.spearCritRequiresFirstCellHit = isWeaponCritCondition('spear', { x: 0, y: 0 }, { x: 2, y: 0 }, true) === true &&
+      isWeaponCritCondition('spear', { x: 0, y: 0 }, { x: 2, y: 0 }, false) === false;
+
+    // --- Rally/defeat full trace: defeat -> rally -> second hit -> permanent removal ---
+    let sRally = freshDuel({}, {});
+    results.startsActive = combatStatus(sRally.characters.char_a) === 'active';
+    sRally = resolve(sRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'torso' });
+    sRally = resolve(sRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'legs' });
+    sRally = resolve(sRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'head' }); // 3rd wound -> defeated
+    results.threeWoundsCauseDefeated = combatStatus(sRally.characters.char_a) === 'defeated';
+    results.actBlockedWhileDefeated = !!threw(() => resolve(sRally, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['act'] }));
+    results.moveStillAllowedWhileDefeated = !threw(() => resolve(sRally, { type: 'DECLARE_MOVEMENT', characterId: 'char_a', to: { x: 0, y: 0 } }));
+    results.rallyOnActiveCharacterRejected = !!threw(() => resolve(sRally, { type: 'RALLY_CHARACTER', characterId: 'char_b', allyId: 'char_a' }));
+    sRally = resolve(sRally, { type: 'RALLY_CHARACTER', characterId: 'char_a', allyId: 'char_b' });
+    results.rallyRestoresRalliedStatus = combatStatus(sRally.characters.char_a) === 'rallied';
+    results.actAllowedAfterRally = !threw(() => resolve(sRally, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['act'] }));
+    results.secondRallyRejected = !!threw(() => resolve(sRally, { type: 'RALLY_CHARACTER', characterId: 'char_a', allyId: 'char_b' }));
+    sRally = resolve(sRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'torso' }); // hit while rallied -> permanent removal
+    results.hitWhileRalliedCausesPermanentRemoval = combatStatus(sRally.characters.char_a) === 'removed';
+    results.furtherWoundAfterRemovalRejected = !!threw(() => resolve(sRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'torso' }));
+    results.declareActionAfterRemovalRejected = !!threw(() => resolve(sRally, { type: 'DECLARE_ACTION', characterId: 'char_a', slots: ['move'] }));
+
+    // Immediate removal path: defeated, NOT rallied, takes another hit
+    let sNoRally = freshDuel({}, {});
+    sNoRally = resolve(sNoRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'torso' });
+    sNoRally = resolve(sNoRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'legs' });
+    sNoRally = resolve(sNoRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'head' });
+    sNoRally = resolve(sNoRally, { type: 'APPLY_WOUND', characterId: 'char_a', location: 'weaponArm' }); // hit while defeated, never rallied
+    results.hitWhileDefeatedUnrallyedCausesRemoval = combatStatus(sNoRally.characters.char_a) === 'removed';
+
+    // --- Currency: Stars/Fragments/Favor real, Stones absent ---
+    let sCur = createSaveState();
+    results.currencyStartsAtZero = sCur.currency.stars === 0 && sCur.currency.fragments === 0 && sCur.currency.favor === 0;
+    sCur = resolve(sCur, { type: 'MODIFY_CURRENCY', key: 'stars', amount: 10 });
+    results.currencyEarns = sCur.currency.stars === 10;
+    sCur = resolve(sCur, { type: 'MODIFY_CURRENCY', key: 'stars', amount: -10 });
+    results.currencySpends = sCur.currency.stars === 0;
+    results.currencyOverspendRejected = !!threw(() => resolve(sCur, { type: 'MODIFY_CURRENCY', key: 'fragments', amount: -1 }));
+    results.stonesHasNoSlot = !!threw(() => resolve(sCur, { type: 'MODIFY_CURRENCY', key: 'stones', amount: 1 }));
+
+    // --- Equipment: data verified against the PDF, Helmet/Necklace resolution ---
+    results.fourEquipmentSlotsPresent = Object.keys(EQUIPMENT_SLOTS).length === 4;
+    results.bootsSandalsDistanceBonusIsRealTarget = EQUIPMENT_SLOTS.bootsSandals.bonusB === 'distance';
+    results.helmetNecklaceOptionsPreservedAsData = EQUIPMENT_SLOTS.helmetNecklace.bonusA === 'handSize' && EQUIPMENT_SLOTS.helmetNecklace.bonusB === 'basicAbilityCount';
+
+    // --- SCHEMA_VERSION bump ---
+    results.schemaVersionBumpedTo3 = window.Wonderland.schema.SCHEMA_VERSION === 3;
+
+    // --- Existing systems unaffected: real houses' content still works with the new CharacterRecord fields ---
+    results.firstPrinciplesStillIntact = FIRST_PRINCIPLES.length === 4;
+
+    return results;
+  });
+  ok(checkpoint8Results.initialPlacementFree, 'DECLARE_MOVEMENT: first placement on the board costs no distance (not "movement" in the source sense)');
+  ok(checkpoint8Results.validMovementWithinDistance, 'DECLARE_MOVEMENT: a move within remaining distance succeeds');
+  ok(checkpoint8Results.exceedingRemainingDistanceBlocked, 'DECLARE_MOVEMENT: a move exceeding remaining distance this exchange throws');
+  ok(checkpoint8Results.movementToBlockedCellRejected, 'DECLARE_MOVEMENT: a blocked/obstacle cell is rejected');
+  ok(checkpoint8Results.movementOutOfBoundsRejected, 'DECLARE_MOVEMENT: a target outside the board is rejected');
+  ok(checkpoint8Results.distanceBudgetResetsPerExchange, 'distanceSpentThisExchange resets to 0 on RESOLVE_EXCHANGE, same lifecycle as declarations');
+  ok(checkpoint8Results.movementWorksAgainAfterReset, 'Movement is usable again next exchange after the budget resets');
+  ok(checkpoint8Results.swordDistanceBonusWired, 'Sword-as-main\'s +1 distance is really wired into DECLARE_MOVEMENT\'s effective distance');
+  ok(checkpoint8Results.daggerStrikeBonusIsDataOnly, 'Dagger\'s strikeBonusAsMain is real ported data (not wired into a nonexistent numeric strike stat)');
+  ok(checkpoint8Results.wandAbilityRangeBonusIsDataOnly, 'Wand\'s abilityRangeBonusAsMain is real ported data (not wired into a nonexistent technique range field)');
+  ok(checkpoint8Results.daggerOutOfRangeBlocked, 'DECLARE_ACTION with an act slot is blocked when no positioned opponent is within weapon range');
+  ok(checkpoint8Results.daggerInRangeAllowed, 'DECLARE_ACTION with an act slot succeeds once the opponent is within weapon range');
+  ok(checkpoint8Results.spearLineRangeAccepted, 'Spear range accepts an orthogonal-line target at distance 2');
+  ok(checkpoint8Results.spearDiagonalRejected, 'Spear range rejects a diagonal target even at the same Chebyshev distance ("in a line" per the PDF)');
+  ok(checkpoint8Results.projectileDiagonalRangeStillValid, 'Projectile\'s basic range has no line requirement (only its crit condition does, per the PDF\'s own wording)');
+  ok(checkpoint8Results.projectileCritRequiresLine, 'Projectile crits on the 4th cell only in a straight line, not diagonally');
+  ok(checkpoint8Results.spearCritRequiresFirstCellHit, 'Spear crits on the 2nd cell only if the first cell was hit');
+  ok(checkpoint8Results.startsActive, 'A fresh character starts combatStatus "active"');
+  ok(checkpoint8Results.threeWoundsCauseDefeated, 'combatStatus reuses isCombatOver\'s exact threshold (3+ wounds) to become "defeated" — no numeric Life pool involved');
+  ok(checkpoint8Results.actBlockedWhileDefeated, 'A defeated character cannot declare an act slot (no abilities/strikes per the PDF)');
+  ok(checkpoint8Results.moveStillAllowedWhileDefeated, 'A defeated character can still move (capped at 1 distance, not fully immobilized)');
+  ok(checkpoint8Results.rallyOnActiveCharacterRejected, 'RALLY_CHARACTER rejects a target that is not currently "defeated"');
+  ok(checkpoint8Results.rallyRestoresRalliedStatus, 'RALLY_CHARACTER moves a defeated character to "rallied"');
+  ok(checkpoint8Results.actAllowedAfterRally, 'A rallied character regains full access to abilities/strikes per the PDF, despite still being at the critical threshold');
+  ok(checkpoint8Results.secondRallyRejected, 'A character can only ever be rallied once (rallyUsed latches)');
+  ok(checkpoint8Results.hitWhileRalliedCausesPermanentRemoval, 'A further hit while "rallied" causes permanent removal from the encounter');
+  ok(checkpoint8Results.furtherWoundAfterRemovalRejected, 'A removed character cannot take further wounds — fails loudly rather than silently no-op\'ing');
+  ok(checkpoint8Results.declareActionAfterRemovalRejected, 'A removed character cannot declare any action at all');
+  ok(checkpoint8Results.hitWhileDefeatedUnrallyedCausesRemoval, 'A further hit while "defeated" (never rallied) also causes immediate permanent removal — the race the source describes');
+  ok(checkpoint8Results.currencyStartsAtZero, 'A fresh SaveState starts with stars/fragments/favor all at 0');
+  ok(checkpoint8Results.currencyEarns, 'MODIFY_CURRENCY can add to a currency counter');
+  ok(checkpoint8Results.currencySpends, 'MODIFY_CURRENCY can subtract from a currency counter');
+  ok(checkpoint8Results.currencyOverspendRejected, 'MODIFY_CURRENCY rejects spending a currency below 0');
+  ok(checkpoint8Results.stonesHasNoSlot, 'MODIFY_CURRENCY rejects "stones" outright — the premium currency was deliberately never given a slot');
+  ok(checkpoint8Results.fourEquipmentSlotsPresent, 'EQUIPMENT_SLOTS has all four slot pairs from the PDF');
+  ok(checkpoint8Results.bootsSandalsDistanceBonusIsRealTarget, 'Boots/Sandals\' distance bonus option names a field (distance) that really exists and is really used');
+  ok(checkpoint8Results.helmetNecklaceOptionsPreservedAsData, 'Helmet/Necklace\'s hand-size/basic-ability-count options are preserved as real ported data, not silently dropped or invented away');
+  ok(checkpoint8Results.schemaVersionBumpedTo3, 'SCHEMA_VERSION bumped 2 -> 3 for the new CharacterRecord/SaveState fields — an old save fails loudly rather than half-loading');
+  ok(checkpoint8Results.firstPrinciplesStillIntact, 'Checkpoint 8\'s CharacterRecord changes did not disturb the First Principles reconciliation from before it');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);

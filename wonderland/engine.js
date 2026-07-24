@@ -439,10 +439,13 @@ function findTechnique(character, techniqueId) {
 }
 
 function applyInitEncounter(state, action) {
-  const { characterIds, location } = action;
+  const { characterIds, location, board } = action;
   characterIds.forEach((id) => findCharacter(state, id)); // throws loudly if unknown
   const next = deepClone(state);
-  next.currentEncounter = schemaCreateEncounterState({ characterIds, location });
+  // board is optional (Checkpoint 8) — a non-grid encounter (most of
+  // Checkpoints 1-7's own tests) still works with no board at all;
+  // DECLARE_MOVEMENT just isn't usable until one's provided.
+  next.currentEncounter = schemaCreateEncounterState({ characterIds, location, board: board || null });
   return next;
 }
 
@@ -464,7 +467,25 @@ function applyDeclareAction(state, action) {
   }
 
   const character = findCharacter(state, characterId);
-  if (character.stamina === 'spent' && (techniqueId || castTier)) {
+  // Checkpoint 8: combatStatus gates BEFORE the pre-existing SRD stamina
+  // check below, since 'removed'/'defeated' are broader than "stamina is
+  // spent" (3+ wounds alone also triggers 'defeated', independent of
+  // stamina) — see combatStatus()'s own comment for the full state
+  // machine.
+  const status = combatStatus(character);
+  if (status === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has been removed from the encounter and cannot declare actions`);
+  }
+  if (status === 'defeated' && slots.includes('act')) {
+    throw new Error(`wonderland/engine: "${characterId}" is defeated — no abilities or strikes until rallied (RALLY_CHARACTER)`);
+  }
+  // The SRD's pre-Checkpoint-8 rule: Spent stamina alone blocks
+  // techniques/casts. A rallied character can still have Spent stamina
+  // (nothing about RALLY_CHARACTER heals it) but Monolith_Universe.pdf is
+  // explicit that a rallied character regains "access to their abilities
+  // and strikes" — a real, deliberate exception to the SRD rule, not an
+  // oversight, so it's spelled out here rather than left to look like one.
+  if (character.stamina === 'spent' && (techniqueId || castTier) && status !== 'rallied') {
     throw new Error(`wonderland/engine: "${characterId}" is Spent — no techniques available (aow_srd.html ch4-stamina)`);
   }
   if (techniqueId) findTechnique(character, techniqueId); // throws loudly if unknown
@@ -479,6 +500,20 @@ function applyDeclareAction(state, action) {
     );
   }
 
+  // Checkpoint 8: weapon range, only checkable at all in a grid-enabled
+  // encounter where both combatants have actually been placed
+  // (DECLARE_MOVEMENT) — a non-grid encounter (all of Checkpoints 1-7's
+  // own tests) has no positions to check, so this is silently skipped
+  // rather than forced, matching board's own optional nature.
+  if (slots.includes('act') && character.weaponSpecialty && character.position && state.currentEncounter.board) {
+    const opponentInRange = opponentCharacters.some((opp) => opp.position && isInWeaponRange(character.weaponSpecialty, character.position, opp.position));
+    if (opponentCharacters.some((opp) => opp.position) && !opponentInRange) {
+      throw new Error(
+        `wonderland/engine: "${characterId}"'s ${character.weaponSpecialty} cannot reach any positioned opponent this exchange (Monolith_Universe.pdf weapon range)`
+      );
+    }
+  }
+
   const effectiveCount = effectiveSlotCount(character, slots);
   if (effectiveCount > ENGINE_ACTION_SLOTS.length) {
     throw new Error(
@@ -491,6 +526,139 @@ function applyDeclareAction(state, action) {
   combatant.declaration = schemaCreateDeclaration({ slots: [...slots], techniqueId: techniqueId || null });
   if (castTier) combatant.declaration.castTier = castTier;
   if (engagementDenialActive) combatant.declaration.engagementDenialActive = true;
+  return next;
+}
+
+/*
+ * Checkpoint 8 grid helpers. Chebyshev (king-move, 8-directional)
+ * distance — Monolith_Universe.pdf never specifies a diagonal-movement
+ * rule or an adjacency metric, so this is a documented assumption, not a
+ * transcribed rule; the most common convention for a grid tactics board
+ * with no stated alternative.
+ */
+function cellDistance(a, b) {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+function isCellOnBoard(board, cell) {
+  return Number.isInteger(cell.x) && Number.isInteger(cell.y) &&
+    cell.x >= 0 && cell.x < board.width && cell.y >= 0 && cell.y < board.height;
+}
+
+function isCellBlocked(board, cell) {
+  return board.blockedCells.some((b) => b.x === cell.x && b.y === cell.y);
+}
+
+/*
+ * Checkpoint 8: weapon range check, ported from Monolith_Universe.pdf's
+ * weapon table (schema.js's WEAPON_STATS). "In a line" is read as
+ * orthogonal (same row or same column) — the source never defines the
+ * term precisely enough to know whether it means to include diagonals,
+ * and orthogonal is the more restrictive, more common reading for a
+ * grid-tactics "line," so that's the documented assumption used
+ * consistently here and in isWeaponCritCondition below.
+ */
+function isInWeaponRange(weaponSpecialty, attackerPos, defenderPos) {
+  const stats = Schema.WEAPON_STATS[weaponSpecialty];
+  if (!stats) throw new Error(`wonderland/engine: unknown weaponSpecialty "${weaponSpecialty}"`);
+  const dist = cellDistance(attackerPos, defenderPos);
+  const isOrthogonalLine = attackerPos.x === defenderPos.x || attackerPos.y === defenderPos.y;
+  if (stats.lineOnly && !isOrthogonalLine) return false;
+  if (typeof stats.range === 'number') return dist === stats.range;
+  return dist >= stats.rangeMin && dist <= stats.rangeMax;
+}
+
+/*
+ * Checkpoint 8: the geometric half of each weapon's critical-strike
+ * condition (Spear's "second cell if the first was hit," Projectile's
+ * "4th cell if in a straight line") — pure and testable, but
+ * deliberately NOT wired into RESOLVE_EXCHANGE's resolution this
+ * checkpoint. Spear's condition needs "was the first cell actually hit,"
+ * a sequential fact about a prior strike that nothing in this engine
+ * currently tracks (no per-cell hit history exists) — bolting that on
+ * would mean inventing new combat-history state well beyond "attach
+ * weapon data to existing handling," the scope this checkpoint was
+ * actually given. Left as a named, real gap rather than a fabricated
+ * resolution.
+ */
+function isWeaponCritCondition(weaponSpecialty, attackerPos, defenderPos, firstCellWasHit) {
+  const stats = Schema.WEAPON_STATS[weaponSpecialty];
+  if (!stats) throw new Error(`wonderland/engine: unknown weaponSpecialty "${weaponSpecialty}"`);
+  const dist = cellDistance(attackerPos, defenderPos);
+  const isOrthogonalLine = attackerPos.x === defenderPos.x || attackerPos.y === defenderPos.y;
+  if (stats.critOnSecondCellIfFirstHit) return dist === 2 && isOrthogonalLine && !!firstCellWasHit;
+  if (stats.critOnFourthCellIfStraightLine) return dist === 4 && isOrthogonalLine;
+  return false;
+}
+
+/*
+ * Monolith_Universe.pdf: "the amount of squares traversed is equal to
+ * the distance stat," declared "an unlimited number of times once there
+ * is distance remaining" — scoped here to once per exchange, since an
+ * exchange is this engine's turn-equivalent unit (see
+ * CombatantState.distanceSpentThisExchange's own comment). A character
+ * with position: null hasn't been placed on the board yet — that first
+ * DECLARE_MOVEMENT is treated as initial placement (no distance spent),
+ * not "movement" in the source's sense, since the source gives no
+ * starting-position rule to validate a first placement against.
+ *
+ * Only the destination cell's traversability is validated, not every
+ * cell along the path — the source names traversable/blocked cells but
+ * gives no pathfinding algorithm, and inventing one (line-of-sight,
+ * A*, diagonal-cutting rules) would be exactly the kind of fabricated
+ * specificity this project's own guardrails reject. A real gap, named
+ * here rather than silently assumed away.
+ */
+function applyDeclareMovement(state, action) {
+  const { characterId, to } = action;
+  if (!state.currentEncounter) {
+    throw new Error('wonderland/engine: DECLARE_MOVEMENT with no currentEncounter in state');
+  }
+  if (!state.currentEncounter.board) {
+    throw new Error('wonderland/engine: DECLARE_MOVEMENT requires currentEncounter.board — this encounter was not grid-enabled (see schema.js createBoardState)');
+  }
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  const status = combatStatus(character);
+  if (status === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has been removed from the encounter and cannot move`);
+  }
+  const board = state.currentEncounter.board;
+  if (!to || !isCellOnBoard(board, to)) {
+    throw new Error(`wonderland/engine: DECLARE_MOVEMENT target ${JSON.stringify(to)} is outside the ${board.width}x${board.height} board`);
+  }
+  if (isCellBlocked(board, to)) {
+    throw new Error(`wonderland/engine: DECLARE_MOVEMENT target (${to.x},${to.y}) is a blocked cell`);
+  }
+
+  const combatant = findCombatant(state.currentEncounter, characterId);
+
+  if (character.position === null) {
+    // Initial placement — see this function's own header comment.
+    const next = deepClone(state);
+    next.characters[characterId].position = { x: to.x, y: to.y };
+    return next;
+  }
+
+  // Sword-as-main grants +1 distance (Monolith_Universe.pdf's weapon
+  // table) — Wonderland has no separate main/secondary weapon-slot
+  // system (see schema.js's WEAPON_STATS comment), so weaponSpecialty
+  // itself stands in for "equipped as main" here, not a parallel field.
+  const swordBonus = character.weaponSpecialty === 'sword' ? Schema.WEAPON_STATS.sword.distanceBonusAsMain : 0;
+  // "distance is set to 1" while defeated (Monolith_Universe.pdf) — this
+  // caps the move itself, distinct from CharacterRecord.distance, which
+  // stays the character's real base stat.
+  const effectiveDistance = status === 'defeated' ? 1 : character.distance + swordBonus;
+  const distanceRemaining = effectiveDistance - combatant.distanceSpentThisExchange;
+  const requestedDistance = cellDistance(character.position, to);
+  if (requestedDistance > distanceRemaining) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" tried to move ${requestedDistance} cells but only ${distanceRemaining} distance remains this exchange`
+    );
+  }
+
+  const next = deepClone(state);
+  next.characters[characterId].position = { x: to.x, y: to.y };
+  findCombatant(next.currentEncounter, characterId).distanceSpentThisExchange += requestedDistance;
   return next;
 }
 
@@ -562,6 +730,10 @@ function applyResolveExchange(state) {
   });
   nextEncounter.combatants.forEach((c) => {
     c.declaration = null;
+    // Checkpoint 8: movement budget resets every exchange, same lifecycle
+    // as the declaration it's cleared alongside — see
+    // CombatantState.distanceSpentThisExchange's own comment.
+    c.distanceSpentThisExchange = 0;
   });
   return next;
 }
@@ -595,6 +767,8 @@ function applyWound(state, action) {
     return next; // wound is absorbed — never pushed to character.wounds
   }
 
+  const wasAlreadyCritical = applyIncomingHitGate(character, characterId); // throws if already removed
+
   const next = deepClone(state);
   next.characters[characterId].wounds.push(location);
   // aow_srd.html: a Presence wound drops all three presence components one
@@ -604,6 +778,17 @@ function applyWound(state, action) {
   // (Earlier version of this function bumped stamina instead, as a proxy —
   // that only ever degraded Hold, silently leaving Commit undegraded.
   // Caught by the second worked case; see wonderland/README.md.)
+  if (wasAlreadyCritical) {
+    // Checkpoint 8: was already 'defeated' or 'rallied' before this
+    // wound landed — Monolith_Universe.pdf: "any further damage removes
+    // them from the battlefield" (unrallied case) / "any fatal damage
+    // removes them from the battle" (rallied case). Wonderland has no
+    // granular wound-severity number to distinguish "further" from
+    // "fatal" damage once already past the critical threshold, so both
+    // collapse into the same rule here: the next hit while critically
+    // injured is the one that removes you, rally or not.
+    next.characters[characterId].removedFromEncounter = true;
+  }
   return next;
 }
 
@@ -619,6 +804,69 @@ function applyWound(state, action) {
 function isCombatOver(character, location) {
   if (location !== 'insideBarrier') return false;
   return character.stamina === 'spent' || character.wounds.length >= 3;
+}
+
+/*
+ * Checkpoint 8's rally/defeat state, ported from Monolith_Universe.pdf —
+ * WITHOUT porting its numeric Life pool. Wonderland has never modeled
+ * damage as arithmetic (no HP field exists anywhere, confirmed before
+ * building this); stamina stages and wound locations are the real "how
+ * hurt is this character" state, and isCombatOver() above already has a
+ * real, shipped "this is too injured to keep fighting" threshold. Rather
+ * than invent a parallel numeric system, "critically injured" reuses
+ * that exact same threshold — stamina spent or 3+ wounds — evaluated per
+ * character rather than location-gated, since Monolith's defeat isn't
+ * location-gated either.
+ *
+ * Four states, matching the source's own progression:
+ *   'active'   — below the critical threshold, plays normally.
+ *   'defeated' — at/above threshold, not yet rallied. Cannot use
+ *                abilities or declare strikes (aow_srd terms: any
+ *                DECLARE_ACTION with an 'act' slot is blocked);
+ *                movement is capped at 1 cell regardless of base
+ *                distance ("distance is set to 1" in the source).
+ *                Vulnerable: the next wound/stamina hit removes them
+ *                outright unless an ally rallies them first.
+ *   'rallied'  — was defeated, then RALLY_CHARACTER brought them back.
+ *                Full access to abilities/strikes and normal distance
+ *                again (the source lifts the defeated-state
+ *                restrictions on rally), but still at/above the
+ *                critical threshold underneath — the next hit removes
+ *                them permanently, same as the unrallied case. Only
+ *                one rally is ever available (rallyUsed latches true).
+ *   'removed'  — permanently out of the encounter. Cannot act, move,
+ *                be targeted by RALLY_CHARACTER, or take further
+ *                wounds/stamina changes — findCombatant-style callers
+ *                should treat this the same as "no longer a valid
+ *                target," not silently no-op further changes to them.
+ *
+ * Pure and derived, like isCombatOver — 'active' vs 'defeated' vs
+ * 'rallied' is never stored, only computed, so it can't drift out of
+ * sync with the stamina/wounds it's actually based on. rallyUsed and
+ * removedFromEncounter ARE real stored facts (a rally either happened or
+ * didn't; a removal either happened or didn't) — nothing else here is.
+ */
+function combatStatus(character) {
+  if (character.removedFromEncounter) return 'removed';
+  const criticallyInjured = character.stamina === 'spent' || character.wounds.length >= 3;
+  if (!criticallyInjured) return 'active';
+  return character.rallyUsed ? 'rallied' : 'defeated';
+}
+
+/*
+ * Shared gate for the two actions that can land a hit (APPLY_WOUND,
+ * SET_STAMINA): throws if the character is already permanently removed
+ * (fail loudly rather than silently no-op a hit on someone no longer in
+ * the fight), and returns whether they were already 'defeated' or
+ * 'rallied' BEFORE this hit — the caller uses that to decide whether
+ * this specific hit is the one that removes them for good.
+ */
+function applyIncomingHitGate(character, characterId) {
+  const preStatus = combatStatus(character);
+  if (preStatus === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has already been removed from the encounter — cannot apply further wounds or stamina changes`);
+  }
+  return preStatus === 'defeated' || preStatus === 'rallied';
 }
 
 function findPoliticalNode(state, nodeId) {
@@ -998,10 +1246,40 @@ function applyActivateTransformation(state, action) {
 
 function applySetStamina(state, action) {
   const { characterId, stamina } = action;
-  findCharacter(state, characterId);
+  const character = findCharacter(state, characterId);
   staminaIndex(stamina); // throws loudly if unknown stage
+  const wasAlreadyCritical = applyIncomingHitGate(character, characterId); // throws if already removed
   const next = deepClone(state);
   next.characters[characterId].stamina = stamina;
+  if (wasAlreadyCritical) {
+    // Same Checkpoint 8 rule as applyWound — see its comment.
+    next.characters[characterId].removedFromEncounter = true;
+  }
+  return next;
+}
+
+/**
+ * Checkpoint 8, Monolith_Universe.pdf: "they can be rallied by their
+ * allies... can only be rallied once." allyId is accepted but not
+ * required or resource-costed — the source names an actor but gives no
+ * mechanical cost for the act itself (unlike, say, weapon-switching's
+ * explicit initiative cost), and this engine doesn't invent a number the
+ * source doesn't provide, same discipline as isCombatOver()'s own
+ * comment. If given, allyId must be a real character (fail loudly on a
+ * bad reference) but nothing else about it is enforced.
+ */
+function applyRallyCharacter(state, action) {
+  const { characterId, allyId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (allyId) findCharacter(state, allyId); // throws loudly if unknown
+  const status = combatStatus(character);
+  if (status !== 'defeated') {
+    throw new Error(
+      `wonderland/engine: "${characterId}" cannot be rallied — status is "${status}", not "defeated" (only a defeated, not-yet-rallied character can be rallied, and only once)`
+    );
+  }
+  const next = deepClone(state);
+  next.characters[characterId].rallyUsed = true;
   return next;
 }
 
@@ -1029,6 +1307,39 @@ function applySetWorldFlag(state, action) {
   return next;
 }
 
+// Checkpoint 8: Stars/Fragments/Favor only — matches schema.js
+// createSaveState's currency shape exactly. Stones (Monolith's fourth
+// currency) has no key here on purpose; attempting to modify it throws
+// the same "unknown key" error as any other invalid string, rather than
+// silently no-op'ing — see wonderland/README.md for why it's excluded.
+const ENGINE_CURRENCY_KEYS = Object.freeze(['stars', 'fragments', 'favor']);
+
+/**
+ * Party-wide currency, ported from Monolith_Universe.pdf's Currency
+ * section. Content-agnostic like MODIFY_LEVERAGE: this function doesn't
+ * know what a "chapter completion reward" or a "challenge" is, only how
+ * to move a counter — the caller decides when/why to call it. Floors at
+ * 0 rather than allowing an overspend to go negative, and fails loudly
+ * on the attempt rather than silently clamping it, so a caller bug
+ * (spending currency it doesn't have) surfaces immediately.
+ */
+function applyModifyCurrency(state, action) {
+  const { key, amount } = action;
+  if (!ENGINE_CURRENCY_KEYS.includes(key)) {
+    throw new Error(`wonderland/engine: MODIFY_CURRENCY key must be one of ${JSON.stringify(ENGINE_CURRENCY_KEYS)}, got "${key}"`);
+  }
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    throw new Error('wonderland/engine: MODIFY_CURRENCY requires a finite numeric amount');
+  }
+  const newValue = state.currency[key] + amount;
+  if (newValue < 0) {
+    throw new Error(`wonderland/engine: MODIFY_CURRENCY would take "${key}" below 0 (${state.currency[key]} + ${amount} = ${newValue})`);
+  }
+  const next = deepClone(state);
+  next.currency[key] = newValue;
+  return next;
+}
+
 /**
  * The one entry point. Data in, data out — see module header.
  */
@@ -1044,12 +1355,16 @@ function resolve(currentState, action) {
       return applyInitEncounter(currentState, action);
     case 'DECLARE_ACTION':
       return applyDeclareAction(currentState, action);
+    case 'DECLARE_MOVEMENT':
+      return applyDeclareMovement(currentState, action);
     case 'RESOLVE_EXCHANGE':
       return applyResolveExchange(currentState);
     case 'APPLY_WOUND':
       return applyWound(currentState, action);
     case 'SET_STAMINA':
       return applySetStamina(currentState, action);
+    case 'RALLY_CHARACTER':
+      return applyRallyCharacter(currentState, action);
     case 'MODIFY_LEVERAGE':
       return applyModifyLeverage(currentState, action);
     case 'LOG_POLITICAL_ACTION':
@@ -1064,6 +1379,8 @@ function resolve(currentState, action) {
       return applyActivateTransformation(currentState, action);
     case 'SET_WORLD_FLAG':
       return applySetWorldFlag(currentState, action);
+    case 'MODIFY_CURRENCY':
+      return applyModifyCurrency(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }
@@ -1077,6 +1394,10 @@ const api = {
   effectiveSlotCount,
   castingSlotCost,
   isCombatOver,
+  combatStatus,
+  cellDistance,
+  isInWeaponRange,
+  isWeaponCritCondition,
   effectiveThreshold,
   computePoliticalActionEffect,
   evaluateUnlockCondition,
@@ -1084,6 +1405,8 @@ const api = {
   rankConductors,
   propagateWeight,
   applySetWorldFlag,
+  isCellOnBoard,
+  isCellBlocked,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

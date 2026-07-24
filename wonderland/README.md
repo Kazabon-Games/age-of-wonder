@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-7
+# Wonderland: First Principles — Checkpoints 1-8
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -781,3 +781,158 @@ worth naming plainly: this test suite does not "graduate" into the
 doc's intended UI-driven one once a real screen exists — a genuine
 UI-driven pass will need to be built from scratch at that point, not
 just extended.
+
+## Checkpoint 8: five systems ported from Monolith_Universe.pdf, three real design resolutions
+
+`WONDERLAND_RPG_CHECKPOINT8_HANDOVER.md` scoped five systems from a
+separate, older tabletop document in the same cosmology
+(`Monolith_Universe.pdf`, Alpha 1 ruleset, by IX) — not Age of Wonder's
+SRD, a related but distinct source: grid movement, weapon range/crit
+data, a rally/defeat state, currency, and equipment. Explicitly rejected:
+the card-deck/hand-draw resolution and initiative-as-ability-currency
+economy (both conflict with this project's diceless commitment) and
+Classes/Positions (needs reconciliation against the six-house Kit system
+first, not decided yet).
+
+**Verified against the source PDF directly, not the handover doc's own
+paraphrase** (the same discipline as every prior checkpoint): the grid,
+weapon, and equipment data transcribe correctly. Two things in the
+handover's paraphrase didn't match the source and were corrected before
+building against them:
+- The source's defeat threshold is "life reaches **1**," not "life
+  reaches its floor (0)" as the handover doc phrased it — moot here
+  since no numeric Life pool was ported at all (see below), but worth
+  recording since it shaped how the no-HP-pool redesign was checked
+  against the source's actual intent.
+- The source ties Stones (currency) to real-money purchase ("obtained
+  through various means and **by using real currency**") — absent from
+  the handover doc's Currency section entirely. Currency was implemented
+  with Stones excluded outright, not silently ported.
+
+### Three real design resolutions (Kazabon's explicit direction, not assumed)
+
+**1. No numeric Life pool — rally/defeat reuses the existing "way to end
+fights" instead.** Wonderland has never modeled damage as arithmetic; no
+HP field has ever existed anywhere in this schema. Monolith's Life is a
+literal 100-point pool with 1:1 damage — porting it as-written would mean
+bolting on a second, fully parallel damage-tracking system next to
+stamina stages and wound locations. Instead, `engine.js`'s new
+`combatStatus(character)` reuses `isCombatOver()`'s own, already-shipped
+threshold (stamina Spent or 3+ wounds) as "critically injured,"
+evaluated per-character rather than location-gated. Four states:
+`active` / `defeated` / `rallied` / `removed` — `active`↔`defeated` is
+purely derived (never stored, can't drift out of sync with the
+stamina/wounds it's based on, same discipline as `isCombatOver` itself);
+`rallyUsed` and `removedFromEncounter` are the only genuinely new stored
+facts, since "was this character rallied" and "were they removed" aren't
+derivable from anything else.
+  - `defeated`: no `act` slot (no abilities/strikes), movement capped at
+    1 cell. The next wound/stamina hit removes them outright.
+  - `RALLY_CHARACTER` (new action): once only, moves `defeated` →
+    `rallied`. A rallied character regains full ability/strike access
+    per the source, even though they're still at the critical threshold
+    underneath — a deliberate, documented exception to the pre-existing
+    SRD "Spent stamina blocks techniques" rule, not an oversight.
+  - The next hit while `rallied` — or while `defeated` and never rallied
+    — removes the character permanently (`removedFromEncounter: true`).
+    Wonderland has no granular wound-severity number to distinguish
+    "further" damage from "fatal" damage the way the source's numeric
+    Life did, so both of the source's cases collapse into one rule here:
+    the next hit while critically injured is the one that ends it.
+  - `removed`: cannot act, move, be rallied, or take further
+    wounds/stamina changes — attempting any of these throws, rather than
+    silently no-op'ing a character who's already out.
+
+**2. Equipment's Helmet/Necklace bonuses kept as real, ported,
+non-mechanical data.** The source's two options for this slot ("+1 hand
+size" / "+1 basic ability count") have no Wonderland target — confirmed,
+not assumed: there's no hand/deck (the card mechanic is explicitly
+excluded this checkpoint) and no cap on how many techniques a character
+can know (`CharacterRecord.techniques` is already unbounded, so "+1" to
+an uncapped number means nothing). Rather than invent a new
+capacity-limiter system just to give this one slot numeric teeth — a
+real, unrequested redesign of the declaration/loadout model — both
+options are kept in `schema.js`'s `EQUIPMENT_SLOTS` as real ported
+content, not silently dropped or invented away. This is the same
+treatment already given to two of the six weapons' secondary bonuses
+(Dagger's `strikeBonusAsMain`, Wand's `abilityRangeBonusAsMain`) for the
+identical reason — Wonderland has no numeric "strike count" or
+per-technique "range" field either. Consistent, not special-cased.
+
+**3. Currency ports Stars/Fragments/Favor; Stones is excluded outright.**
+`SaveState.currency` is a new `{ stars, fragments, favor }` counter set,
+modified via the new `MODIFY_CURRENCY` action (floors at 0, fails loudly
+on an attempted overspend rather than silently clamping it). Deliberately
+kept separate from Essence, per the handover doc's own caution — Essence
+isn't part of this codebase at all (Checkpoint 6 found it lives in a
+different repo, Iridescent Cosmology's own lifetime-currency system), so
+conflating a real system this project doesn't have with three new
+counters it does would be inventing an unconfirmed relationship. Stones
+has no key in the currency object at all and no case in
+`MODIFY_CURRENCY`'s validation — attempting to modify it throws the same
+"unknown key" error as any other invalid string. Excluded because its
+own source text ties it to real-money purchase, a monetization decision
+explicitly out of scope here.
+
+### What's real vs. what's a named, deliberate gap
+
+**Grid (real, tested):** 9x9-by-default `BoardState` (sparse
+`blockedCells` list, matching this codebase's existing preference for
+sparse over dense data), `CharacterRecord.position`/`distance`, new
+`DECLARE_MOVEMENT` action. `CombatantState.distanceSpentThisExchange`
+tracks the per-exchange movement budget, resetting alongside declaration
+clearing in `RESOLVE_EXCHANGE` — Monolith's "declared unlimited times
+while distance remains" is scoped to a turn in the source, and an
+exchange is this engine's turn-equivalent unit, not a literal unlimited
+free-roam phase. Only the destination cell's traversability is validated
+(in bounds, not blocked) — path-through-cells is a named gap, not a
+silent assumption: the source gives no pathfinding algorithm, and
+inventing one (line-of-sight, diagonal-cutting rules) would be exactly
+the kind of fabricated specificity this project's guardrails reject.
+Chebyshev (8-directional) distance is a documented assumption for the
+same reason — the source never specifies an adjacency metric.
+
+**Weapons (real, tested):** `schema.js`'s `WEAPON_STATS`, keyed by the
+same six `WEAPON_SPECIALTIES` Monolith itself uses. `isInWeaponRange()`
+is wired into `DECLARE_ACTION` for real — an `act` slot is rejected if no
+positioned opponent is within weapon range, but only in a grid-enabled
+encounter where both combatants have actually been placed; a non-grid
+encounter (all of Checkpoints 1-7's own tests) skips this silently,
+matching `board`'s own optional nature. "In a line" (Spear's range,
+Projectile's crit) is read as orthogonal (same row or column) — the
+source never defines the term precisely enough to resolve whether
+diagonals count, so orthogonal is the documented, more restrictive
+reading, used consistently in both places. Sword's `distanceBonusAsMain`
+is really wired into `DECLARE_MOVEMENT`'s effective distance;
+`weaponSpecialty` itself stands in for "equipped as main" since
+Wonderland has no separate main/secondary weapon-slot system (the
+handover doc's own note that this would need one is real, and building
+it was out of this checkpoint's actual scope).
+`isWeaponCritCondition()` is a real, pure, tested function for both
+weapons' crit geometry — but Spear's condition ("critically strikes on
+the second cell if the target on the first cell was hit") needs "was the
+first cell actually hit," a fact about a prior strike nothing in this
+engine tracks. Wiring that into `RESOLVE_EXCHANGE`'s actual resolution
+would mean inventing new combat-history state well beyond "attach data
+to existing handling" — named here as a real, open gap, not resolved by
+assumption.
+
+**Rally/defeat (real, tested):** see the design resolution above.
+
+**Currency (real, tested):** see the design resolution above.
+
+**Equipment (data only, per the handover doc's own scope — §5 frames it
+as "pure stat-modifier data," and §8's verification standard names no
+equipment tests):** `schema.js`'s `EQUIPMENT_SLOTS`, all four slot pairs
+verified against the PDF. No equipment-to-character stat resolution
+exists — `CharacterRecord.startingEquipment` is still a bare array of id
+strings, same as before this checkpoint. A full equipped-item-to-bonus
+system is genuinely Phase 3 "full inventory/equipment system" work per
+the flagship design doc's own phasing, not this checkpoint's ask.
+
+**Not ported, per the handover doc's own explicit exclusions:** the
+card-deck/hand-draw mechanic, initiative-as-ability-currency, Classes
+(Knight/Rook/Bishop), Positions (Vanguard/Saboteur/Infiltrator),
+Talismans/Catalysts as distinct item categories.
+
+39 new checks added (166 → 205 passing).
