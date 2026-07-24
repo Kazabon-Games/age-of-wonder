@@ -391,14 +391,32 @@ function createDeclaration(overrides = {}) {
 /**
  * A combat encounter's full state. Lives at SaveState.currentEncounter
  * while a fight is in progress; null otherwise.
+ *
+ * Exactly two combatants, not "at least two" — found during a status
+ * check, not by design. This used to accept any length >= 2, but
+ * engine.js's RESOLVE_EXCHANGE has always hardcoded
+ * `const [a, b] = encounter.combatants`, so a 3rd+ combatant could
+ * DECLARE_ACTION successfully and then have their declaration silently
+ * discarded at RESOLVE_EXCHANGE — no resolved action, no log entry, no
+ * error. aow_srd.html's own "Multiple Combatants" section describes 3+
+ * participant encounters as real but hands their resolution entirely to
+ * GM adjudication ("the GM resolves the exchange by identifying which
+ * actions interact... in the order that physical logic demands") — no
+ * formula to encode, the same "don't invent what the SRD leaves to the
+ * table" discipline as everywhere else in this file. Gated here instead
+ * of silently truncating, so a caller who wants a 3+-combatant encounter
+ * gets a clear "not implemented" error at construction time, not a
+ * quietly-vanishing participant three steps later.
  * @param {Object} params
  * @param {string[]} params.characterIds
  * @param {'insideBarrier'|'outskirts'|'outsideCity'} params.location
  * @param {Object|null} [params.board] - BoardState, see createBoardState; null for a non-grid encounter
  */
 function createEncounterState({ characterIds, location, board = null }) {
-  if (!Array.isArray(characterIds) || characterIds.length < 2) {
-    throw new Error('createEncounterState: characterIds must list at least two combatants');
+  if (!Array.isArray(characterIds) || characterIds.length !== 2) {
+    throw new Error(
+      `createEncounterState: characterIds must list exactly two combatants (got ${Array.isArray(characterIds) ? characterIds.length : typeof characterIds}) — 3+-combatant resolution is not implemented (aow_srd.html hands it to GM adjudication with no formula); a 3rd+ id would previously be accepted here and then silently dropped at RESOLVE_EXCHANGE, so this throws instead`
+    );
   }
   return {
     location,

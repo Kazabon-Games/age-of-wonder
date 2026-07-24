@@ -677,6 +677,9 @@ function applyResolveExchange(state) {
   }
 
   const initiative = computeInitiative(state, encounter);
+  // Safe to destructure exactly two: createEncounterState now enforces
+  // exactly two combatants at construction time (see its own comment) —
+  // a 3rd+ id can no longer reach this point at all.
   const [a, b] = encounter.combatants;
   const order = initiative.first
     ? [a, b].sort((x) => (x.characterId === initiative.first ? -1 : 1))

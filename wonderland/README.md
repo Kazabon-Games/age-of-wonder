@@ -936,3 +936,44 @@ card-deck/hand-draw mechanic, initiative-as-ability-currency, Classes
 Talismans/Catalysts as distinct item categories.
 
 39 new checks added (166 → 205 passing).
+
+## Post-Checkpoint-8 status check: a fresh SRD sweep and one real bug found
+
+A status check against `aow_srd.html`'s actual chapter structure (not
+just prior docs) found a real, previously-undetected bug and confirmed
+what's still genuinely open.
+
+**Bug fixed: 3+-combatant encounters silently dropped a participant.**
+`aow_srd.html`'s own "Multiple Combatants" section describes encounters
+with more than two participants as real (GM-adjudicated, no formula) —
+so `createEncounterState` only ever required `characterIds.length >= 2`.
+But `RESOLVE_EXCHANGE` has always hardcoded `const [a, b] =
+encounter.combatants`. A 3rd combatant could `DECLARE_ACTION`
+successfully and then have that declaration silently discarded at
+`RESOLVE_EXCHANGE` — no resolved action, no log entry, no error, the
+declaration just cleared as if it had resolved. Confirmed with a live
+repro before fixing (the exact class of "fail loudly, never silently
+drop" violation Checkpoint 7's adversarial pass was built around — this
+one slipped through because no test had ever tried 3 combatants). Fixed
+by requiring exactly two combatants at construction time instead of "at
+least two" — 3+-combatant resolution genuinely isn't implemented (the
+SRD hands it to GM judgment with no formula to encode), so a caller
+asking for it now gets a clear, immediate error instead of quietly
+losing a participant three calls later.
+
+**Confirmed still open, some newly named:** the Checkpoint 2 survey's
+own deferred list (Willstrain progression, Dissolution, Advancement,
+hybrid casting, Projectile reload state, Caravan Momentum, Exploration
+Depth) is still accurate, several checkpoints later. Additionally never
+touched and not previously named in this doc: Conversation Mechanics,
+Non-Human Entities in Combat/Magic, Wound Treatment, Solo Session rules,
+Spell Syntax parsing/Spell Builder — and one specific, real,
+low-effort/high-value gap: **Appendix D's Legitimacy Threshold**, the
+arc-one political win condition (King Hector at +2, three factions at
++2, the Royal Chamberlain at +1, one high-weight endorsement at +3) —
+fully deterministic, and checkable today against data the engine already
+has (`politicalNodes` scores against the exact NPCs `worldNpcs.js`
+already seeds), unlike Momentum/Depth which need a whole new encounter
+type. Never flagged in any prior checkpoint doc.
+
+3 new checks added (205 → 208 passing).

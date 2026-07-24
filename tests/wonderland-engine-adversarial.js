@@ -1458,6 +1458,58 @@ function approxEqual(a, b) {
   ok(checkpoint8Results.schemaVersionBumpedTo3, 'SCHEMA_VERSION bumped 2 -> 3 for the new CharacterRecord/SaveState fields — an old save fails loudly rather than half-loading');
   ok(checkpoint8Results.firstPrinciplesStillIntact, 'Checkpoint 8\'s CharacterRecord changes did not disturb the First Principles reconciliation from before it');
 
+  console.log('26. Fresh-SRD-sweep bug fix: multi-combatant encounters no longer silently drop a participant');
+  // Found doing a status check, not by design: aow_srd.html's own
+  // "Multiple Combatants" section describes 3+-participant encounters as
+  // real (GM-adjudicated, no formula) — so createEncounterState only
+  // required characterIds.length >= 2. But RESOLVE_EXCHANGE has always
+  // hardcoded `const [a, b] = encounter.combatants`, so a 3rd+ combatant
+  // could DECLARE_ACTION successfully and then have that declaration
+  // silently discarded at RESOLVE_EXCHANGE — no resolved action, no log
+  // entry, no error. Verified with a live repro before fixing. Fixed by
+  // requiring exactly two combatants at construction time instead of
+  // "at least two," converting the silent data loss into a clear,
+  // immediate construction-time error.
+  const multiCombatantResults = await page.evaluate(() => {
+    const { resolve } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord } = window.Wonderland.schema;
+    const results = {};
+
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+
+    function makeSave(n) {
+      const s = createSaveState();
+      for (let i = 0; i < n; i++) {
+        s.characters['char_' + i] = createCharacterRecord({ id: 'char_' + i });
+      }
+      return s;
+    }
+
+    results.threeCombatantsRejected = !!threw(() => resolve(makeSave(3), {
+      type: 'INIT_ENCOUNTER',
+      characterIds: ['char_0', 'char_1', 'char_2'],
+      location: 'outskirts',
+    }));
+    results.oneCombatantRejected = !!threw(() => resolve(makeSave(1), {
+      type: 'INIT_ENCOUNTER',
+      characterIds: ['char_0'],
+      location: 'outskirts',
+    }));
+    results.twoCombatantsStillWorks = !threw(() => resolve(makeSave(2), {
+      type: 'INIT_ENCOUNTER',
+      characterIds: ['char_0', 'char_1'],
+      location: 'outskirts',
+    }));
+
+    return results;
+  });
+  ok(multiCombatantResults.threeCombatantsRejected, 'INIT_ENCOUNTER with 3 combatants throws a clear error instead of silently dropping the 3rd at RESOLVE_EXCHANGE');
+  ok(multiCombatantResults.oneCombatantRejected, 'INIT_ENCOUNTER with 1 combatant is rejected the same way (exactly two, not "at least two")');
+  ok(multiCombatantResults.twoCombatantsStillWorks, 'INIT_ENCOUNTER with exactly 2 combatants — the only case this engine actually resolves — still works');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);
