@@ -15,6 +15,7 @@
 const Engine = window.WonderlandEngine;
 const Schema = window.WonderlandSchema;
 const Persistence = window.WonderlandPersistence;
+const WorldNpcs = window.WonderlandWorldNpcs;
 
 // Deliberately separate from schema.js's SCHEMA_VERSION (Checkpoint 9
 // handover §6) — this tracks UI/content releases, not save-data shape.
@@ -22,8 +23,13 @@ const Persistence = window.WonderlandPersistence;
 // hand, one canonical version per the scaffold skill's "pick one on
 // purpose" guidance for a single document (not a family needing
 // independent per-document versions).
-const UI_VERSION = '0.1.0';
+const UI_VERSION = '0.2.0';
 const CHANGELOG = [
+  {
+    version: '0.2.0',
+    date: '2026-07-25',
+    summary: 'The leverage web is visible for the first time — a new session seeds the real WORLD_NPCS registry, and a post-victory screen shows every NPC, their real connections, and your current standing with each.',
+  },
   {
     version: '0.1.0',
     date: '2026-07-24',
@@ -114,6 +120,18 @@ function selectHouse(houseId) {
     id: 'char_construct',
     name: 'Construct',
   });
+  // Checkpoint 10: seed the real WORLD_NPCS registry into politicalNodes
+  // at session start, same real content (nine named NPCs, real
+  // allied/rival/neutral conductor connections) engine.js's ripple
+  // propagation has been tested against since Checkpoint 5 — it's just
+  // never been seeded into anything a player session actually holds
+  // until now. Every score starts at the schema default (missing key
+  // reads as 0 via the same `node.scores[actorId] || 0` convention
+  // engine.js itself uses) — this doesn't grant or bias any standing,
+  // it only makes the graph exist so it CAN move.
+  WorldNpcs.WORLD_NPCS.forEach((npc) => {
+    next.politicalNodes[npc.key] = WorldNpcs.createPoliticalNodeFromWorldNpc(npc);
+  });
   app.save = next;
   app.houseId = houseId;
   window.WonderlandTutorial.start(app, showScreen);
@@ -129,12 +147,76 @@ function renderVictoryScreen() {
     <h1 class="screen-title">The Construct Doesn't Dissolve So Much As Stop Mattering</h1>
     <p class="victory-line">"You won," NLDR says. "Don't get used to it feeling that clean."</p>
     <p class="victory-summary">Playing as ${house ? house.name : 'an unaffiliated Esori'}. The Construct took ${construct.wounds.length} wound${construct.wounds.length === 1 ? '' : 's'} and never landed one on you.</p>
+    <button class="btn" id="btn-view-web">View the Leverage Web</button>
     <button class="btn" id="btn-restart">Return to House Select</button>
   `;
+  // Not { once: true } like every other listener in this file — those
+  // guard against a double-tap re-firing a state-mutating resolve()
+  // call (Checkpoint 9's own bug fix). This button only navigates and
+  // re-renders a read-only screen, and renderVictoryScreen() itself only
+  // runs once per playthrough, so a one-time listener would silently
+  // die after the first visit to the relationships screen and never
+  // fire again on the way back.
+  document.getElementById('btn-view-web').addEventListener('click', () => {
+    renderRelationshipsScreen();
+    showScreen('screen-relationships');
+  });
   document.getElementById('btn-restart').addEventListener('click', () => {
     renderHouseSelectScreen();
     showScreen('screen-house-select');
   }, { once: true });
+}
+
+/*
+ * Checkpoint 10: the first player-facing view of the leverage web.
+ * Read-only — shows what politicalNodes actually holds (real names,
+ * real conductor connections, real per-actor scores), nothing invented
+ * or simulated for display purposes. Scores are all still 0 this pass
+ * since nothing in the tutorial calls MODIFY_LEVERAGE/LOG_POLITICAL_ACTION
+ * yet; that's the next real step, not something this screen fakes.
+ */
+function conductorsSummary(npc) {
+  if (npc.conductors === 'all') {
+    return 'Connected to every node in the web.';
+  }
+  if (!npc.conductors.length) {
+    return 'No known connections.';
+  }
+  return npc.conductors
+    .map((c) => {
+      const other = WorldNpcs.WORLD_NPCS.find((n) => n.key === c.key);
+      return `${c.type} with ${other ? other.name : c.key}`;
+    })
+    .join(' · ');
+}
+
+function renderRelationshipsScreen() {
+  const el = document.getElementById('screen-relationships');
+  const cards = WorldNpcs.WORLD_NPCS.map((npc) => {
+    const node = app.save.politicalNodes[npc.key];
+    const score = (node && node.scores.char_player) || 0;
+    const scoreClass = score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral';
+    const scoreLabel = score > 0 ? `+${score}` : `${score}`;
+    return `
+      <div class="relationship-card">
+        <div class="relationship-cluster">${npc.cluster}</div>
+        <div class="relationship-name">${npc.name}</div>
+        <div class="relationship-role">${npc.role}</div>
+        <div class="relationship-score ${scoreClass}">Leverage: ${scoreLabel}</div>
+        <div class="relationship-conductors">${conductorsSummary(npc)}</div>
+      </div>
+    `;
+  }).join('');
+  el.innerHTML = `
+    <div class="eyebrow">The Leverage Web</div>
+    <h1 class="screen-title">Shemsara Remembers Everyone</h1>
+    <p class="relationship-note">Every score here starts neutral — this screen shows the web as it exists, not as anything you've done to it yet.</p>
+    <div class="relationship-grid">${cards}</div>
+    <button class="btn" id="btn-relationships-back">Back</button>
+  `;
+  document.getElementById('btn-relationships-back').addEventListener('click', () => {
+    showScreen('screen-victory');
+  });
 }
 
 function renderUpdatesScreen(onDone) {

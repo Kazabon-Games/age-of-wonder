@@ -170,6 +170,12 @@ async function dismissUpdatesScreenIfPresent(page) {
       await clickActiveButton(page);
     }
     ok(await activeScreenId(page) === 'screen-victory', 'Mobile viewport: the full tutorial is completable by tap alone, start to victory');
+
+    await clickActiveButton(page, 'View the Leverage Web');
+    const relCardBoxes = await page.locator('.relationship-card').evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
+    const relCardsFit = relCardBoxes.length === 9 && relCardBoxes.every((box) => box.x >= 0 && box.x + box.width <= viewportWidth + 1);
+    ok(relCardsFit, 'Mobile viewport: all nine relationship cards render and fit within the viewport width');
+
     ok(consoleErrors.length === 0, 'Zero console errors on the mobile-viewport playthrough');
 
     await context.close();
@@ -206,6 +212,57 @@ async function dismissUpdatesScreenIfPresent(page) {
     ok(await activeScreenId(page) === 'screen-victory', 'The full tutorial is still completable start to victory with no persistence layer at all');
     ok(pageErrors.length === 0, 'No uncaught page errors even though persistence fails on every attempted read/write');
 
+    await context.close();
+  }
+
+  console.log('5. Checkpoint 10 — the leverage web is visible and seeded with real WORLD_NPCS content');
+  {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await waitForAnyScreenActive(page);
+    await dismissUpdatesScreenIfPresent(page);
+
+    await clickActiveButton(page); // Begin
+    await page.locator('.house-card', { hasText: 'House Ye' }).click();
+    for (let i = 0; i < 8; i++) {
+      const screen = await activeScreenId(page);
+      if (screen === 'screen-victory') break;
+      await clickActiveButton(page);
+    }
+    ok(await activeScreenId(page) === 'screen-victory', 'Reaches victory as a precondition for this section');
+
+    await clickActiveButton(page, 'View the Leverage Web');
+    ok(await activeScreenId(page) === 'screen-relationships', 'Victory screen\'s new button reaches the relationships screen');
+
+    const cardCount = await page.locator('.relationship-card').count();
+    ok(cardCount === 9, `All nine real WORLD_NPCS are shown (got ${cardCount})`);
+
+    // Scoped via .relationship-name specifically, not .relationship-card's
+    // full text — "King Hector" also appears inside the Royal
+    // Chamberlain's OWN card as "allied with King Hector", which made a
+    // hasText match on the whole card ambiguous (2 elements) when this
+    // test was first written.
+    const kingCard = await page.locator('.relationship-card').filter({ has: page.locator('.relationship-name', { hasText: 'King Hector' }) }).textContent();
+    ok(kingCard.includes('Leverage: 0'), 'A freshly seeded node starts at neutral (0), not some invented starting favor');
+    ok(kingCard.includes('allied with Edrin Castellane'), 'The real conductor relationship (King Hector <-> the Royal Chamberlain) renders by name, not just a raw node key');
+
+    const brokerCard = await page.locator('.relationship-card').filter({ has: page.locator('.relationship-name', { hasText: 'The Tallyman' }) }).textContent();
+    ok(brokerCard.includes('Connected to every node'), 'The one real conductors:"all" NPC (the Outskirts Broker) is described correctly, not left blank or crashing on .map()');
+
+    // Real back-and-forth navigation, not a one-shot check — this
+    // screen's own bug (found while building it): the button that opens
+    // it lives on a screen rendered only once per playthrough, so a
+    // { once: true } listener there would silently die after the first
+    // visit. Confirmed here by actually going back and re-entering.
+    await clickActiveButton(page, 'Back');
+    ok(await activeScreenId(page) === 'screen-victory', 'Back button returns to the victory screen');
+    await clickActiveButton(page, 'View the Leverage Web');
+    ok(await activeScreenId(page) === 'screen-relationships', 'The leverage web is still reachable a second time, not a dead button after first use');
+
+    ok(pageErrors.length === 0, 'Zero page errors across the leverage-web flow');
     await context.close();
   }
 

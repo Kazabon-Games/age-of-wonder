@@ -1177,3 +1177,62 @@ to victory with zero page errors after it. A permanent regression test
 UI-driven checks.
 
 49 new checks added across two suites (208 → 224 engine, 0 → 25 UI-driven).
+
+## Checkpoint 10: the leverage web is visible for the first time
+
+Direct player feedback after actually playing Checkpoint 9's tutorial:
+it "feels like a visual novel so far" — an accurate read of the build.
+`play.html` had never touched `politicalNodes`, `WORLD_NPCS`, or any of
+the ripple-propagation engine work from Checkpoints 3–5; two characters
+and one scripted fight were the entire session. Asked whether real NPC
+connections should be seeded in, or whether that belonged to a later
+checkpoint — the honest answer was neither extreme: the engine side
+(`MODIFY_LEVERAGE`, `LOG_POLITICAL_ACTION`, `propagateWeight`,
+`getNodeConductors`, `rankConductors`) was already built and tested
+against real data back in Checkpoint 5, so this is UI-wiring work on
+top of proven plumbing, not a new system from scratch.
+
+Scoped down to two concrete decisions before building, both confirmed
+directly: seed the real `WORLD_NPCS` registry (the nine already-authored
+individuals — King Hector, the Royal Chamberlain, the Merchant
+Guildmaster, and so on — with their real allied/rival/neutral conductor
+connections, nothing invented) rather than a narrower placeholder set;
+and build a viewable relationships screen as the smallest real version,
+deferring wiring actual gameplay choices to move leverage rather than
+building both at once.
+
+Built: `selectHouse()` in `playUI.js` now seeds `politicalNodes` from
+`WonderlandWorldNpcs.WORLD_NPCS` at session start, alongside the
+existing player/Construct character creation. A new post-victory screen
+(`screen-relationships`, reached via a "View the Leverage Web" button)
+renders all nine nodes — name, role, cluster, current per-actor leverage
+score (`node.scores.char_player || 0`, the same "missing reads as
+neutral" convention `engine.js` itself uses), and the real conductor
+connections resolved to NPC names rather than raw node keys. The one
+real `conductors: 'all'` NPC (the Outskirts Broker) is handled as its
+own case, not left to crash on `.map()`.
+
+Stated plainly: this pass is read-only. Every score starts and stays at
+0 — nothing in the tutorial calls `MODIFY_LEVERAGE` or
+`LOG_POLITICAL_ACTION` yet, so what's on screen is the seeded starting
+state, not evidence the web actually moves in response to play. That's
+real remaining work, not implied to be done here.
+
+A real bug was caught building this, not shipped: the "View the
+Leverage Web" button was first wired with `{ once: true }` (Checkpoint
+9's own double-tap fix, copied reflexively) — but `renderVictoryScreen()`
+only runs once per playthrough, so a one-time listener there dies after
+the first visit and never fires again on a return trip. `{ once: true }`
+is only correct for buttons that guard a state-mutating `resolve()`
+call from a double-tap; this button only navigates and re-renders a
+read-only screen, so it needed a normal listener instead. Caught and
+fixed before shipping by testing the actual back-and-forth navigation,
+not just the first click through.
+
+Verified: 10 new UI-driven checks (all nine real NPCs render, a fresh
+node reads neutral, the real King Hector ↔ Royal Chamberlain connection
+resolves by name, the Outskirts Broker's `'all'` shorthand renders
+correctly, the back-and-forth navigation bug above is covered directly,
+zero page errors, and the cards fit the mobile viewport) — 28 → 38
+UI-driven checks. Screenshotted in both themes before shipping, same
+discipline that caught Checkpoint 9's house-color contrast bug.
