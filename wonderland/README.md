@@ -1,4 +1,4 @@
-# Wonderland: First Principles — Checkpoints 1-8
+# Wonderland: First Principles — Checkpoints 1-9
 
 Schema + engine skeleton (Checkpoint 1), extended with more of the SRD's
 deterministic combat/politics rules (Checkpoint 2), then extended again by
@@ -54,9 +54,23 @@ judged plausible.
   `WorldStateRecord`s (and back) — the actual cross-session/cross-game
   continuity mechanism Checkpoint 1 defined a schema for but never built.
   See "World State bridge" below.
-- **`harness.html`** — not a game screen; loads all seven modules above via
+- **`harness.html`** — not a game screen; loads all eight modules above via
   plain `<script>` tags (no bundler) and exposes `window.Wonderland._test`
   for the Playwright harness to drive.
+- **`redemption.js`** — Checkpoint 9: pure format/checksum validation and
+  code-shape generation for the redemption-code seam. No IndexedDB
+  access of its own; see "Updates/patch-notes screen and the
+  redemption-code seam" below.
+- **`play.html`** — Checkpoint 9: the actual playable UI, phase0-scaffolded,
+  DOM screens for menus/narration with a Canvas grid reserved for
+  combat-only rendering (per the checkpoint 9 handover's locked
+  navigation model). Loads every module above plus:
+  - **`playUI.js`** — screen-switching shell, house select, victory
+    screen, the updates/patch-notes check. Reads state and dispatches
+    into `engine.js`'s `resolve()`; no game logic of its own.
+  - **`tutorial.js`** — the one playable encounter (NLDR/Aetheria Nova),
+    wiring `Studio-Internal-/TUTORIAL_NLDR_AETHERIA_NOVA.md`'s
+    structural-mapping appendix to real `resolve()` calls.
 
 ## Document shape decision (checkpoint doc §1, first checkbox)
 
@@ -977,3 +991,160 @@ already seeds), unlike Momentum/Depth which need a whole new encounter
 type. Never flagged in any prior checkpoint doc.
 
 3 new checks added (205 → 208 passing).
+
+## Checkpoint 9: the first playable UI slice
+
+`WONDERLAND_RPG_CHECKPOINT9_UI_HANDOVER.md` scoped this as the priority
+over further engine/content breadth — eight checkpoints had proven the
+engine correct and tested, but nothing built so far had been played by
+an actual person through a screen. This checkpoint closes that gap:
+`wonderland/play.html` + `playUI.js` + `tutorial.js` + `redemption.js`,
+a real, playable, one-house/one-encounter vertical slice, phase0-scaffolded
+per studio protocol, visually consistent with the rest of the AOW suite
+(reused `aow_play_sheet.html`'s own color tokens rather than inventing a
+new palette).
+
+**The milestone content came from a real, supplied source, not a
+placeholder.** `Studio-Internal-/TUTORIAL_NLDR_AETHERIA_NOVA.md` — the
+NLDR/Aetheria Nova tutorial scenario — was located and supplied after
+being flagged as missing at this checkpoint's start (same pattern as
+every other "check first, don't fabricate" moment in this project's
+history). Its own structural-mapping appendix was followed exactly:
+narration beats with no engine calls, interleaved with real
+`INIT_ENCOUNTER`/`DECLARE_ACTION`/`RESOLVE_EXCHANGE`/`GRANT_TECHNIQUE`
+calls for the two real exchanges, a scripted (explicitly-flagged,
+not-real-AI) Construct opponent, and a `GRANT_TECHNIQUE`d Distinction
+ability partway through.
+
+### A real mechanical question the tutorial's own fiction raised, resolved honestly
+
+The tutorial's framing ("You Read. It Commits. The exchange resolves in
+your favor — not because anything rolled well, but because you knew
+something it didn't know you knew") isn't a literal action type —
+`aow_srd.html`'s own "The Read Declaration" section is explicit that
+Read/Commit/Hold is Presence, derived from wounds/stamina, and "The GM
+adjudicates Read accuracy" with no formula for two otherwise-matched
+fresh combatants. Checked, not assumed: a fresh player vs. a fresh
+Construct really does tie on `computeInitiative()` (both full Read) —
+the engine's own `'readParity-gmAdjudicates'` result. That tie is the
+mechanically honest outcome, not a bug to route around. `tutorial.js`
+plays the GM-adjudication role the SRD explicitly leaves open, breaking
+the tie in the player's favor by scripting the follow-up `APPLY_WOUND`
+on the Construct — exactly what NLDR does in fiction. The
+outcome-transparency panel shows the real tie (`Initiative: Tied —
+readParity-gmAdjudicates`), not a fabricated "you won the Read," so the
+display stays honest even though the narrative framing is confident.
+"Commit" maps to declaring the real `act` slot, the player's "Read" maps
+to `react` — the existing `ACTION_SLOTS` vocabulary, nothing invented.
+
+### Outcome transparency needed no new engine work
+
+Checked before building: `computeInitiative()` returns `{first, reason}`,
+not raw weight numbers, but `presenceStage()` is already separately
+exported — the UI calls both directly (pure, read-only queries) to build
+the full "why this resolved this way" panel, satisfying the handover's
+highest-priority requirement without the engine needing to change.
+Political leverage/hooks would be equally transparent already —
+`politicalNodes` carries `accumWeight`/`fireCount`/`scores` directly in
+state — though this milestone's tutorial doesn't touch politics.
+
+### A real bug found by actually driving the UI, not by reading it
+
+Adversarial mobile-viewport testing (rapid/double-tap, matching this
+studio's `worldbreaker` discipline) found a genuine data-integrity bug:
+double-tapping "Read the Construct" fired the exchange-resolution
+handler **twice** on the same stale button reference before the DOM
+re-rendered (every step function here runs fully synchronously — no
+`await` — so a second click event dispatched before re-render re-enters
+the same closure). Live repro: the Construct ended the tutorial with 3
+wounds instead of the intended 2. A busy-flag guard was tried first and
+rejected — since everything is synchronous, the flag gets reset before
+the second click event is even dispatched, so it can't actually block
+anything. Fixed with `{ once: true }` on every step-advancing listener
+(`bindContinue()` in `tutorial.js`, applied consistently in `playUI.js`
+too) — a DOM-level guarantee, not a timing-dependent one: the browser
+removes the listener as part of the first dispatch, before a second
+click on the same element can re-invoke it. Re-verified with a
+triple-tap after the fix.
+
+### Two more real, smaller findings from actually looking at both themes
+
+- House card names used each house's own `colorPrimary` as text color —
+  looked fine for most houses, but House Ye/Lightwell's white read
+  invisible against the light theme's cream background, and House
+  Corvane's near-black purple read invisible against the dark theme's
+  near-black background. House colors are real per-house data, but were
+  picked as identity swatches, not text-safe colors against an arbitrary
+  theme background. Fixed: house colors stay as the decorative left-border
+  accent only; the house name always uses the theme's own guaranteed-legible
+  token.
+- `init()` awaiting a real IndexedDB round-trip (the updates-screen
+  check, below) before the first screen renders means there's a genuine,
+  if brief, window with no `.screen.active` element at all — found by
+  this checkpoint's own UI test suite racing that window on a slower
+  run. Not "fixed away" with a fake instant default; it's the honest
+  cost of actually checking before rendering, same discipline as
+  everywhere else in this project.
+
+### Updates/patch-notes screen and the redemption-code seam (§6-7, scaffolding)
+
+- A `UI_VERSION` constant (`0.1.0`, kept in sync by hand with
+  `play.html`'s own phase0-scaffold version marker — deliberately
+  separate from `SCHEMA_VERSION`, since this tracks UI/content releases,
+  not save-data shape), checked on every load against a `choice:ui_version`
+  record through `persistence.js`'s existing access layer. Differs
+  (including "never stored," which reads as different on purpose — no
+  separate first-install suppression rule was asked for) → shows a
+  one-time changelog screen, then persists the new version.
+- **`GRANT_REWARD`** (`engine.js`): a new, content-agnostic action —
+  `{type:'currency'|'technique', ...}` — deliberately decoupled from any
+  redemption check, delegating to the already-tested
+  `applyModifyCurrency`/`applyGrantTechnique` rather than duplicating
+  their logic.
+- **`wonderland/redemption.js`** (new file, dual Node/browser module):
+  pure format/checksum validation (`WNDR-<BATCH>-<TIME36>-<RANDOM>-<CHECKSUM>`,
+  a real, working checksum — not decorative, verified to catch a
+  single-character tamper), a code shape that really encodes batchId and
+  issuedAt (base36 minutes-since-epoch) per the handover's own "so a
+  future server can use codes already issued" instruction, and a pure
+  `isCodeUnredeemed()` check. Nothing here touches IndexedDB directly —
+  `persistence.js`'s `getEntity()` throws on a missing key rather than
+  returning null (its own fail-loudly discipline), so the caller
+  translates that exception into this module's null-means-unredeemed
+  convention explicitly, documented at the boundary. No real promo codes
+  exist yet, per the handover's own "infrastructure only" scope.
+
+### Verification, stated honestly
+
+Two new Playwright suites: `tests/wonderland-engine-adversarial.js`
+(224 checks, up from 208 — `GRANT_REWARD` + `redemption.js` coverage,
+plus the multi-combatant fix from the pre-checkpoint status check) and a
+new `tests/wonderland-play-tutorial.js` (25 checks) that drives the
+**real UI** — clicks, not `page.evaluate()` injection, matching this
+studio's `worldbreaker`/`browser-test-harness` discipline — through the
+full milestone at both desktop and mobile (Playwright's iPhone 13
+emulation) viewport sizes, plus a real theme-toggle-and-reload check.
+
+**Stated plainly, not implied:** the handover's own verification standard
+asks for the milestone to be "played through, on a real phone screen, by
+a human." What's actually been done is Playwright's device emulation —
+the closest available substitute, and genuinely adversarial (rapid
+taps, viewport-width checks, real click-driven navigation) — but it is
+not a substitute for a person actually holding a device. That check
+still needs to happen before this milestone is trusted beyond what's
+written here.
+
+### What this checkpoint deliberately does not include
+
+Per the handover's own §4/§5 scope: NvN/raid design, the redemption-code
+server swap (only the local-only seam), further SRD coverage (Legitimacy
+Threshold, Momentum/Caravan, Depth/Exploration), narrative content beyond
+this one tutorial scenario, multiplayer/PvP. Also not built this pass,
+consistent with §5's "one house, one encounter" milestone scope rather
+than the full §3 navigation model: inventory, world/status screens, and
+the 9x9 Canvas grid's actual rendering (the tutorial encounter never
+calls `DECLARE_MOVEMENT` — its structural mapping appendix never
+mentions movement — so grid-combat UI remains real, tested engine
+capability with no matching UI yet).
+
+49 new checks added across two suites (208 → 224 engine, 0 → 25 UI-driven).

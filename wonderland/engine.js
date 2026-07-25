@@ -1343,6 +1343,43 @@ function applyModifyCurrency(state, action) {
   return next;
 }
 
+/*
+ * Checkpoint 9's redemption-code seam (wonderland/redemption.js owns
+ * format validation and the "has this code been used" check — both
+ * outside this file, since neither is game state). This is only the
+ * "apply an already-authorized reward" half, deliberately decoupled
+ * from redemption per the handover's own instruction: this function
+ * doesn't know or care whether a code was involved, only how to grant a
+ * reward once something else has decided it's earned. rewardId is
+ * carried through for the caller's own bookkeeping (which specific
+ * reward this was) — engine.js never looks it up in a registry it
+ * doesn't keep, same discipline as GRANT_TECHNIQUE/ACTIVATE_TRANSFORMATION
+ * taking the real content as payload rather than a lookup key.
+ *
+ * Delegates to the existing, already-tested action handlers for each
+ * reward type rather than duplicating their logic — a currency reward
+ * really is just MODIFY_CURRENCY, a technique reward really is just
+ * GRANT_TECHNIQUE, granted through a different front door.
+ */
+function applyGrantReward(state, action) {
+  const { rewardId, reward } = action;
+  if (typeof rewardId !== 'string' || !rewardId) {
+    throw new Error('wonderland/engine: GRANT_REWARD requires a rewardId string');
+  }
+  if (!reward || typeof reward !== 'object' || typeof reward.type !== 'string') {
+    throw new Error('wonderland/engine: GRANT_REWARD requires a reward object with a type');
+  }
+  assertPlainSerializable(reward, 'GRANT_REWARD reward payload');
+  switch (reward.type) {
+    case 'currency':
+      return applyModifyCurrency(state, { key: reward.key, amount: reward.amount });
+    case 'technique':
+      return applyGrantTechnique(state, { characterId: reward.characterId, technique: reward.technique });
+    default:
+      throw new Error(`wonderland/engine: unknown reward type "${reward.type}" — GRANT_REWARD supports "currency" and "technique"`);
+  }
+}
+
 /**
  * The one entry point. Data in, data out — see module header.
  */
@@ -1384,6 +1421,8 @@ function resolve(currentState, action) {
       return applySetWorldFlag(currentState, action);
     case 'MODIFY_CURRENCY':
       return applyModifyCurrency(currentState, action);
+    case 'GRANT_REWARD':
+      return applyGrantReward(currentState, action);
     default:
       throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
   }

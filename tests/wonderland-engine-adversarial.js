@@ -1510,6 +1510,80 @@ function approxEqual(a, b) {
   ok(multiCombatantResults.oneCombatantRejected, 'INIT_ENCOUNTER with 1 combatant is rejected the same way (exactly two, not "at least two")');
   ok(multiCombatantResults.twoCombatantsStillWorks, 'INIT_ENCOUNTER with exactly 2 combatants — the only case this engine actually resolves — still works');
 
+  console.log('27. Checkpoint 9 — GRANT_REWARD action and the redemption-code seam');
+  // GRANT_REWARD (engine.js) and redemption.js (format validation, code
+  // shape, the pure "already redeemed" check) — the non-UI half of the
+  // Checkpoint 9 handover's §7 scaffolding. No real promo codes exist
+  // yet by design; this only proves the infrastructure is real.
+  const rewardResults = await page.evaluate(() => {
+    const { resolve } = window.Wonderland.engine;
+    const { createSaveState, createCharacterRecord } = window.Wonderland.schema;
+    const { createRedemptionCode, validateCodeFormat, redemptionKeyFor, isCodeUnredeemed } = window.Wonderland.redemption;
+    const results = {};
+
+    function threw(fn) {
+      try { fn(); return null; }
+      catch (e) { return e.message; }
+    }
+    function makeSave() {
+      const s = createSaveState();
+      s.characters.char_x = createCharacterRecord({ id: 'char_x' });
+      return s;
+    }
+
+    // GRANT_REWARD
+    results.currencyRewardApplies = (() => {
+      const next = resolve(makeSave(), { type: 'GRANT_REWARD', rewardId: 'r1', reward: { type: 'currency', key: 'stars', amount: 25 } });
+      return next.currency.stars === 25;
+    })();
+    results.techniqueRewardApplies = (() => {
+      const next = resolve(makeSave(), { type: 'GRANT_REWARD', rewardId: 'r2', reward: { type: 'technique', characterId: 'char_x', technique: { id: 't_reward', name: 'Reward Move', firstPrinciple: 'persistence' } } });
+      return next.characters.char_x.techniques.some((t) => t.id === 't_reward');
+    })();
+    results.unknownRewardTypeRejected = !!threw(() => resolve(makeSave(), { type: 'GRANT_REWARD', rewardId: 'r3', reward: { type: 'nonsense' } }));
+    results.missingRewardIdRejected = !!threw(() => resolve(makeSave(), { type: 'GRANT_REWARD', reward: { type: 'currency', key: 'stars', amount: 1 } }));
+    results.rewardStillGoesThroughSerializabilityGuard = !!threw(() => {
+      const fnTechnique = { id: 't_bad', name: 'x', firstPrinciple: 'persistence', evil: function () {} };
+      return resolve(makeSave(), { type: 'GRANT_REWARD', rewardId: 'r4', reward: { type: 'technique', characterId: 'char_x', technique: fnTechnique } });
+    });
+
+    // redemption.js: code shape, format validation, tamper detection
+    const generated = createRedemptionCode('LAUNCH');
+    results.generatedCodeValidates = validateCodeFormat(generated.code).valid === true;
+    results.generatedCodeRoundTripsBatchId = validateCodeFormat(generated.code).batchId === generated.batchId;
+    results.generatedCodeRoundTripsIssuedAt = validateCodeFormat(generated.code).issuedAt === generated.issuedAt;
+    results.lowercaseInputStillValidates = validateCodeFormat(generated.code.toLowerCase()).valid === true;
+
+    const lastChar = generated.code.slice(-1);
+    const tampered = generated.code.slice(0, -1) + (lastChar === 'A' ? 'B' : 'A');
+    results.tamperedChecksumRejected = validateCodeFormat(tampered).valid === false;
+    results.garbageRejected = validateCodeFormat('not-a-real-code').valid === false;
+    results.nonStringRejected = validateCodeFormat(12345).valid === false;
+    results.badBatchIdThrowsAtCreation = !!threw(() => createRedemptionCode('this-batch-id-is-way-too-long-for-the-format'));
+
+    results.redemptionKeyIsNamespacedCorrectly = redemptionKeyFor(generated.code).startsWith('entity:redeemed_');
+    results.unredeemedCheckTrueForNull = isCodeUnredeemed(null) === true;
+    results.unredeemedCheckFalseForRecord = isCodeUnredeemed({ redeemedAt: 'x' }) === false;
+
+    return results;
+  });
+  ok(rewardResults.currencyRewardApplies, 'GRANT_REWARD with a currency reward really adds to SaveState.currency');
+  ok(rewardResults.techniqueRewardApplies, 'GRANT_REWARD with a technique reward really grants it via the existing GRANT_TECHNIQUE path');
+  ok(rewardResults.unknownRewardTypeRejected, 'GRANT_REWARD rejects an unrecognized reward.type');
+  ok(rewardResults.missingRewardIdRejected, 'GRANT_REWARD requires a rewardId even though this action never looks it up in a registry');
+  ok(rewardResults.rewardStillGoesThroughSerializabilityGuard, 'A GRANT_REWARD technique reward still goes through the same plain-serializable-data guard as a direct GRANT_TECHNIQUE');
+  ok(rewardResults.generatedCodeValidates, 'A freshly generated redemption code passes its own format validation');
+  ok(rewardResults.generatedCodeRoundTripsBatchId, 'The batchId encoded in a generated code round-trips through validateCodeFormat');
+  ok(rewardResults.generatedCodeRoundTripsIssuedAt, 'The issuedAt timestamp encoded in a generated code round-trips through validateCodeFormat');
+  ok(rewardResults.lowercaseInputStillValidates, 'A lowercase-typed version of a valid code still validates (case-insensitive entry)');
+  ok(rewardResults.tamperedChecksumRejected, 'A single-character tamper is caught by the checksum, not silently accepted');
+  ok(rewardResults.garbageRejected, 'A non-code string is rejected with a clear "malformed" reason, not a crash');
+  ok(rewardResults.nonStringRejected, 'A non-string input is rejected cleanly rather than throwing a native TypeError');
+  ok(rewardResults.badBatchIdThrowsAtCreation, 'createRedemptionCode rejects a malformed batchId at creation time, not silently later');
+  ok(rewardResults.redemptionKeyIsNamespacedCorrectly, 'redemptionKeyFor produces a properly entity:-namespaced persistence.js key');
+  ok(rewardResults.unredeemedCheckTrueForNull, 'isCodeUnredeemed treats null (persistence.js\'s "not found" translated by the caller) as unredeemed');
+  ok(rewardResults.unredeemedCheckFalseForRecord, 'isCodeUnredeemed treats an existing record as already redeemed');
+
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail === 0 ? 0 : 1);
