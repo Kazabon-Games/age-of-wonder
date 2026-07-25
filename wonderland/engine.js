@@ -1,0 +1,1461 @@
+'use strict';
+/*
+ * WONDERLAND: FIRST PRINCIPLES — Checkpoint 1 diceless resolution engine.
+ *
+ * resolve(currentState, action) -> newState. Pure: no IndexedDB, no DOM,
+ * no browser globals, no mutation of the input state (see §0 of
+ * WONDERLAND_RPG_HANDOVER_CHECKPOINT1.md). Everything this module needs
+ * from schema.js is passed in or required, never reached for globally in
+ * a way that would break in a non-browser test runner.
+ *
+ * Scope, honestly stated: aow_srd.html's combat system is *not* fully
+ * deterministic by design — "The GM adjudicates Read accuracy" is the
+ * SRD's own language for initiative outside the one unconditional case
+ * (Dagger's Initiative Advantage). This skeleton does not fabricate a
+ * numeric Read-accuracy formula the SRD never gives. What it *does*
+ * encode deterministically, because the SRD states these as hard rules
+ * rather than GM judgment calls:
+ *   - the three-slot action economy and wound/stamina slot-cost surcharges
+ *   - Dagger's unconditional initiative override (and its one documented
+ *     exception, Projectile Engagement Denial)
+ *   - technique trigger conditions (a technique fires only if the
+ *     opponent's declaration this exchange matches its trigger predicate)
+ *   - reactive techniques (resolvesRegardlessOfInitiative) still resolving
+ *     in the same exchange even when their declarant lacked initiative
+ * Wound severity and stamina-stage timing are NOT auto-computed from hit
+ * counts anywhere below — the SRD leaves those to GM adjudication, so they
+ * enter this engine only as explicit APPLY_WOUND / SET_STAMINA actions,
+ * never as an invented formula.
+ *
+ * Verified against aow_srd.html's ch4-techniques "A Worked Exchange"
+ * (Mira/Sword/Riposte vs. Davan/Dagger) — the SRD's only narrated combat
+ * exchange — plus a second, constructed case covering every wound/stamina
+ * rule that exchange never touches (Head/Weapon Arm/Shield Arm/Legs/
+ * Presence wounds, Strained/Spent stamina), each assertion traced to its
+ * own quoted SRD line rather than inferred from this file. See
+ * tests/wonderland-engine-adversarial.js §9-10 for the actual run. That
+ * second case caught a real bug during development: presenceStage()
+ * originally had no case for a Presence wound at all, and applyWound()
+ * worked around it by bumping stamina one stage as a proxy — which only
+ * ever degraded Hold, silently leaving Commit at "full" when the SRD says
+ * a Presence wound drops all three components immediately. Fixed by
+ * checking hasWound(character, 'presence') directly, first, in
+ * presenceStage().
+ *
+ * Checkpoint 2 additions (2026-07-23): magic-in-combat's tier->slot-cost
+ * table (T1-T6, with Wand's -1-tier slot acceleration); the three
+ * remaining weapon specialties with deterministic mechanics — Sword
+ * (free React alongside Act), Spear (opponent must spend Move+React to
+ * close), Staff (once-per-encounter wound-absorbing barrier); the
+ * inside-the-barrier combat-end threshold (Spent stamina or 3 wounds);
+ * and a Leverage clamp to [-5, +5] resolving the factionStanding gap
+ * Checkpoint 1 flagged (schema existed, no behavior). Deliberately NOT
+ * touched this checkpoint, surveyed and scoped out because the SRD
+ * itself leaves them to GM adjudication or they belong to a different
+ * encounter type entirely: Willstrain stage progression, Dissolution,
+ * Advancement (all narratively signaled, no formula given), Projectile's
+ * reload/ammo state (underspecified — "costs the Move slot" without a
+ * clear loaded/unloaded state machine), hybrid casting (needs a
+ * bridging-fighting-style field this schema doesn't have yet), and the
+ * Caravan Momentum / Exploration Depth systems (real deterministic
+ * numbers exist there too — starting Momentum is
+ * round((Route+Cohesion+Cover)/1.2) — but they're separate encounter
+ * types, not combat, and deserve their own dedicated pass).
+ *
+ * Checkpoint 3 additions (2026-07-23): dug through the rest of the AOW
+ * suite (aow_heir_record.html, aow_play_sheet.html, aow_gm_screen.html,
+ * aow_spell_creator.html), not just the SRD — those are real, shipped,
+ * battle-tested tools with their own proven data models and formulas,
+ * not just prose to extract rules from. Two significant findings changed
+ * this file:
+ *   - aow_gm_screen.html's "Weight Engine" (applyWeightAndGenerateHooks)
+ *     is the actual, working ancestor of the "weight/trigger model"
+ *     language in the original Checkpoint 1 handover doc — a DIFFERENT
+ *     system from this file's combat initiative weight model, operating
+ *     on political leverage instead. Ported the mechanical core
+ *     (computePoliticalActionEffect/effectiveThreshold, LOG_POLITICAL_ACTION)
+ *     faithfully: tier*1.5 base weight, whole-point score deltas at tier
+ *     3+ vs. fractional-carry deltas at tier 1-2, and an escalating
+ *     trigger threshold (max(2, base - fireCount)). NOT ported: ripple
+ *     propagation to "conductor" NPCs and all narrative hook-text
+ *     generation — the former needs the WORLD_NPCS relationship graph
+ *     this repo hasn't imported, the latter is GM-facing prose, not pure
+ *     engine logic.
+ *   - Checkpoint 2's MODIFY_LEVERAGE/factionStanding was WRONG: it
+ *     modeled leverage as one party-wide number per faction. The real
+ *     system (aow_play_sheet.html's per-heir state.leverage, and
+ *     aow_srd.html ch3-leverage's own text: "one score per significant
+ *     NPC and faction... for the heir") tracks it per actor against a
+ *     shared node. Corrected: SaveState.factionStanding -> politicalNodes
+ *     (schemaVersion 1 -> 2), MODIFY_LEVERAGE now takes an actorId.
+ * Also added: APPLY_CAPSTONE/RESET_CAPSTONE_USAGE (real Capstone content
+ * from aow_heir_record.html — a flat leverage bonus/penalty for a
+ * five-year single-aspect commitment, once per session).
+ *
+ * importHeirRecord.js (new file, not this one) adapts a real
+ * aow_heir_record.html JSON export into this schema — see its own header
+ * for the import discipline, mirrored from aow_play_sheet.html's proven
+ * importFromS0().
+ */
+
+(function (root) {
+
+const Schema =
+  typeof module !== 'undefined' && module.exports
+    ? require('./schema.js')
+    : root.WonderlandSchema;
+
+// Destructured under engine-local names — schema.js, when loaded as a
+// plain <script> (no module system), declares its own top-level
+// STAMINA_STAGES/ACTION_SLOTS in the same global scope, so binding the
+// same identifiers here would collide with it at parse time.
+const {
+  STAMINA_STAGES: ENGINE_STAMINA_STAGES,
+  ACTION_SLOTS: ENGINE_ACTION_SLOTS,
+  createEncounterState: schemaCreateEncounterState,
+  createDeclaration: schemaCreateDeclaration,
+} = Schema;
+
+function deepClone(value) {
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+}
+
+/*
+ * A plain `{}`-keyed lookup table (state.characters, state.politicalNodes)
+ * has a real prototype chain like any other object. `table['__proto__']`
+ * does NOT read an own property named "__proto__" — it resolves through
+ * the chain to the actual shared Object.prototype, which is truthy, so a
+ * naive `if (!table[key])` guard never fires. A caller passing
+ * characterId: '__proto__' (or 'constructor', 'toString', etc.) would
+ * then have that shared prototype handed back as "the character", and any
+ * subsequent field assignment on it (e.g. `.stamina = 'winded'`) mutates
+ * Object.prototype itself for the entire process. hasOwnProperty is the
+ * only check that distinguishes "an own entry at this key" from "the
+ * prototype chain resolved to something truthy" — always gate lookups
+ * through it before trusting a caller-supplied key.
+ */
+function hasOwn(obj, key) {
+  return typeof key === 'string' && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+/*
+ * Some ids (actorId in MODIFY_LEVERAGE/LOG_POLITICAL_ACTION, flagId in
+ * SET_WORLD_FLAG) key into node.scores/node.fractional/state.worldFlags
+ * WITHOUT first requiring an existing own entry — that's the point, a new
+ * actor's first-ever leverage score or a brand-new world flag has to be
+ * creatable. hasOwn can't gate those writes the way it gates
+ * findCharacter/findPoliticalNode. They're safe today only because the
+ * values ever assigned through them are plain numbers/booleans/strings —
+ * assigning a non-object value to `obj['__proto__']` is a documented,
+ * verified no-op (the accessor setter on Object.prototype requires an
+ * Object or null, silently ignoring anything else) — but that safety is
+ * incidental to the value-type checks already next to each call site, not
+ * to this guard. Reject '__proto__' outright so the protection doesn't
+ * depend on every future edit remembering that. Deliberately NOT
+ * rejecting 'constructor'/'prototype' too: verified those have no
+ * special accessor behavior on a plain object — `obj.constructor = x`
+ * just creates an ordinary own property shadowing the inherited one, no
+ * different from any other key — so a real id that happens to be one of
+ * those words (a spell literally named "Constructor") isn't a threat and
+ * shouldn't be rejected as if it were.
+ */
+function assertSafeDynamicKey(key, context) {
+  if (key === '__proto__') {
+    throw new Error(`wonderland/engine: "${key}" cannot be used as a ${context} — it collides with JavaScript's own object prototype chain`);
+  }
+}
+
+/*
+ * GRANT_TECHNIQUE and ACTIVATE_TRANSFORMATION take a whole technique/
+ * transformationForm object as their payload and hand it to schema.js's
+ * createTechnique/createTransformationForm, which is a plain
+ * Object.assign(defaults, overrides) — it does not filter unknown fields
+ * or check that they're serializable. Found during the Checkpoint 7
+ * adversarial pass: a technique payload with a function-valued field, or
+ * a field holding a circular reference back to itself, was accepted
+ * without complaint and landed byte-for-byte inside the returned "state"
+ * object — silently breaking this codebase's own §0 non-negotiable ("all
+ * state is plain, serializable data") until some unrelated later
+ * consumer (a JSON save export, an IndexedDB write) chokes on it far from
+ * the actual mistake. Walk the payload up front and fail loudly here
+ * instead, at the one place that actually knows what was just accepted.
+ */
+function assertPlainSerializable(value, context, seen) {
+  if (value === null || typeof value === 'undefined') return;
+  const t = typeof value;
+  if (t === 'function') {
+    throw new Error(`wonderland/engine: ${context} contains a function value — state must stay plain, serializable data`);
+  }
+  if (t === 'symbol') {
+    throw new Error(`wonderland/engine: ${context} contains a symbol value — state must stay plain, serializable data`);
+  }
+  if (t !== 'object') return; // string/number/boolean already fine
+  seen = seen || new Set();
+  if (seen.has(value)) {
+    throw new Error(`wonderland/engine: ${context} contains a circular reference — state must stay plain, serializable data`);
+  }
+  seen.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => assertPlainSerializable(item, `${context}[${i}]`, seen));
+    return;
+  }
+  Object.keys(value).forEach((key) => assertPlainSerializable(value[key], `${context}.${key}`, seen));
+}
+
+/*
+ * WONDERLAND_RPG_FLAGSHIP_DESIGN.md §5: the four First Principles
+ * (distinction/relation/transformation/persistence) are the game's actual
+ * ability taxonomy — "every ability must be classifiable under exactly
+ * one Principle." Enforced narrowly, not broadly: a technique's
+ * `firstPrinciple` is optional (a scaffolding/test technique with no
+ * narrative content isn't a "real ability" this rule is about), but if a
+ * value IS supplied, it must be one of the four exactly — a typo'd or
+ * invented Principle name is exactly the "plausible instead of specified"
+ * mistake the design doc's own guardrails (§10) warn about, so it's
+ * rejected here rather than silently accepted.
+ */
+function assertValidFirstPrinciple(firstPrinciple, context) {
+  if (firstPrinciple === null || typeof firstPrinciple === 'undefined') return;
+  if (!Schema.FIRST_PRINCIPLES.includes(firstPrinciple)) {
+    throw new Error(
+      `wonderland/engine: ${context}.firstPrinciple must be one of ${JSON.stringify(Schema.FIRST_PRINCIPLES)}, got "${firstPrinciple}"`
+    );
+  }
+}
+
+function findCombatant(encounter, characterId) {
+  const combatant = encounter.combatants.find((c) => c.characterId === characterId);
+  if (!combatant) {
+    throw new Error(`wonderland/engine: unknown characterId "${characterId}" in this encounter`);
+  }
+  return combatant;
+}
+
+function findCharacter(state, characterId) {
+  if (!hasOwn(state.characters, characterId)) {
+    throw new Error(`wonderland/engine: unknown characterId "${characterId}" in state.characters`);
+  }
+  return state.characters[characterId];
+}
+
+function staminaIndex(stage) {
+  const i = ENGINE_STAMINA_STAGES.indexOf(stage);
+  if (i === -1) throw new Error(`wonderland/engine: unknown stamina stage "${stage}"`);
+  return i;
+}
+
+function hasWound(character, location) {
+  return character.wounds.includes(location);
+}
+
+/**
+ * Read/Commit/Hold degradation — aow_srd.html ch4-presence + the wound
+ * table (Head degrades Read regardless of stamina; Weapon Arm degrades
+ * Commit; Shield Arm/Legs degrade Hold; Strained stamina degrades Read;
+ * Winded-or-worse degrades Hold; Spent degrades Commit; a Presence wound
+ * drops ALL THREE components immediately — checked first, before any
+ * single-component condition, so it can never be short-circuited by only
+ * matching one component's own trigger).
+ */
+function presenceStage(character, component) {
+  if (component !== 'read' && component !== 'commit' && component !== 'hold') {
+    throw new Error(`wonderland/engine: unknown presence component "${component}"`);
+  }
+  if (hasWound(character, 'presence')) return 'degraded';
+
+  const idx = staminaIndex(character.stamina);
+  if (component === 'read') {
+    if (hasWound(character, 'head')) return 'degraded';
+    if (idx >= staminaIndex('strained')) return 'degraded';
+    return 'full';
+  }
+  if (component === 'commit') {
+    if (hasWound(character, 'weaponArm')) return 'degraded';
+    if (character.stamina === 'spent') return 'degraded';
+    return 'full';
+  }
+  // component === 'hold'
+  if (hasWound(character, 'shieldArm') || hasWound(character, 'legs')) return 'degraded';
+  if (idx >= staminaIndex('winded')) return 'degraded';
+  return 'full';
+}
+
+/**
+ * Slot cost surcharge from wounds — aow_srd.html's wound table: Weapon Arm
+ * adds one slot to basic weapon actions, Legs adds one slot to Move.
+ * Returns the effective slots-committed count including surcharges, for
+ * capacity validation only (three slots is always all there is).
+ */
+function effectiveSlotCount(character, slots) {
+  let count = slots.length;
+  if (slots.includes('act') && hasWound(character, 'weaponArm')) count += 1;
+  if (slots.includes('move') && hasWound(character, 'legs')) count += 1;
+  // Sword's Range of Response (aow_srd.html ch4-weapons): "split their Act
+  // slot — using it for both an offensive action and a defensive response
+  // ... without needing to spend the React slot for the defensive element."
+  // Modeled as: React is free when declared alongside Act by a Sword
+  // fighter. The declaration model here doesn't distinguish *why* React was
+  // declared, so this discount applies whenever both are present together —
+  // a documented simplification, not a claim the SRD spells out the exact
+  // mechanism this way.
+  if (character.weaponSpecialty === 'sword' && slots.includes('act') && slots.includes('react')) {
+    count -= 1;
+  }
+  return count;
+}
+
+/**
+ * Magic-in-combat tier -> slot-cost table (aow_srd.html ch2-combat). The
+ * Wand's cast acceleration ("all spells are treated one tier lower for
+ * slot cost only") is applied here, before the table lookup — willstrain
+ * is explicitly untouched by it per the same passage, and this engine
+ * doesn't track willstrain as a number anyway (see module header).
+ *
+ * T5/T6 are marked `sustained: true` rather than given an invented
+ * per-tier exchange count — the SRD says these "span multiple exchanges"
+ * without specifying how many; that duration is the spell's own property
+ * (ch2-tiers: Duration is one of the four qualities that sets tier in the
+ * first place), not a number this engine should guess at.
+ */
+function castingSlotCost(tier, weaponSpecialty) {
+  if (!Number.isInteger(tier) || tier < 1 || tier > 6) {
+    throw new Error(`wonderland/engine: spell tier must be an integer 1-6, got "${tier}"`);
+  }
+  const effectiveTier = weaponSpecialty === 'wand' ? Math.max(1, tier - 1) : tier;
+  if (effectiveTier === 1) return { requiredSlots: ['act'], flexibleCount: 0, sustained: false };
+  if (effectiveTier === 2) return { requiredSlots: ['act', 'move'], flexibleCount: 0, sustained: false };
+  if (effectiveTier === 3) return { requiredSlots: ['act'], flexibleCount: 1, sustained: false };
+  return { requiredSlots: ['act', 'move', 'react'], flexibleCount: 0, sustained: effectiveTier >= 5 };
+}
+
+/**
+ * Validates a declared slots array against a spell's tier requirement.
+ * T3's "Act plus one other slot" is the one case with a real choice — the
+ * caller picks Move or React and it must show up as the one extra slot.
+ */
+function validateCastSlots(tier, weaponSpecialty, slots) {
+  const cost = castingSlotCost(tier, weaponSpecialty);
+  const missingRequired = cost.requiredSlots.filter((s) => !slots.includes(s));
+  if (missingRequired.length > 0) {
+    throw new Error(
+      `wonderland/engine: casting tier ${tier} requires slot(s) [${missingRequired.join(', ')}] that were not declared`
+    );
+  }
+  const extras = slots.filter((s) => !cost.requiredSlots.includes(s));
+  if (extras.length !== cost.flexibleCount) {
+    throw new Error(
+      `wonderland/engine: casting tier ${tier} needs exactly ${cost.flexibleCount} additional slot(s) beyond [${cost.requiredSlots.join(', ')}], got [${extras.join(', ')}]`
+    );
+  }
+  return cost;
+}
+
+/**
+ * Spear's Reach Dominance (aow_srd.html ch4-weapons): "An opponent who
+ * wants to close to striking range against a Spear fighter must spend
+ * both their Move and React slots to do so." Checked against every other
+ * combatant in the encounter — if any of them is Spear-specialized and
+ * this declaration includes Move without React, it's an illegal closing
+ * attempt.
+ */
+function violatesSpearReachDominance(declaringSlots, opponentCharacters) {
+  if (!declaringSlots.includes('move')) return false;
+  return opponentCharacters.some(
+    (opp) => opp.weaponSpecialty === 'spear' && !declaringSlots.includes('react')
+  );
+}
+
+/**
+ * Weight model for initiative. Dagger's Initiative Advantage is the SRD's
+ * one unconditional, deterministic case; its only documented exception is
+ * Projectile Engagement Denial before the Dagger is in range, modeled here
+ * as an explicit `engagementDenialActive` flag on the projectile fighter's
+ * declaration so the exception is an opt-in input, not a guess. Absent a
+ * Dagger, initiative falls back to a documented Read-advantage weight
+ * (full vs. degraded), and ties are reported as GM-adjudicated rather than
+ * silently broken one way — see the module header for why this engine
+ * does not fabricate Read-accuracy precision the SRD doesn't specify.
+ */
+function computeInitiative(state, encounter) {
+  const [a, b] = encounter.combatants;
+  const charA = findCharacter(state, a.characterId);
+  const charB = findCharacter(state, b.characterId);
+
+  const daggerOverrides = (combatant, character, opponentCombatant, opponentCharacter) => {
+    if (character.weaponSpecialty !== 'dagger') return false;
+    const opponentDeclaration = opponentCombatant.declaration;
+    if (
+      opponentCharacter.weaponSpecialty === 'projectile' &&
+      opponentDeclaration &&
+      opponentDeclaration.engagementDenialActive
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  if (daggerOverrides(a, charA, b, charB)) {
+    return { first: a.characterId, reason: 'daggerInitiativeAdvantage' };
+  }
+  if (daggerOverrides(b, charB, a, charA)) {
+    return { first: b.characterId, reason: 'daggerInitiativeAdvantage' };
+  }
+
+  const weight = (character) => (presenceStage(character, 'read') === 'full' ? 1 : 0);
+  const weightA = weight(charA);
+  const weightB = weight(charB);
+  if (weightA === weightB) {
+    return { first: null, reason: 'readParity-gmAdjudicates' };
+  }
+  return {
+    first: weightA > weightB ? a.characterId : b.characterId,
+    reason: 'readAdvantage',
+  };
+}
+
+/**
+ * Trigger model. A technique with no trigger (a basic strike) is always
+ * available. A structured trigger fires only when it matches the
+ * opponent's actual declaration this exchange — see schema.js
+ * createTechnique for the trigger shape.
+ */
+function evaluateTrigger(trigger, opponentDeclaration) {
+  if (!trigger) return true;
+  if (!opponentDeclaration) return false;
+  switch (trigger.type) {
+    case 'opponentCommitsSlots':
+      return trigger.slots.every((slot) => opponentDeclaration.slots.includes(slot));
+    default:
+      throw new Error(`wonderland/engine: unknown trigger type "${trigger.type}"`);
+  }
+}
+
+function findTechnique(character, techniqueId) {
+  const technique = character.techniques.find((t) => t.id === techniqueId);
+  if (!technique) {
+    throw new Error(`wonderland/engine: character "${character.id}" has no technique "${techniqueId}"`);
+  }
+  return technique;
+}
+
+function applyInitEncounter(state, action) {
+  const { characterIds, location, board } = action;
+  characterIds.forEach((id) => findCharacter(state, id)); // throws loudly if unknown
+  const next = deepClone(state);
+  // board is optional (Checkpoint 8) — a non-grid encounter (most of
+  // Checkpoints 1-7's own tests) still works with no board at all;
+  // DECLARE_MOVEMENT just isn't usable until one's provided.
+  next.currentEncounter = schemaCreateEncounterState({ characterIds, location, board: board || null });
+  return next;
+}
+
+function applyDeclareAction(state, action) {
+  const { characterId, slots, techniqueId, castTier, engagementDenialActive } = action;
+  if (!state.currentEncounter) {
+    throw new Error('wonderland/engine: DECLARE_ACTION with no currentEncounter in state');
+  }
+  if (!Array.isArray(slots) || slots.length === 0) {
+    throw new Error('wonderland/engine: DECLARE_ACTION requires a non-empty slots array');
+  }
+  slots.forEach((s) => {
+    if (!ENGINE_ACTION_SLOTS.includes(s)) throw new Error(`wonderland/engine: unknown slot "${s}"`);
+  });
+  if (techniqueId && castTier) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" declared both a technique and a cast — hybrid casting is not implemented in this checkpoint (aow_srd.html ch2-combat "Hybrid Casting" requires a bridging fighting style this schema doesn't track yet); the choice is weapon or spell, not both`
+    );
+  }
+
+  const character = findCharacter(state, characterId);
+  // Checkpoint 8: combatStatus gates BEFORE the pre-existing SRD stamina
+  // check below, since 'removed'/'defeated' are broader than "stamina is
+  // spent" (3+ wounds alone also triggers 'defeated', independent of
+  // stamina) — see combatStatus()'s own comment for the full state
+  // machine.
+  const status = combatStatus(character);
+  if (status === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has been removed from the encounter and cannot declare actions`);
+  }
+  if (status === 'defeated' && slots.includes('act')) {
+    throw new Error(`wonderland/engine: "${characterId}" is defeated — no abilities or strikes until rallied (RALLY_CHARACTER)`);
+  }
+  // The SRD's pre-Checkpoint-8 rule: Spent stamina alone blocks
+  // techniques/casts. A rallied character can still have Spent stamina
+  // (nothing about RALLY_CHARACTER heals it) but Monolith_Universe.pdf is
+  // explicit that a rallied character regains "access to their abilities
+  // and strikes" — a real, deliberate exception to the SRD rule, not an
+  // oversight, so it's spelled out here rather than left to look like one.
+  if (character.stamina === 'spent' && (techniqueId || castTier) && status !== 'rallied') {
+    throw new Error(`wonderland/engine: "${characterId}" is Spent — no techniques available (aow_srd.html ch4-stamina)`);
+  }
+  if (techniqueId) findTechnique(character, techniqueId); // throws loudly if unknown
+  if (castTier) validateCastSlots(castTier, character.weaponSpecialty, slots); // throws loudly on a mismatched declaration
+
+  const opponentCharacters = state.currentEncounter.combatants
+    .filter((c) => c.characterId !== characterId)
+    .map((c) => findCharacter(state, c.characterId));
+  if (violatesSpearReachDominance(slots, opponentCharacters)) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" declared Move against a Spear opponent without also declaring React — Reach Dominance requires both to close (aow_srd.html ch4-weapons)`
+    );
+  }
+
+  // Checkpoint 8: weapon range, only checkable at all in a grid-enabled
+  // encounter where both combatants have actually been placed
+  // (DECLARE_MOVEMENT) — a non-grid encounter (all of Checkpoints 1-7's
+  // own tests) has no positions to check, so this is silently skipped
+  // rather than forced, matching board's own optional nature.
+  if (slots.includes('act') && character.weaponSpecialty && character.position && state.currentEncounter.board) {
+    const opponentInRange = opponentCharacters.some((opp) => opp.position && isInWeaponRange(character.weaponSpecialty, character.position, opp.position));
+    if (opponentCharacters.some((opp) => opp.position) && !opponentInRange) {
+      throw new Error(
+        `wonderland/engine: "${characterId}"'s ${character.weaponSpecialty} cannot reach any positioned opponent this exchange (Monolith_Universe.pdf weapon range)`
+      );
+    }
+  }
+
+  const effectiveCount = effectiveSlotCount(character, slots);
+  if (effectiveCount > ENGINE_ACTION_SLOTS.length) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" declared ${effectiveCount} effective slots (with wound surcharges) but only ${ENGINE_ACTION_SLOTS.length} exist`
+    );
+  }
+
+  const next = deepClone(state);
+  const combatant = findCombatant(next.currentEncounter, characterId);
+  combatant.declaration = schemaCreateDeclaration({ slots: [...slots], techniqueId: techniqueId || null });
+  if (castTier) combatant.declaration.castTier = castTier;
+  if (engagementDenialActive) combatant.declaration.engagementDenialActive = true;
+  return next;
+}
+
+/*
+ * Checkpoint 8 grid helpers. Chebyshev (king-move, 8-directional)
+ * distance — Monolith_Universe.pdf never specifies a diagonal-movement
+ * rule or an adjacency metric, so this is a documented assumption, not a
+ * transcribed rule; the most common convention for a grid tactics board
+ * with no stated alternative.
+ */
+function cellDistance(a, b) {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+function isCellOnBoard(board, cell) {
+  return Number.isInteger(cell.x) && Number.isInteger(cell.y) &&
+    cell.x >= 0 && cell.x < board.width && cell.y >= 0 && cell.y < board.height;
+}
+
+function isCellBlocked(board, cell) {
+  return board.blockedCells.some((b) => b.x === cell.x && b.y === cell.y);
+}
+
+/*
+ * Checkpoint 8: weapon range check, ported from Monolith_Universe.pdf's
+ * weapon table (schema.js's WEAPON_STATS). "In a line" is read as
+ * orthogonal (same row or same column) — the source never defines the
+ * term precisely enough to know whether it means to include diagonals,
+ * and orthogonal is the more restrictive, more common reading for a
+ * grid-tactics "line," so that's the documented assumption used
+ * consistently here and in isWeaponCritCondition below.
+ */
+function isInWeaponRange(weaponSpecialty, attackerPos, defenderPos) {
+  const stats = Schema.WEAPON_STATS[weaponSpecialty];
+  if (!stats) throw new Error(`wonderland/engine: unknown weaponSpecialty "${weaponSpecialty}"`);
+  const dist = cellDistance(attackerPos, defenderPos);
+  const isOrthogonalLine = attackerPos.x === defenderPos.x || attackerPos.y === defenderPos.y;
+  if (stats.lineOnly && !isOrthogonalLine) return false;
+  if (typeof stats.range === 'number') return dist === stats.range;
+  return dist >= stats.rangeMin && dist <= stats.rangeMax;
+}
+
+/*
+ * Checkpoint 8: the geometric half of each weapon's critical-strike
+ * condition (Spear's "second cell if the first was hit," Projectile's
+ * "4th cell if in a straight line") — pure and testable, but
+ * deliberately NOT wired into RESOLVE_EXCHANGE's resolution this
+ * checkpoint. Spear's condition needs "was the first cell actually hit,"
+ * a sequential fact about a prior strike that nothing in this engine
+ * currently tracks (no per-cell hit history exists) — bolting that on
+ * would mean inventing new combat-history state well beyond "attach
+ * weapon data to existing handling," the scope this checkpoint was
+ * actually given. Left as a named, real gap rather than a fabricated
+ * resolution.
+ */
+function isWeaponCritCondition(weaponSpecialty, attackerPos, defenderPos, firstCellWasHit) {
+  const stats = Schema.WEAPON_STATS[weaponSpecialty];
+  if (!stats) throw new Error(`wonderland/engine: unknown weaponSpecialty "${weaponSpecialty}"`);
+  const dist = cellDistance(attackerPos, defenderPos);
+  const isOrthogonalLine = attackerPos.x === defenderPos.x || attackerPos.y === defenderPos.y;
+  if (stats.critOnSecondCellIfFirstHit) return dist === 2 && isOrthogonalLine && !!firstCellWasHit;
+  if (stats.critOnFourthCellIfStraightLine) return dist === 4 && isOrthogonalLine;
+  return false;
+}
+
+/*
+ * Monolith_Universe.pdf: "the amount of squares traversed is equal to
+ * the distance stat," declared "an unlimited number of times once there
+ * is distance remaining" — scoped here to once per exchange, since an
+ * exchange is this engine's turn-equivalent unit (see
+ * CombatantState.distanceSpentThisExchange's own comment). A character
+ * with position: null hasn't been placed on the board yet — that first
+ * DECLARE_MOVEMENT is treated as initial placement (no distance spent),
+ * not "movement" in the source's sense, since the source gives no
+ * starting-position rule to validate a first placement against.
+ *
+ * Only the destination cell's traversability is validated, not every
+ * cell along the path — the source names traversable/blocked cells but
+ * gives no pathfinding algorithm, and inventing one (line-of-sight,
+ * A*, diagonal-cutting rules) would be exactly the kind of fabricated
+ * specificity this project's own guardrails reject. A real gap, named
+ * here rather than silently assumed away.
+ */
+function applyDeclareMovement(state, action) {
+  const { characterId, to } = action;
+  if (!state.currentEncounter) {
+    throw new Error('wonderland/engine: DECLARE_MOVEMENT with no currentEncounter in state');
+  }
+  if (!state.currentEncounter.board) {
+    throw new Error('wonderland/engine: DECLARE_MOVEMENT requires currentEncounter.board — this encounter was not grid-enabled (see schema.js createBoardState)');
+  }
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  const status = combatStatus(character);
+  if (status === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has been removed from the encounter and cannot move`);
+  }
+  const board = state.currentEncounter.board;
+  if (!to || !isCellOnBoard(board, to)) {
+    throw new Error(`wonderland/engine: DECLARE_MOVEMENT target ${JSON.stringify(to)} is outside the ${board.width}x${board.height} board`);
+  }
+  if (isCellBlocked(board, to)) {
+    throw new Error(`wonderland/engine: DECLARE_MOVEMENT target (${to.x},${to.y}) is a blocked cell`);
+  }
+
+  const combatant = findCombatant(state.currentEncounter, characterId);
+
+  if (character.position === null) {
+    // Initial placement — see this function's own header comment.
+    const next = deepClone(state);
+    next.characters[characterId].position = { x: to.x, y: to.y };
+    return next;
+  }
+
+  // Sword-as-main grants +1 distance (Monolith_Universe.pdf's weapon
+  // table) — Wonderland has no separate main/secondary weapon-slot
+  // system (see schema.js's WEAPON_STATS comment), so weaponSpecialty
+  // itself stands in for "equipped as main" here, not a parallel field.
+  const swordBonus = character.weaponSpecialty === 'sword' ? Schema.WEAPON_STATS.sword.distanceBonusAsMain : 0;
+  // "distance is set to 1" while defeated (Monolith_Universe.pdf) — this
+  // caps the move itself, distinct from CharacterRecord.distance, which
+  // stays the character's real base stat.
+  const effectiveDistance = status === 'defeated' ? 1 : character.distance + swordBonus;
+  const distanceRemaining = effectiveDistance - combatant.distanceSpentThisExchange;
+  const requestedDistance = cellDistance(character.position, to);
+  if (requestedDistance > distanceRemaining) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" tried to move ${requestedDistance} cells but only ${distanceRemaining} distance remains this exchange`
+    );
+  }
+
+  const next = deepClone(state);
+  next.characters[characterId].position = { x: to.x, y: to.y };
+  findCombatant(next.currentEncounter, characterId).distanceSpentThisExchange += requestedDistance;
+  return next;
+}
+
+function applyResolveExchange(state) {
+  const encounter = state.currentEncounter;
+  if (!encounter) {
+    throw new Error('wonderland/engine: RESOLVE_EXCHANGE with no currentEncounter in state');
+  }
+  const undeclared = encounter.combatants.filter((c) => !c.declaration);
+  if (undeclared.length > 0) {
+    throw new Error(
+      `wonderland/engine: RESOLVE_EXCHANGE called before all combatants declared (missing: ${undeclared
+        .map((c) => c.characterId)
+        .join(', ')})`
+    );
+  }
+
+  const initiative = computeInitiative(state, encounter);
+  // Safe to destructure exactly two: createEncounterState now enforces
+  // exactly two combatants at construction time (see its own comment) —
+  // a 3rd+ id can no longer reach this point at all.
+  const [a, b] = encounter.combatants;
+  const order = initiative.first
+    ? [a, b].sort((x) => (x.characterId === initiative.first ? -1 : 1))
+    : [a, b];
+
+  const resolvedActions = [];
+  for (const combatant of order) {
+    const character = findCharacter(state, combatant.characterId);
+    const opponent = combatant === a ? b : a;
+    const declaration = combatant.declaration;
+    const technique = declaration.techniqueId ? findTechnique(character, declaration.techniqueId) : null;
+    const triggerMet = evaluateTrigger(technique ? technique.trigger : null, opponent.declaration);
+
+    if (declaration.castTier) {
+      // A spell cast: no trigger model (that's a technique-only concept
+      // here), always resolves once its slot requirements were validated
+      // at declaration time.
+      resolvedActions.push({ characterId: combatant.characterId, kind: 'spellCast', castTier: declaration.castTier, triggerMet: true });
+      continue;
+    }
+    if (!technique) {
+      // Basic strike: no trigger, always resolves once declared.
+      resolvedActions.push({ characterId: combatant.characterId, kind: 'basicStrike', triggerMet: true });
+      continue;
+    }
+    if (triggerMet) {
+      resolvedActions.push({
+        characterId: combatant.characterId,
+        kind: 'technique',
+        techniqueId: technique.id,
+        triggerMet: true,
+        resolvesRegardlessOfInitiative: !!technique.resolvesRegardlessOfInitiative,
+      });
+    } else {
+      resolvedActions.push({
+        characterId: combatant.characterId,
+        kind: 'technique',
+        techniqueId: technique.id,
+        triggerMet: false,
+      });
+    }
+  }
+
+  const next = deepClone(state);
+  const nextEncounter = next.currentEncounter;
+  nextEncounter.exchangeNumber += 1;
+  nextEncounter.log.push({
+    exchangeNumber: nextEncounter.exchangeNumber,
+    initiative,
+    resolvedActions,
+  });
+  nextEncounter.combatants.forEach((c) => {
+    c.declaration = null;
+    // Checkpoint 8: movement budget resets every exchange, same lifecycle
+    // as the declaration it's cleared alongside — see
+    // CombatantState.distanceSpentThisExchange's own comment.
+    c.distanceSpentThisExchange = 0;
+  });
+  return next;
+}
+
+function applyWound(state, action) {
+  const { characterId, location, absorbedByStaffBarrier } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!Schema.WOUND_LOCATIONS.includes(location)) {
+    throw new Error(`wonderland/engine: unknown wound location "${location}"`);
+  }
+
+  if (absorbedByStaffBarrier) {
+    // Staff's Barrier Generation (aow_srd.html ch4-weapons): "Once per
+    // encounter... spend their React slot to absorb one wound state
+    // completely — the wound that would have been applied does not apply."
+    // Once-per-ENCOUNTER, not per-exchange, so it lives on the encounter-
+    // scoped combatant state (schema.js createCombatantState), not the
+    // persisted CharacterRecord.
+    if (character.weaponSpecialty !== 'staff') {
+      throw new Error(`wonderland/engine: "${characterId}" has no Staff Barrier to absorb this wound with`);
+    }
+    if (!state.currentEncounter) {
+      throw new Error('wonderland/engine: no currentEncounter — Staff Barrier is an encounter-scoped resource');
+    }
+    const combatant = findCombatant(state.currentEncounter, characterId);
+    if (combatant.staffBarrierUsed) {
+      throw new Error(`wonderland/engine: "${characterId}" has already used their Staff Barrier this encounter`);
+    }
+    const next = deepClone(state);
+    findCombatant(next.currentEncounter, characterId).staffBarrierUsed = true;
+    return next; // wound is absorbed — never pushed to character.wounds
+  }
+
+  const wasAlreadyCritical = applyIncomingHitGate(character, characterId); // throws if already removed
+
+  const next = deepClone(state);
+  next.characters[characterId].wounds.push(location);
+  // aow_srd.html: a Presence wound drops all three presence components one
+  // stage immediately. Recording the wound is sufficient — presenceStage()
+  // checks hasWound(character, 'presence') first, before any single-
+  // component condition, so all three read as degraded from this point on.
+  // (Earlier version of this function bumped stamina instead, as a proxy —
+  // that only ever degraded Hold, silently leaving Commit undegraded.
+  // Caught by the second worked case; see wonderland/README.md.)
+  if (wasAlreadyCritical) {
+    // Checkpoint 8: was already 'defeated' or 'rallied' before this
+    // wound landed — Monolith_Universe.pdf: "any further damage removes
+    // them from the battlefield" (unrallied case) / "any fatal damage
+    // removes them from the battle" (rallied case). Wonderland has no
+    // granular wound-severity number to distinguish "further" from
+    // "fatal" damage once already past the critical threshold, so both
+    // collapse into the same rule here: the next hit while critically
+    // injured is the one that removes you, rally or not.
+    next.characters[characterId].removedFromEncounter = true;
+  }
+  return next;
+}
+
+/**
+ * Inside the barrier only (aow_srd.html ch4-location, "Inside the City
+ * Barrier" card): "Combat ends when one participant reaches Spent stamina
+ * or has accumulated three wound states — whichever comes first." Outside
+ * the barrier the SRD explicitly says combat "can continue past Spent" —
+ * no hard threshold is given there, so this function only returns true for
+ * 'insideBarrier'; other locations always return false rather than
+ * guessing at a number the SRD doesn't provide.
+ */
+function isCombatOver(character, location) {
+  if (location !== 'insideBarrier') return false;
+  return character.stamina === 'spent' || character.wounds.length >= 3;
+}
+
+/*
+ * Checkpoint 8's rally/defeat state, ported from Monolith_Universe.pdf —
+ * WITHOUT porting its numeric Life pool. Wonderland has never modeled
+ * damage as arithmetic (no HP field exists anywhere, confirmed before
+ * building this); stamina stages and wound locations are the real "how
+ * hurt is this character" state, and isCombatOver() above already has a
+ * real, shipped "this is too injured to keep fighting" threshold. Rather
+ * than invent a parallel numeric system, "critically injured" reuses
+ * that exact same threshold — stamina spent or 3+ wounds — evaluated per
+ * character rather than location-gated, since Monolith's defeat isn't
+ * location-gated either.
+ *
+ * Four states, matching the source's own progression:
+ *   'active'   — below the critical threshold, plays normally.
+ *   'defeated' — at/above threshold, not yet rallied. Cannot use
+ *                abilities or declare strikes (aow_srd terms: any
+ *                DECLARE_ACTION with an 'act' slot is blocked);
+ *                movement is capped at 1 cell regardless of base
+ *                distance ("distance is set to 1" in the source).
+ *                Vulnerable: the next wound/stamina hit removes them
+ *                outright unless an ally rallies them first.
+ *   'rallied'  — was defeated, then RALLY_CHARACTER brought them back.
+ *                Full access to abilities/strikes and normal distance
+ *                again (the source lifts the defeated-state
+ *                restrictions on rally), but still at/above the
+ *                critical threshold underneath — the next hit removes
+ *                them permanently, same as the unrallied case. Only
+ *                one rally is ever available (rallyUsed latches true).
+ *   'removed'  — permanently out of the encounter. Cannot act, move,
+ *                be targeted by RALLY_CHARACTER, or take further
+ *                wounds/stamina changes — findCombatant-style callers
+ *                should treat this the same as "no longer a valid
+ *                target," not silently no-op further changes to them.
+ *
+ * Pure and derived, like isCombatOver — 'active' vs 'defeated' vs
+ * 'rallied' is never stored, only computed, so it can't drift out of
+ * sync with the stamina/wounds it's actually based on. rallyUsed and
+ * removedFromEncounter ARE real stored facts (a rally either happened or
+ * didn't; a removal either happened or didn't) — nothing else here is.
+ */
+function combatStatus(character) {
+  if (character.removedFromEncounter) return 'removed';
+  const criticallyInjured = character.stamina === 'spent' || character.wounds.length >= 3;
+  if (!criticallyInjured) return 'active';
+  return character.rallyUsed ? 'rallied' : 'defeated';
+}
+
+/*
+ * Shared gate for the two actions that can land a hit (APPLY_WOUND,
+ * SET_STAMINA): throws if the character is already permanently removed
+ * (fail loudly rather than silently no-op a hit on someone no longer in
+ * the fight), and returns whether they were already 'defeated' or
+ * 'rallied' BEFORE this hit — the caller uses that to decide whether
+ * this specific hit is the one that removes them for good.
+ */
+function applyIncomingHitGate(character, characterId) {
+  const preStatus = combatStatus(character);
+  if (preStatus === 'removed') {
+    throw new Error(`wonderland/engine: "${characterId}" has already been removed from the encounter — cannot apply further wounds or stamina changes`);
+  }
+  return preStatus === 'defeated' || preStatus === 'rallied';
+}
+
+function findPoliticalNode(state, nodeId) {
+  if (!hasOwn(state.politicalNodes, nodeId)) {
+    throw new Error(`wonderland/engine: unknown political node "${nodeId}" — add it to state.politicalNodes before referencing it (see schema.js createPoliticalNode)`);
+  }
+  return state.politicalNodes[nodeId];
+}
+
+// aow_srd.html ch3-leverage: "No score can exceed +5 or fall below -5."
+function clampLeverageScore(value) {
+  return Math.max(-5, Math.min(5, value));
+}
+
+function applyModifyLeverage(state, action) {
+  const { targetId, actorId, delta } = action;
+  if (typeof targetId !== 'string' || !targetId) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a targetId string');
+  }
+  if (typeof actorId !== 'string' || !actorId) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires an actorId string — leverage is per-heir, not party-wide (aow_srd.html ch3-leverage)');
+  }
+  assertSafeDynamicKey(actorId, 'actorId');
+  if (typeof delta !== 'number' || !Number.isFinite(delta)) {
+    throw new Error('wonderland/engine: MODIFY_LEVERAGE requires a numeric delta');
+  }
+  findPoliticalNode(state, targetId); // throws loudly if unknown
+  // The delta itself is a GM call (how much a given flat adjustment moves
+  // the needle, e.g. a Capstone bonus/penalty) — not something this engine
+  // invents a formula for; only the ceiling/floor clamp is a hard rule.
+  // For a tier-based political action with the real accumulating-weight
+  // math instead of a flat delta, use LOG_POLITICAL_ACTION below.
+  const next = deepClone(state);
+  const node = next.politicalNodes[targetId];
+  const current = node.scores[actorId] || 0;
+  node.scores[actorId] = clampLeverageScore(current + delta);
+  return next;
+}
+
+/**
+ * The real Weight Engine, ported from aow_gm_screen.html's
+ * applyWeightAndGenerateHooks() (action-event branch). That tool also
+ * generates GM-facing narrative hook text — deliberately NOT ported, that's
+ * presentation content, not pure engine logic. What's ported is the
+ * mechanical core: a political action of a given tier and direction adds
+ * weight to a node, moves the acting character's score with that node
+ * (by a whole point at tier 3-4, two points at tier 5, or a fractional
+ * amount at tier 1-2 that carries into a whole point once it accumulates
+ * past 1), and can "fire" — a trigger the content layer can react to —
+ * once accumulated weight crosses the node's threshold. A node that
+ * keeps firing gets a lower effective threshold each time (floored at 2),
+ * modeling escalation rather than requiring identical pressure every time.
+ *
+ * As of the ripple-propagation pass below, this also ripples that same
+ * weight outward through the real relationship graph (see
+ * wonderland/worldNpcs.js) — a political action doesn't just move the
+ * directly-targeted node, it reaches that node's known associates too,
+ * faintly.
+ */
+function effectiveThreshold(node) {
+  return Math.max(2, node.baseThreshold - (node.fireCount || 0));
+}
+
+function computePoliticalActionEffect(node, actorId, tier, direction) {
+  if (!Number.isInteger(tier) || tier < 1 || tier > 5) {
+    throw new Error(`wonderland/engine: political action tier must be an integer 1-5, got "${tier}"`);
+  }
+  if (direction !== 'favorable' && direction !== 'hostile') {
+    throw new Error(`wonderland/engine: political action direction must be "favorable" or "hostile", got "${direction}"`);
+  }
+  const baseWeight = tier * 1.5;
+  const sign = direction === 'hostile' ? -1 : 1;
+  const deltaMag = tier === 5 ? 2 : tier >= 3 ? 1 : 0;
+  const fracDelta = tier === 2 ? 0.5 : tier === 1 ? 0.25 : 0;
+
+  const accumWeight = (node.accumWeight || 0) + baseWeight;
+  let score = node.scores[actorId] || 0;
+  let fractional = node.fractional[actorId] || 0;
+  if (deltaMag > 0) {
+    score = clampLeverageScore(score + sign * deltaMag);
+  } else if (fracDelta > 0) {
+    fractional += sign * fracDelta;
+    if (Math.abs(fractional) >= 1) {
+      score = clampLeverageScore(score + Math.sign(fractional));
+      fractional = 0;
+    }
+  }
+
+  const threshold = effectiveThreshold(node);
+  const triggered = accumWeight >= threshold;
+  return {
+    accumWeight: triggered ? 0 : accumWeight,
+    score,
+    fractional,
+    triggered,
+    fireCount: (node.fireCount || 0) + (triggered ? 1 : 0),
+    baseWeight, // exposed so callers can drive ripple propagation from the same number
+    sign,
+  };
+}
+
+/**
+ * The relationship-graph edges for one node — ported from
+ * aow_gm_screen.html's real getNodeConductors(). `conductors: 'all'` is
+ * one real NPC's shorthand (the Outskirts Broker) meaning every other
+ * node is a conductor; otherwise it's the node's own explicit list.
+ */
+function getNodeConductors(node, allNodeIds) {
+  if (node.conductors === 'all') {
+    return allNodeIds.filter((id) => id !== node.id).map((key) => ({ key, type: 'neutral' }));
+  }
+  if (Array.isArray(node.conductors)) {
+    return node.conductors.map((c) => (typeof c === 'string' ? { key: c, type: 'neutral' } : c));
+  }
+  return [];
+}
+
+/**
+ * Ranks conductors by how "in play" they currently are — a node already
+ * accumulating weight, or one with existing standing (positive or
+ * negative) with the acting character, is more likely to actually be
+ * affected by a ripple than whichever conductor happens to be listed
+ * first. Ported from aow_gm_screen.html's real rankConductors(), which
+ * fixed a dead-edge bug where only the first N declared conductors ever
+ * fired.
+ */
+function rankConductors(conductors, nodes, actorId) {
+  return conductors
+    .map((c) => {
+      const cNode = nodes[c.key];
+      if (!cNode) return null;
+      const attention = cNode.accumWeight || 0;
+      const standing = Math.abs(cNode.scores?.[actorId] || 0);
+      return { ...c, _rank: attention + standing };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b._rank - a._rank);
+}
+
+/**
+ * Ripples political weight outward from a node into its top-3 (by
+ * rankConductors) relationship-graph neighbors, and their neighbors in
+ * turn — ported from aow_gm_screen.html's real propagateWeight(). Mutates
+ * `nodes` in place; callers pass an already-cloned politicalNodes map
+ * (see applyLogPoliticalAction), consistent with how the rest of this
+ * file's action handlers work on a `next` clone.
+ *
+ * NOT ported: the GM-facing narrative ripple-hook text
+ * (generateRippleHook et al.) — that's presentation content, not pure
+ * engine logic, same discipline as everywhere else in this file.
+ *
+ * Faithful to the real numbers: depth caps at 2 hops, weight halves each
+ * hop and the ripple stops once it drops below 0.3, and a "sentiment"
+ * ripple (a small fractional score nudge, not a whole-point delta) only
+ * ever applies on the FIRST hop across an 'allied' edge — reflected
+ * goodwill/ill-will doesn't reach as far or as strongly as the
+ * accumulating threshold-weight does.
+ */
+function propagateWeight(nodes, nodeKey, weight, actorId, sign, depth) {
+  if (depth > 2 || weight < 0.3) return;
+  const node = nodes[nodeKey];
+  if (!node) return;
+  const allNodeIds = Object.keys(nodes);
+  const ranked = rankConductors(getNodeConductors(node, allNodeIds), nodes, actorId).slice(0, 3);
+
+  ranked.forEach(({ key: cKey, type }) => {
+    const cNode = nodes[cKey];
+    if (!cNode) return;
+    cNode.accumWeight = (cNode.accumWeight || 0) + weight;
+
+    if (depth === 1 && type === 'allied') {
+      cNode.fractional[actorId] = (cNode.fractional[actorId] || 0) + sign * 0.25;
+      if (Math.abs(cNode.fractional[actorId]) >= 1) {
+        cNode.scores[actorId] = clampLeverageScore((cNode.scores[actorId] || 0) + Math.sign(cNode.fractional[actorId]));
+        cNode.fractional[actorId] = 0;
+      }
+    }
+
+    if (cNode.accumWeight >= effectiveThreshold(cNode)) {
+      cNode.fireCount = (cNode.fireCount || 0) + 1;
+      cNode.accumWeight = 0;
+    }
+
+    propagateWeight(nodes, cKey, weight * 0.5, actorId, sign, depth + 1);
+  });
+}
+
+function applyLogPoliticalAction(state, action) {
+  const { targetId, actorId, tier, direction } = action;
+  if (typeof targetId !== 'string' || !targetId) {
+    throw new Error('wonderland/engine: LOG_POLITICAL_ACTION requires a targetId string');
+  }
+  if (typeof actorId !== 'string' || !actorId) {
+    throw new Error('wonderland/engine: LOG_POLITICAL_ACTION requires an actorId string');
+  }
+  assertSafeDynamicKey(actorId, 'actorId');
+  const node = findPoliticalNode(state, targetId); // throws loudly if unknown
+  const effect = computePoliticalActionEffect(node, actorId, tier, direction); // throws loudly on a bad tier/direction
+
+  const next = deepClone(state);
+  const nextNode = next.politicalNodes[targetId];
+  nextNode.accumWeight = effect.accumWeight;
+  nextNode.scores[actorId] = effect.score;
+  nextNode.fractional[actorId] = effect.fractional;
+  nextNode.fireCount = effect.fireCount;
+  // No side-channel "did it trigger" flag on the returned state — data in,
+  // data out stays the only contract (§0). A caller that needs to know
+  // compares fireCount between the state it passed in and the state
+  // resolve() returned: an increase means this action crossed threshold.
+
+  // Ripple outward from the directly-affected node into its own
+  // relationship-graph conductors, at the real call site's own weight
+  // (baseWeight*0.6) and starting depth (1). A node with no conductors
+  // (the common case for anything other than the real WORLD_NPCS content)
+  // is a no-op here — getNodeConductors returns [] for it.
+  propagateWeight(next.politicalNodes, targetId, effect.baseWeight * 0.6, actorId, effect.sign, 1);
+
+  return next;
+}
+
+/**
+ * A Capstone (aow_heir_record.html CAPSTONES): a flat leverage
+ * bonus/penalty a character earns for committing five session-zero years
+ * to one aspect, usable once per session. Unlike LOG_POLITICAL_ACTION,
+ * this is a direct, immediate score adjustment — no accumulating weight,
+ * no threshold, no trigger — so it goes through the same clamp as
+ * MODIFY_LEVERAGE rather than the weight-engine math above.
+ */
+function applyCapstone(state, action) {
+  const { characterId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!character.capstone) {
+    throw new Error(`wonderland/engine: "${characterId}" has no capstone to apply`);
+  }
+  if (character.capstone.usedThisSession) {
+    throw new Error(`wonderland/engine: "${characterId}" has already used their capstone this session`);
+  }
+  const { leverageBonus, leveragePenalty } = character.capstone;
+  if (leverageBonus) findPoliticalNode(state, leverageBonus.key); // throws loudly if unknown
+  (leveragePenalty || []).forEach((p) => findPoliticalNode(state, p.key)); // throws loudly if unknown
+
+  const next = deepClone(state);
+  if (leverageBonus) {
+    const node = next.politicalNodes[leverageBonus.key];
+    node.scores[characterId] = clampLeverageScore((node.scores[characterId] || 0) + leverageBonus.amount);
+  }
+  (leveragePenalty || []).forEach((p) => {
+    const node = next.politicalNodes[p.key];
+    node.scores[characterId] = clampLeverageScore((node.scores[characterId] || 0) - p.amount);
+  });
+  next.characters[characterId].capstone.usedThisSession = true;
+  return next;
+}
+
+function applyResetCapstoneUsage(state, action) {
+  const { characterId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!character.capstone) {
+    throw new Error(`wonderland/engine: "${characterId}" has no capstone to reset`);
+  }
+  const next = deepClone(state);
+  next.characters[characterId].capstone.usedThisSession = false;
+  return next;
+}
+
+/**
+ * Structured, engine-evaluable unlock conditions for a house
+ * TransformationForm (checkpoint doc §1, Checkpoint 4). Deliberately
+ * small — this engine supports exactly the condition types real house
+ * content has been built against so far; a new condition type is a
+ * schema+engine addition, not something callers can invent inline. `null`
+ * means always met, same semantic as a Technique's `trigger: null`.
+ */
+function evaluateUnlockCondition(condition, character, state) {
+  if (!condition) return true;
+  switch (condition.type) {
+    case 'staminaAtLeast':
+      return staminaIndex(character.stamina) >= staminaIndex(condition.stage);
+    case 'woundCountAtLeast':
+      // A non-finite or negative count would otherwise auto-satisfy this
+      // gate for every character (any wounds.length >= -5 is true) or
+      // silently never satisfy it (>= NaN is always false) — either way a
+      // malformed content-authored threshold would silently misbehave
+      // instead of surfacing the authoring mistake.
+      if (!Number.isFinite(condition.count) || condition.count < 0) {
+        throw new Error(`wonderland/engine: "woundCountAtLeast" unlock condition requires a non-negative finite count, got "${condition.count}"`);
+      }
+      return character.wounds.length >= condition.count;
+    case 'leverageAtLeast': {
+      // Ties a Transformation form's unlock to political standing — a
+      // natural fit for houses that are political entities first (see
+      // wonderland/houses.js). Requires `state` since leverage lives on
+      // politicalNodes, not the character record; a form using this
+      // condition type outside a real encounter/save context (state
+      // omitted) fails loudly rather than silently treating it as unmet.
+      if (!state) {
+        throw new Error('wonderland/engine: "leverageAtLeast" unlock condition requires state (political standing isn\'t on the character record)');
+      }
+      if (!Number.isFinite(condition.score)) {
+        throw new Error(`wonderland/engine: "leverageAtLeast" unlock condition requires a finite score, got "${condition.score}"`);
+      }
+      const node = findPoliticalNode(state, condition.nodeId); // throws loudly if unknown
+      return (node.scores[character.id] || 0) >= condition.score;
+    }
+    case 'worldFlagEquals': {
+      // Gates on SaveState.worldFlags — defined since Checkpoint 1
+      // (party-wide narrative/world state) but never read by anything
+      // until now. Same state-required discipline as leverageAtLeast.
+      if (!state) {
+        throw new Error('wonderland/engine: "worldFlagEquals" unlock condition requires state (world flags aren\'t on the character record)');
+      }
+      return state.worldFlags[condition.flagId] === condition.value;
+    }
+    default:
+      throw new Error(`wonderland/engine: unknown unlock condition type "${condition.type}"`);
+  }
+}
+
+/**
+ * Adds a technique to a character — how a house ability (Checkpoint 4)
+ * actually becomes usable through the existing DECLARE_ACTION/
+ * RESOLVE_EXCHANGE flow. Content-agnostic on purpose: this function
+ * doesn't know what a "house" is, only how to attach a well-formed
+ * Technique to a character record, exactly like a combat-trained
+ * technique. Runs the payload through Schema.createTechnique so a
+ * caller's partial object still gets full, valid defaults.
+ */
+function applyGrantTechnique(state, action) {
+  const { characterId, technique } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!technique || typeof technique !== 'object' || !technique.id || !technique.name) {
+    throw new Error('wonderland/engine: GRANT_TECHNIQUE requires a technique object with at least id and name');
+  }
+  assertPlainSerializable(technique, 'GRANT_TECHNIQUE technique payload');
+  assertValidFirstPrinciple(technique.firstPrinciple, 'GRANT_TECHNIQUE technique payload');
+  if (character.techniques.some((t) => t.id === technique.id)) {
+    throw new Error(`wonderland/engine: "${characterId}" already has technique "${technique.id}"`);
+  }
+  const next = deepClone(state);
+  next.characters[characterId].techniques.push(Schema.createTechnique(technique));
+  return next;
+}
+
+/**
+ * A house TransformationForm (checkpoint doc §1): an empowered state
+ * unlocked once its condition is met, granting one bonus technique.
+ * Content-agnostic like GRANT_TECHNIQUE above — the actual form object
+ * (with its unlockCondition and grantedTechnique) is the action's
+ * payload, not looked up from a registry this engine doesn't keep.
+ */
+function applyActivateTransformation(state, action) {
+  const { characterId, transformationForm } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (!transformationForm || typeof transformationForm !== 'object' || !transformationForm.id) {
+    throw new Error('wonderland/engine: ACTIVATE_TRANSFORMATION requires a transformationForm object with at least an id');
+  }
+  assertPlainSerializable(transformationForm, 'ACTIVATE_TRANSFORMATION transformationForm payload');
+  if (transformationForm.grantedTechnique) {
+    assertValidFirstPrinciple(transformationForm.grantedTechnique.firstPrinciple, 'ACTIVATE_TRANSFORMATION transformationForm.grantedTechnique');
+  }
+  if (character.activeTransformationId === transformationForm.id) {
+    throw new Error(`wonderland/engine: "${characterId}" has already activated transformation "${transformationForm.id}"`);
+  }
+  if (!evaluateUnlockCondition(transformationForm.unlockCondition, character, state)) {
+    throw new Error(
+      `wonderland/engine: "${characterId}" does not meet the unlock condition for transformation "${transformationForm.id}"`
+    );
+  }
+  const next = deepClone(state);
+  const nextCharacter = next.characters[characterId];
+  nextCharacter.activeTransformationId = transformationForm.id;
+  if (transformationForm.grantedTechnique && !nextCharacter.techniques.some((t) => t.id === transformationForm.grantedTechnique.id)) {
+    nextCharacter.techniques.push(Schema.createTechnique(transformationForm.grantedTechnique));
+  }
+  return next;
+}
+
+function applySetStamina(state, action) {
+  const { characterId, stamina } = action;
+  const character = findCharacter(state, characterId);
+  staminaIndex(stamina); // throws loudly if unknown stage
+  const wasAlreadyCritical = applyIncomingHitGate(character, characterId); // throws if already removed
+  const next = deepClone(state);
+  next.characters[characterId].stamina = stamina;
+  if (wasAlreadyCritical) {
+    // Same Checkpoint 8 rule as applyWound — see its comment.
+    next.characters[characterId].removedFromEncounter = true;
+  }
+  return next;
+}
+
+/**
+ * Checkpoint 8, Monolith_Universe.pdf: "they can be rallied by their
+ * allies... can only be rallied once." allyId is accepted but not
+ * required or resource-costed — the source names an actor but gives no
+ * mechanical cost for the act itself (unlike, say, weapon-switching's
+ * explicit initiative cost), and this engine doesn't invent a number the
+ * source doesn't provide, same discipline as isCombatOver()'s own
+ * comment. If given, allyId must be a real character (fail loudly on a
+ * bad reference) but nothing else about it is enforced.
+ */
+function applyRallyCharacter(state, action) {
+  const { characterId, allyId } = action;
+  const character = findCharacter(state, characterId); // throws loudly if unknown
+  if (allyId) findCharacter(state, allyId); // throws loudly if unknown
+  const status = combatStatus(character);
+  if (status !== 'defeated') {
+    throw new Error(
+      `wonderland/engine: "${characterId}" cannot be rallied — status is "${status}", not "defeated" (only a defeated, not-yet-rallied character can be rallied, and only once)`
+    );
+  }
+  const next = deepClone(state);
+  next.characters[characterId].rallyUsed = true;
+  return next;
+}
+
+/**
+ * Sets a party-wide world flag — SaveState.worldFlags has existed since
+ * Checkpoint 1 (party composition, world flags, faction standing) but
+ * nothing ever wrote or read one until this action and
+ * evaluateUnlockCondition's "worldFlagEquals" case. Content-agnostic:
+ * this function doesn't know what any given flagId means narratively,
+ * only how to set it. Value must be a plain boolean/string/number per
+ * schema.js's own comment on the field — anything else risks breaking
+ * the "all state is plain, serializable data" non-negotiable (§0).
+ */
+function applySetWorldFlag(state, action) {
+  const { flagId, value } = action;
+  if (typeof flagId !== 'string' || !flagId) {
+    throw new Error('wonderland/engine: SET_WORLD_FLAG requires a flagId string');
+  }
+  assertSafeDynamicKey(flagId, 'flagId');
+  if (typeof value !== 'boolean' && typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`wonderland/engine: SET_WORLD_FLAG value must be a boolean, string, or number, got ${typeof value}`);
+  }
+  const next = deepClone(state);
+  next.worldFlags[flagId] = value;
+  return next;
+}
+
+// Checkpoint 8: Stars/Fragments/Favor only — matches schema.js
+// createSaveState's currency shape exactly. Stones (Monolith's fourth
+// currency) has no key here on purpose; attempting to modify it throws
+// the same "unknown key" error as any other invalid string, rather than
+// silently no-op'ing — see wonderland/README.md for why it's excluded.
+const ENGINE_CURRENCY_KEYS = Object.freeze(['stars', 'fragments', 'favor']);
+
+/**
+ * Party-wide currency, ported from Monolith_Universe.pdf's Currency
+ * section. Content-agnostic like MODIFY_LEVERAGE: this function doesn't
+ * know what a "chapter completion reward" or a "challenge" is, only how
+ * to move a counter — the caller decides when/why to call it. Floors at
+ * 0 rather than allowing an overspend to go negative, and fails loudly
+ * on the attempt rather than silently clamping it, so a caller bug
+ * (spending currency it doesn't have) surfaces immediately.
+ */
+function applyModifyCurrency(state, action) {
+  const { key, amount } = action;
+  if (!ENGINE_CURRENCY_KEYS.includes(key)) {
+    throw new Error(`wonderland/engine: MODIFY_CURRENCY key must be one of ${JSON.stringify(ENGINE_CURRENCY_KEYS)}, got "${key}"`);
+  }
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+    throw new Error('wonderland/engine: MODIFY_CURRENCY requires a finite numeric amount');
+  }
+  const newValue = state.currency[key] + amount;
+  if (newValue < 0) {
+    throw new Error(`wonderland/engine: MODIFY_CURRENCY would take "${key}" below 0 (${state.currency[key]} + ${amount} = ${newValue})`);
+  }
+  const next = deepClone(state);
+  next.currency[key] = newValue;
+  return next;
+}
+
+/*
+ * Checkpoint 9's redemption-code seam (wonderland/redemption.js owns
+ * format validation and the "has this code been used" check — both
+ * outside this file, since neither is game state). This is only the
+ * "apply an already-authorized reward" half, deliberately decoupled
+ * from redemption per the handover's own instruction: this function
+ * doesn't know or care whether a code was involved, only how to grant a
+ * reward once something else has decided it's earned. rewardId is
+ * carried through for the caller's own bookkeeping (which specific
+ * reward this was) — engine.js never looks it up in a registry it
+ * doesn't keep, same discipline as GRANT_TECHNIQUE/ACTIVATE_TRANSFORMATION
+ * taking the real content as payload rather than a lookup key.
+ *
+ * Delegates to the existing, already-tested action handlers for each
+ * reward type rather than duplicating their logic — a currency reward
+ * really is just MODIFY_CURRENCY, a technique reward really is just
+ * GRANT_TECHNIQUE, granted through a different front door.
+ */
+function applyGrantReward(state, action) {
+  const { rewardId, reward } = action;
+  if (typeof rewardId !== 'string' || !rewardId) {
+    throw new Error('wonderland/engine: GRANT_REWARD requires a rewardId string');
+  }
+  if (!reward || typeof reward !== 'object' || typeof reward.type !== 'string') {
+    throw new Error('wonderland/engine: GRANT_REWARD requires a reward object with a type');
+  }
+  assertPlainSerializable(reward, 'GRANT_REWARD reward payload');
+  switch (reward.type) {
+    case 'currency':
+      return applyModifyCurrency(state, { key: reward.key, amount: reward.amount });
+    case 'technique':
+      return applyGrantTechnique(state, { characterId: reward.characterId, technique: reward.technique });
+    default:
+      throw new Error(`wonderland/engine: unknown reward type "${reward.type}" — GRANT_REWARD supports "currency" and "technique"`);
+  }
+}
+
+/**
+ * The one entry point. Data in, data out — see module header.
+ */
+function resolve(currentState, action) {
+  if (!currentState || typeof currentState !== 'object') {
+    throw new Error('wonderland/engine: resolve() requires a state object');
+  }
+  if (!action || typeof action.type !== 'string') {
+    throw new Error('wonderland/engine: resolve() requires an action with a string type');
+  }
+  switch (action.type) {
+    case 'INIT_ENCOUNTER':
+      return applyInitEncounter(currentState, action);
+    case 'DECLARE_ACTION':
+      return applyDeclareAction(currentState, action);
+    case 'DECLARE_MOVEMENT':
+      return applyDeclareMovement(currentState, action);
+    case 'RESOLVE_EXCHANGE':
+      return applyResolveExchange(currentState);
+    case 'APPLY_WOUND':
+      return applyWound(currentState, action);
+    case 'SET_STAMINA':
+      return applySetStamina(currentState, action);
+    case 'RALLY_CHARACTER':
+      return applyRallyCharacter(currentState, action);
+    case 'MODIFY_LEVERAGE':
+      return applyModifyLeverage(currentState, action);
+    case 'LOG_POLITICAL_ACTION':
+      return applyLogPoliticalAction(currentState, action);
+    case 'APPLY_CAPSTONE':
+      return applyCapstone(currentState, action);
+    case 'RESET_CAPSTONE_USAGE':
+      return applyResetCapstoneUsage(currentState, action);
+    case 'GRANT_TECHNIQUE':
+      return applyGrantTechnique(currentState, action);
+    case 'ACTIVATE_TRANSFORMATION':
+      return applyActivateTransformation(currentState, action);
+    case 'SET_WORLD_FLAG':
+      return applySetWorldFlag(currentState, action);
+    case 'MODIFY_CURRENCY':
+      return applyModifyCurrency(currentState, action);
+    case 'GRANT_REWARD':
+      return applyGrantReward(currentState, action);
+    default:
+      throw new Error(`wonderland/engine: unknown action type "${action.type}"`);
+  }
+}
+
+const api = {
+  resolve,
+  computeInitiative,
+  evaluateTrigger,
+  presenceStage,
+  effectiveSlotCount,
+  castingSlotCost,
+  isCombatOver,
+  combatStatus,
+  cellDistance,
+  isInWeaponRange,
+  isWeaponCritCondition,
+  effectiveThreshold,
+  computePoliticalActionEffect,
+  evaluateUnlockCondition,
+  getNodeConductors,
+  rankConductors,
+  propagateWeight,
+  applySetWorldFlag,
+  isCellOnBoard,
+  isCellBlocked,
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = api;
+}
+if (root) {
+  root.WonderlandEngine = api;
+}
+
+})(typeof window !== 'undefined' ? window : undefined);

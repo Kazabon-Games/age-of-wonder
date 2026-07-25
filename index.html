@@ -70,6 +70,29 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 .doc-card.gm:hover .doc-card-action{color:#c06060;}
 .doc-card.gm::before{background:rgba(107,26,26,0.05);}
 
+/* ══════ WIP CARD + ACCESS GATE ══════ */
+.doc-card.wip{border-style:dashed;border-color:rgba(90,140,120,0.35);cursor:pointer;}
+.doc-card.wip .doc-card-title{color:#7fb89a;}
+.doc-card.wip .doc-card-action{color:rgba(90,140,120,0.6);}
+.doc-card.wip:hover{border-color:rgba(90,140,120,0.6);}
+.doc-card.wip:hover .doc-card-action{color:#7fb89a;}
+.doc-card.wip::before{background:rgba(90,140,120,0.05);}
+.wip-badge{display:inline-block;font-family:'Cinzel',serif;font-size:.4rem;letter-spacing:.25em;text-transform:uppercase;color:#7fb89a;border:1px solid rgba(90,140,120,0.35);padding:.2rem .5rem;border-radius:2px;margin-bottom:.6rem;}
+
+.gate-overlay{display:none;position:fixed;inset:0;background:rgba(15,13,10,0.85);z-index:100;align-items:center;justify-content:center;padding:1.5rem;}
+.gate-overlay.active{display:flex;}
+.gate-modal{background:var(--night-panel);border:1px solid var(--panel-border);max-width:340px;width:100%;padding:2rem 1.8rem;text-align:center;}
+.gate-title{font-family:'Cinzel',serif;font-size:.85rem;color:var(--gold-bright);margin-bottom:.5rem;}
+.gate-desc{font-family:'EB Garamond',serif;font-size:.85rem;color:var(--vellum-mid);margin-bottom:1.3rem;line-height:1.5;}
+.gate-input{width:100%;background:var(--night);border:1px solid var(--panel-border);color:var(--vellum);font-family:'Cinzel',serif;font-size:.9rem;letter-spacing:.15em;text-align:center;text-transform:uppercase;padding:.7rem;margin-bottom:.9rem;}
+.gate-input:focus{outline:none;border-color:var(--gold-dim);}
+.gate-actions{display:flex;gap:.6rem;}
+.gate-btn{flex:1;font-family:'Cinzel',serif;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;padding:.65rem;border:1px solid var(--panel-border);background:transparent;color:var(--vellum-mid);cursor:pointer;transition:all .15s;}
+.gate-btn.primary{border-color:rgba(90,140,120,0.4);color:#7fb89a;}
+.gate-btn.primary:hover{background:rgba(90,140,120,0.1);}
+.gate-btn:hover{border-color:var(--gold-dim);}
+.gate-error{font-family:'EB Garamond',serif;font-size:.8rem;color:#c06060;margin-top:.7rem;min-height:1.2em;}
+
 /* ══════ HOW IT WORKS ══════ */
 .flow-section{margin-bottom:4rem;}
 .flow-title{font-family:'Cinzel',serif;font-size:.75rem;color:var(--vellum-dark);font-weight:600;text-align:center;margin-bottom:.4rem;}
@@ -260,6 +283,35 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
 
   </div>
 
+  <!-- IN DEVELOPMENT -->
+  <span class="section-eyebrow">In Development</span>
+  <div class="doc-grid" style="margin-bottom:4rem;">
+
+    <button type="button" class="doc-card wip" onclick="openWonderlandGate()" style="text-align:left;font:inherit;width:100%;">
+      <span class="wip-badge">Work In Progress</span>
+      <span class="doc-card-title">Wonderland: First Principles</span>
+      <span class="doc-card-role">Playable Preview · Diceless Resolution Engine</span>
+      <div class="doc-card-divider"></div>
+      <span class="doc-card-desc">An early playable slice of Wonderland's new diceless engine — pick a house, play through the Aetheria Nova tutorial encounter, and see exactly why each exchange resolved the way it did. Access-code gated while it's still in progress.</span>
+      <span class="doc-card-action">Enter Access Code →</span>
+    </button>
+
+  </div>
+
+  <!-- WONDERLAND ACCESS GATE -->
+  <div class="gate-overlay" id="wonderlandGateOverlay">
+    <div class="gate-modal">
+      <div class="gate-title">Wonderland Preview</div>
+      <div class="gate-desc">This is a work-in-progress build. Enter the access code to continue.</div>
+      <input type="text" class="gate-input" id="wonderlandGateInput" placeholder="ACCESS CODE" autocomplete="off" maxlength="20">
+      <div class="gate-actions">
+        <button type="button" class="gate-btn" onclick="closeWonderlandGate()">Cancel</button>
+        <button type="button" class="gate-btn primary" onclick="submitWonderlandGate()">Enter</button>
+      </div>
+      <div class="gate-error" id="wonderlandGateError"></div>
+    </div>
+  </div>
+
   <!-- THE RULE -->
   <div class="setting-block" style="text-align:center;border-color:rgba(139,105,20,0.12);">
     <div class="setting-title" style="margin-bottom:.6rem;">The Only Hard Rule</div>
@@ -276,6 +328,49 @@ body{background:var(--night);color:var(--vellum);font-family:'EB Garamond',serif
   <span class="footer-left">Age of Wonder · Arc One · Shemsara</span>
   <span class="footer-right">Wonderland State Engine</span>
 </footer>
+
+<script>
+/*
+ * Access-code gate for the Wonderland WIP card. This is a deterrent for
+ * casual visitors, not real security — the code below is plainly
+ * readable in this page's own source by anyone who opens dev tools, and
+ * nothing about this checks or enforces access server-side (there is no
+ * server). Good enough for "don't put a half-finished build on the
+ * front page for randoms," not appropriate for anything that actually
+ * needs to stay private.
+ */
+(function () {
+  var ACCESS_CODE = 'IXODK';
+  var DEST = 'wonderland/play.html';
+
+  window.openWonderlandGate = function () {
+    document.getElementById('wonderlandGateError').textContent = '';
+    document.getElementById('wonderlandGateInput').value = '';
+    document.getElementById('wonderlandGateOverlay').classList.add('active');
+    document.getElementById('wonderlandGateInput').focus();
+  };
+
+  window.closeWonderlandGate = function () {
+    document.getElementById('wonderlandGateOverlay').classList.remove('active');
+  };
+
+  window.submitWonderlandGate = function () {
+    var entered = document.getElementById('wonderlandGateInput').value.trim().toUpperCase();
+    if (entered === ACCESS_CODE) {
+      window.location.href = DEST;
+    } else {
+      document.getElementById('wonderlandGateError').textContent = 'Incorrect code.';
+    }
+  };
+
+  document.getElementById('wonderlandGateInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') window.submitWonderlandGate();
+  });
+  document.getElementById('wonderlandGateOverlay').addEventListener('click', function (e) {
+    if (e.target === document.getElementById('wonderlandGateOverlay')) window.closeWonderlandGate();
+  });
+})();
+</script>
 
 </body>
 </html>
