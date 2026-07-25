@@ -9,6 +9,15 @@
   WONDERLAND: FIRST PRINCIPLES — CHANGE LOG
   (one line per change, most recent on top)
 
+  v0.2.0 — 2026-07-25 — Checkpoint 10: a new play session seeds the real
+                          WORLD_NPCS registry into politicalNodes, and a
+                          new relationships screen (post-victory) makes
+                          the leverage web visible for the first time —
+                          names, roles, per-actor scores, and the real
+                          conductor connections between them. Read-only
+                          this pass: nothing in the tutorial yet moves a
+                          score, so the numbers you see are the seeded
+                          starting state, not something you've changed.
   v0.1.0 — 2026-07-24 — Phase 0: scaffold only. Version marker, changelog,
                           theme toggle, screen-switching shell, engine
                           scripts wired in. No playable content yet —
@@ -281,10 +290,72 @@
     text-align:center;
     max-width:520px;
   }
+
+  /* Checkpoint 10: the leverage web, made visible for the first time.
+     Same card language as .house-card, distinct enough (no left border
+     accent, a cluster eyebrow instead) that the two aren't confused. */
+  .relationship-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+    gap:1rem;
+    width:100%;
+    max-width:900px;
+    margin-bottom:1.5rem;
+  }
+  .relationship-card{
+    text-align:left;
+    font-family:'EB Garamond',serif;
+    background:var(--night-panel);
+    border:1px solid var(--panel-border);
+    padding:1rem;
+  }
+  .relationship-cluster{
+    font-family:'Cinzel',serif;
+    font-size:.6rem;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--gold-dim);
+    margin-bottom:.4rem;
+  }
+  .relationship-name{
+    font-family:'Cinzel',serif;
+    font-size:.95rem;
+    font-weight:600;
+    color:var(--gold-bright);
+    margin-bottom:.2rem;
+  }
+  .relationship-role{
+    font-size:.8rem;
+    font-style:italic;
+    color:var(--vellum-faint);
+    margin-bottom:.6rem;
+  }
+  .relationship-score{
+    font-family:'Cinzel',serif;
+    font-size:.85rem;
+    letter-spacing:.05em;
+    margin-bottom:.5rem;
+  }
+  .relationship-score.positive{color:var(--forest-bright);}
+  .relationship-score.negative{color:var(--crimson-bright);}
+  .relationship-score.neutral{color:var(--vellum-faint);}
+  .relationship-conductors{
+    font-size:.78rem;
+    color:var(--vellum-faint);
+    line-height:1.5;
+  }
+  .relationship-note{
+    max-width:640px;
+    font-size:.85rem;
+    font-style:italic;
+    color:var(--vellum-faint);
+    margin-bottom:1.2rem;
+    text-align:center;
+  }
 </style>
 </head>
 <body>
-<div class="version-marker" id="versionMarker">Wonderland — v0.1.0</div>
+<div class="version-marker" id="versionMarker">Wonderland — v0.2.0</div>
 <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">☀ Light</button>
 
 <div id="app">
@@ -295,6 +366,7 @@
   <div class="screen" id="screen-house-select"></div>
   <div class="screen" id="screen-encounter"></div>
   <div class="screen" id="screen-victory"></div>
+  <div class="screen" id="screen-relationships"></div>
   <div class="screen" id="screen-updates"></div>
 </div>
 
