@@ -1147,4 +1147,33 @@ calls `DECLARE_MOVEMENT` — its structural mapping appendix never
 mentions movement — so grid-combat UI remains real, tested engine
 capability with no matching UI yet).
 
+### Post-Checkpoint-9 fix: a real user hit a blank screen opening the files locally, not a hypothetical
+
+Handing the built `wonderland/` folder over for a no-server, `file://`
+local playtest (rather than waiting on the `main`-branch/Pages question)
+surfaced a genuine bug the Playwright suite hadn't caught: opening
+`play.html` by double-clicking it produced a permanently blank screen in
+some browser configurations. Root cause, found by simulating the same
+"IndexedDB unavailable" condition (real on `file://` origins in Safari,
+and in some locked-down Chrome profiles): `checkForUpdates()` in
+`playUI.js` caught the read failure from `Persistence.getEntity` but not
+the write failure from `Persistence.putEntity` right after it — when
+IndexedDB genuinely isn't available, that unguarded `putEntity` call
+rejects, and nothing caught it, so `init()`'s `await` chain broke before
+any screen ever rendered. A blank screen with only a console error is
+still a silent failure from the player's side.
+
+Fixed by wrapping the whole version-check in a try/catch that logs loudly
+(`console.error`) and degrades gracefully (skips the one-time updates
+screen for that session) rather than taking the entire app down with it —
+correct here specifically because nothing in `tutorial.js` or the rest of
+`playUI.js` reads or writes through `Persistence` at all; the patch-notes
+screen is the only feature that ever touches it, so a storage-layer
+outage has no real game state to protect. Verified with a
+Playwright repro that deletes `window.indexedDB` before the page loads:
+confirmed the blank screen before the fix, confirmed a full click-through
+to victory with zero page errors after it. A permanent regression test
+(`tests/wonderland-play-tutorial.js` §4, 3 checks) covers this — 25 → 28
+UI-driven checks.
+
 49 new checks added across two suites (208 → 224 engine, 0 → 25 UI-driven).

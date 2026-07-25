@@ -175,6 +175,40 @@ async function dismissUpdatesScreenIfPresent(page) {
     await context.close();
   }
 
+  console.log('4. IndexedDB unavailable (e.g. real-world file:// on Safari, or a locked-down Chrome profile) — the app must stay playable, not blank');
+  // Found for real: a user opened play.html by double-clicking it (no
+  // server, file:// origin) and got a permanently blank screen. Root
+  // cause was checkForUpdates() in playUI.js catching the read failure
+  // but not the write failure, so when IndexedDB is truly unavailable
+  // the unhandled rejection broke init()'s await chain before any
+  // screen rendered. Fixed to fail loud (console.error) and degrade
+  // gracefully instead, since this feature never carries real game
+  // state. Simulated here by deleting window.indexedDB before the page
+  // loads, which reproduces the same "IndexedDB is not available"
+  // condition the real bug report hit.
+  {
+    const context = await browser.newContext();
+    await context.addInitScript(() => { delete window.indexedDB; });
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(err.message));
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+    await waitForAnyScreenActive(page);
+    ok(await activeScreenId(page) === 'screen-start', 'With IndexedDB unavailable, the app skips straight to the start screen instead of hanging blank');
+
+    await clickActiveButton(page); // Begin
+    await page.locator('.house-card', { hasText: 'House Ye' }).click();
+    for (let i = 0; i < 8; i++) {
+      const screen = await activeScreenId(page);
+      if (screen === 'screen-victory') break;
+      await clickActiveButton(page);
+    }
+    ok(await activeScreenId(page) === 'screen-victory', 'The full tutorial is still completable start to victory with no persistence layer at all');
+    ok(pageErrors.length === 0, 'No uncaught page errors even though persistence fails on every attempted read/write');
+
+    await context.close();
+  }
+
   await browser.close();
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);

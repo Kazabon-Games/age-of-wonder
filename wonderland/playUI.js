@@ -167,22 +167,38 @@ function renderUpdatesScreen(onDone) {
  * per §1's non-negotiable — this file never touches IndexedDB directly.
  */
 async function checkForUpdates() {
-  let storedVersion = null;
+  // Found via a real file:// open (no server): IndexedDB is unavailable
+  // on that origin in some browsers (Safari blocks it outright; Chrome
+  // has configurations that do too), and putEntity below used to be
+  // unguarded — its rejection broke init()'s await chain with nothing
+  // catching it, so no screen ever rendered. A blank screen with a
+  // console error is still a silent failure from the player's point of
+  // view. This feature (the one-time patch-notes screen) never carries
+  // real game state — nothing in tutorial.js reads or writes through
+  // Persistence — so the correct "fail loudly" here is a loud console
+  // error plus graceful skip, not letting a storage-layer outage take
+  // the whole app down with it.
   try {
-    const record = await Persistence.getEntity(UI_VERSION_KEY);
-    storedVersion = record.data.value;
+    let storedVersion = null;
+    try {
+      const record = await Persistence.getEntity(UI_VERSION_KEY);
+      storedVersion = record.data.value;
+    } catch (e) {
+      storedVersion = null; // getEntity throws on a missing key — that's "never stored," not an error to surface
+    }
+    if (storedVersion === UI_VERSION) {
+      return false;
+    }
+    await Persistence.putEntity(UI_VERSION_KEY, Schema.createWorldStateRecord('choice', {
+      id: 'ui_version',
+      data: { value: UI_VERSION },
+      updatedAt: new Date().toISOString(),
+    }));
+    return true;
   } catch (e) {
-    storedVersion = null; // getEntity throws on a missing key — that's "never stored," not an error to surface
-  }
-  if (storedVersion === UI_VERSION) {
+    console.error('wonderland/playUI: persistence unavailable, skipping the updates screen this session —', e);
     return false;
   }
-  await Persistence.putEntity(UI_VERSION_KEY, Schema.createWorldStateRecord('choice', {
-    id: 'ui_version',
-    data: { value: UI_VERSION },
-    updatedAt: new Date().toISOString(),
-  }));
-  return true;
 }
 
 async function init() {
