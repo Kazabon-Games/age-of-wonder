@@ -38,9 +38,13 @@ first; it's short on purpose.
   against `harness.html`, verified against the SRD's own worked examples)
   and `wonderland-play-tutorial.js` (UI-driven, desktop + mobile-viewport,
   drives `play.html` through real clicks — "the harness is the user," per
-  its own header). Run with `npx playwright test tests/` (or however the
-  individual file's own header specifies) against a locally served copy —
-  neither suite injects state via `page.evaluate()` for anything the UI
+  its own header). Each file is a standalone Node script, not a
+  `playwright test` runner suite — serve the repo (`npx http-server`,
+  port per the file's own `BASE_URL` default) then run the file directly
+  (`node tests/wonderland-engine-adversarial.js`, per its own header
+  comment). See the `playwright-adversarial-harness` skill for the shared
+  scaffold both files (and every Shin-Maho-Arcade test file) follow.
+  Neither suite injects state via `page.evaluate()` for anything the UI
   itself can do.
 - **`.claude/agents/cartography.md`** — this repo's one local agent
   definition (also promoted into `Studio-Internal-`'s and
@@ -48,6 +52,12 @@ first; it's short on purpose.
   `.claude/agents/` files exist here; other studio roles (`engineer`,
   `qa-playtest`, etc.) are assumed available from wherever the session
   picked them up, not locally overridden in this repo.
+- **`.claude/skills/`** (added 2026-08-03) — three skills scoped to this
+  repo: `playwright-adversarial-harness` (studio-wide, also in
+  `Shin-Maho-Arcade`), `overlay-focus-trap` and `safe-keyed-reimport`
+  (both specific to this repo's own `trapFocus`/re-import patterns, not
+  mirrored elsewhere). See `STUDIO_BIBLE.md` §12 in `Studio-Internal-` for
+  the full ten-skill studio index.
 
 ## Known gaps, stated plainly (per studio convention — see `KAZABON_BIO.md`)
 
