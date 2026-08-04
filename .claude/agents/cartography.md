@@ -104,11 +104,19 @@ substantive work. If you don't, operate from this summary:
   entity; red (`--danger`) = threat/damage; green (`--ok`) = safe/health.
   Check any new hex against this before proposing it — the
   `color-language-audit` skill formalizes this check.
-- **Skills library is at `.claude/skills/`** — six skills exist, verified
-  against disk: `adaptive-game-audio`, `faceted-gem-rendering`,
-  `pwa-offline-games`, `security-data-trust-checklist`,
-  `difficulty-curve-calibration`, `color-language-audit`. Don't cite a
-  skill that isn't actually there, and don't miss one that is.
+- **Skills library is at `.claude/skills/`** — eleven skills exist as of
+  2026-08-03 (this line itself went stale before, claiming "six" after
+  the count had already grown past that within the same day — a live
+  instance of the exact copy-drift risk `STUDIO_BIBLE.md` §17 already
+  names for this shared block; don't trust a hardcoded count here,
+  `STUDIO_BIBLE.md` §12 is the actual canonical index). Studio-wide:
+  `adaptive-game-audio`, `faceted-gem-rendering`, `pwa-offline-games`,
+  `security-data-trust-checklist`, `difficulty-curve-calibration`,
+  `color-language-audit`, `playwright-adversarial-harness`,
+  `incident-postmortem`. Repo-scoped: `overlay-focus-trap`/
+  `safe-keyed-reimport` (`age-of-wonder` only), `cross-game-ui-modules`
+  (`Shin-Maho-Arcade` only). Don't cite a skill that isn't actually there
+  for the repo you're in, and don't miss one that is.
 - **Apex standard, not just 'works.'** Art/rig fidelity, mood-driven
   music, and legible mechanics are a stated mandate, not an implicit
   hope — see `STUDIO_BIBLE.md` §14. If a deliverable in your domain

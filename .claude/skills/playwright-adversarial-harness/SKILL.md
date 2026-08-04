@@ -81,6 +81,25 @@ arbitrary style:
   `waitForTimeout`, before the first assertion — the page is genuinely
   not ready to test until its own init code has run.
 
+## Chromium-only is a deliberate, named scope limit today — not an oversight
+
+Every file using this scaffold launches Chromium exclusively
+(`chromium.launch()`, hardcoded above). Real compatibility testing —
+listed as a core skill on essentially every industry QA/tester job
+posting — means at minimum a WebKit pass too, since that's the actual
+real-world gap (Safari/iOS touch-event and rendering quirks a
+Chromium-under-a-narrow-viewport emulation can't surface, however close
+the CSS pixel dimensions get). This studio's own `rig-mobile-emulation.js`
+already names this precisely: it's "Chromium-under-an-iPhone-viewport
+emulation... not WebKit or a real device." If you're extending this
+scaffold to actually add a WebKit pass, the two things most likely to
+break: `context.route()` network interception and any code path that
+silently relies on a Chromium-specific API surface (check any `window.`
+feature detection the game itself does — a real cross-browser run is also
+the first time those branches get exercised for real). Until that pass
+exists, name Chromium-only as a standing gap in any report that touches
+compatibility, don't let it read as full-coverage by omission.
+
 ## `_test` hooks: fast setup, not a shortcut around the UI
 
 Every game/module exposes a `_test` namespace (`Game._test`, `Music._test`,
