@@ -104,8 +104,8 @@ substantive work. If you don't, operate from this summary:
   entity; red (`--danger`) = threat/damage; green (`--ok`) = safe/health.
   Check any new hex against this before proposing it — the
   `color-language-audit` skill formalizes this check.
-- **Skills library is at `.claude/skills/`** — fourteen skills exist as of
-  2026-08-06 (this line itself has now gone stale four times before this edit
+- **Skills library is at `.claude/skills/`** — fifteen skills exist as of
+  2026-08-07 (this line itself has now gone stale five times before this edit
   — first "six," then "eleven" — a live, recurring instance of the exact
   copy-drift risk `STUDIO_BIBLE.md` §17 names for this shared block;
   don't trust a hardcoded count here, `STUDIO_BIBLE.md` §12 is the actual
@@ -117,7 +117,8 @@ substantive work. If you don't, operate from this summary:
   `safe-keyed-reimport` (`age-of-wonder` only, neither relevant to this
   role's own map/legend work),
   `game-audio-production-suite`/`music-theory-mood-mapping`/
-  `webgl-batched-instancing`/`cross-game-ui-modules`
+  `webgl-batched-instancing`/`visual-theory-shape-motion-mapping`/
+  `cross-game-ui-modules`
   (`Shin-Maho-Arcade` only, also not this role's own domain). Don't cite
   a skill that isn't actually there for the repo you're in, and don't
   miss one that is.
