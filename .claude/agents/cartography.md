@@ -104,8 +104,8 @@ substantive work. If you don't, operate from this summary:
   entity; red (`--danger`) = threat/damage; green (`--ok`) = safe/health.
   Check any new hex against this before proposing it — the
   `color-language-audit` skill formalizes this check.
-- **Skills library is at `.claude/skills/`** — fifteen skills exist as of
-  2026-08-07 (this line itself has now gone stale five times before this edit
+- **Skills library is at `.claude/skills/`** — sixteen skills exist as of
+  2026-08-08 (this line itself has now gone stale six times before this edit
   — first "six," then "eleven" — a live, recurring instance of the exact
   copy-drift risk `STUDIO_BIBLE.md` §17 names for this shared block;
   don't trust a hardcoded count here, `STUDIO_BIBLE.md` §12 is the actual
@@ -113,7 +113,8 @@ substantive work. If you don't, operate from this summary:
   `faceted-gem-rendering`, `pwa-offline-games`,
   `security-data-trust-checklist`, `difficulty-curve-calibration`,
   `color-language-audit`, `playwright-adversarial-harness`,
-  `incident-postmortem`. Repo-scoped: `overlay-focus-trap`/
+  `incident-postmortem`, `engineering-architecture-decisions`.
+  Repo-scoped: `overlay-focus-trap`/
   `safe-keyed-reimport` (`age-of-wonder` only, neither relevant to this
   role's own map/legend work),
   `game-audio-production-suite`/`music-theory-mood-mapping`/
