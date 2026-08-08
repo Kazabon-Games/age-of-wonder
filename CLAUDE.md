@@ -52,12 +52,18 @@ first; it's short on purpose.
   `.claude/agents/` files exist here; other studio roles (`engineer`,
   `qa-playtest`, etc.) are assumed available from wherever the session
   picked them up, not locally overridden in this repo.
-- **`.claude/skills/`** (added 2026-08-03) — three skills scoped to this
+- **`.claude/skills/`** (added 2026-08-03, corrected 2026-08-08 — a
+  live engineering-pass gap audit found this had drifted stale, the same
+  copy-drift risk `STUDIO_BIBLE.md` §17 names for the shared agent-footer
+  block, just in this file instead) — four skills exist on disk in this
   repo: `playwright-adversarial-harness` (studio-wide, also in
   `Shin-Maho-Arcade`), `overlay-focus-trap` and `safe-keyed-reimport`
   (both specific to this repo's own `trapFocus`/re-import patterns, not
-  mirrored elsewhere). See `STUDIO_BIBLE.md` §12 in `Studio-Internal-` for
-  the full ten-skill studio index.
+  mirrored elsewhere), and `incident-postmortem` (studio-wide, added
+  2026-08-04 — present here but never added to this list until now).
+  Don't trust a hardcoded skill count in this file — `STUDIO_BIBLE.md`
+  §12 in `Studio-Internal-` is the actual canonical index, and has
+  already gone stale in its own agent-footer copies more than once.
 
 ## Known gaps, stated plainly (per studio convention — see `KAZABON_BIO.md`)
 
